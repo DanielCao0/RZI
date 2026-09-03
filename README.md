@@ -82,6 +82,7 @@ Rebuild and reflash after changing these values.
 
 Design notes (in Chinese) live in [`doc/`](./doc/README.md):
 
+- [usp_zephyr integration checklist: west / Kconfig / DTS / app](./doc/usp-zephyr-bringup.md)
 - [Docker environment, step by step](./doc/zephyr-docker-environment-explained.md)
 - [West topologies T1 / T2 / T3](./doc/west-topology.md)
 - [west patch workflow](./doc/west-patch.md)
