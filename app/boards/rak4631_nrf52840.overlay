@@ -1,0 +1,87 @@
+/*
+ * RAK4631：把板上 SX1262 交给 usp_zephyr，不要用树上的 Zephyr LoRa 驱动。
+ *
+ * 板级 dts 已有 &lora（SPI、reset、busy）和 aliases { lora0 }。
+ * 树上 compatible 是 "semtech,sx1262"；本 overlay 改成 "semtech,sx1262-new"。
+ *
+ * 入网前改 zephyr,user 里的密钥。
+ */
+
+/* USP 头：SX126X_TCXO_SUPPLY_*、SX126X_REG_MODE_*。不是 Zephyr 自带的。 */
+#include <zephyr/dt-bindings/usp/sx126x.h>
+
+/ {
+	chosen {
+		/* USP：线程 / HAL 用 DT_CHOSEN(zephyr_lorawan_transceiver) 找电台 */
+		zephyr,lorawan-transceiver = &lora;
+
+		/* 下面两行是普通 Zephyr：日志走 USB CDC，与 USP 无关 */
+		zephyr,console = &cdc_acm_uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
+	};
+
+	aliases {
+		/* USP sample：DT_ALIAS(lora_transceiver) */
+		lora-transceiver = &lora;
+		/* 普通 Zephyr LED 别名，与 USP 无关 */
+		led1 = &green_led;
+	};
+
+	/*
+	 * 节点名 zephyr,user 是 Zephyr 通用的。
+	 * 下面 user-lorawan-* 是 USP LBM sample / 本 app main.c 的约定。
+	 */
+	zephyr,user {
+		/* ChirpStack 设备 RZI_001 */
+		user-lorawan-device-eui = <0x12 0x34 0x56 0x78 0x12 0x34 0x56 0x78>;
+		/* Configuration 页若不是全 0，改成和 Join EUI 一致 */
+		user-lorawan-join-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		/* Gen App Key（Remote Multicast）；LBM set_appkey */
+		user-lorawan-gen_app-key = <0x32 0x7c 0xda 0x2c 0xbb 0x85 0x52 0x32
+					    0xbe 0x7a 0x08 0xf5 0xc7 0x92 0xec 0x58>;
+		/* OTAA AppKey；LoRaWAN 1.0 里 LBM set_nwkkey */
+		user-lorawan-app-key = <0x32 0x7c 0xda 0x2c 0xbb 0x85 0x52 0x32
+					0xbe 0x7a 0x08 0xf5 0xc7 0x92 0xec 0x58>;
+		/* EU_868, CN_470, AS_923_GRP1, US_915, ... */
+		user-lorawan-region = "EU_868";
+	};
+};
+
+/* 普通 Zephyr USB CDC，与 USP 无关 */
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};
+
+/* USP 电台节点：binding 见 usp_zephyr/dts/bindings/usp/semtech,sx126x-new-common.yaml */
+&lora {
+	compatible = "semtech,sx1262-new";
+	/* 脚位与板级 dts 相同；PULL_DOWN 给 USP 驱动 */
+	dio1-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+	/* 以下属性只存在于 sx126x-new，树上旧驱动没有 */
+	dio2-as-rf-switch;
+	dio3-as-tcxo-control;
+	tcxo-voltage = <SX126X_TCXO_SUPPLY_3_3V>;
+	tcxo-wakeup-time = <5>;
+	reg-mode = <SX126X_REG_MODE_DCDC>;
+	/* 删掉树上 semtech,sx1262 的旧属性，避免和新 binding 冲突 */
+	/delete-property/ dio2-tx-enable;
+	/delete-property/ dio3-tcxo-voltage;
+	/delete-property/ tcxo-power-startup-delay-ms;
+	/delete-property/ rx-enable-gpios;
+	/delete-property/ label;
+};
+
+/*
+ * 板级凑合，不是 USP binding。
+ * 树上用 rx-enable-gpios = gpio1.5（低有效）开 RX。
+ * sx1262-new 没有这个属性，gpio-hog 把 P1.5 拉低，RX 通路一直开，Class A 才能收到 RX1/RX2。
+ */
+&gpio1 {
+	rxen-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_LOW>;
+		output-low;
+	};
+};

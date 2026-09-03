@@ -1,0 +1,41 @@
+# 由 gen-patches-yml.py 扫描 patches/ 生成。west patch 读本文件。
+# 文档：doc/west-patch.md
+checkout-command: git checkout .
+clean-command: ""
+
+patches:
+  - path: usp_zephyr/0001-zephyr-4.4-warning-fixes.patch
+    sha256sum: 9893779117de72889b913d4e8bbad091ecedfc9ac7b785d9c24856c96b1d712f
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-01
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Zephyr 4.4 API：去掉 SPI_DT_SPEC_GET 已废弃 delay、FIXED_PARTITION_ID、
+      未使用的 nvs.h，以及无 TX/RX LED 时的 pf_led_pin 未使用告警。
+
+  - path: usp_zephyr/0002-fix-lr-fhss-src-path.patch
+    sha256sum: 8009304b666960c4ec5d4ec2181697036bbf539ddab31ff1cb6642e1077c5b26
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-01
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      本树的 lr_fhss_mac.c 与 sx126x 驱动同目录，没有 lr_fhss_driver/。
+      不改则 CMake 找不到源文件，链接失败。
+
+  - path: usp_zephyr/0003-xiao-nrf54l15-full-name.patch
+    sha256sum: 1f5e7c201c10bed0bf6ceaab93ba62b8a6bee5fd38b719f234fd954dc9f0093a
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-03
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Zephyr 4.4 的 board.yml 要求 name 与 full_name 成对。usp_zephyr
+      这份 Xiao 板缺 full_name，CMake 扫板列表时编 rak4631 也会失败。

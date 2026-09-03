@@ -1,0 +1,12 @@
+CompileFlags:
+  Add:
+    - --target=arm-none-eabi
+  Remove:
+    - -mfp16-format=*
+    - -fno-printf-return-value
+    - -fdiagnostics-color=*
+    - -fmacro-prefix-map=*
+    - --param=*
+    - -mtp=*
+    - -fno-reorder-functions
+    - -fno-defer-pop
