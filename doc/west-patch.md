@@ -214,6 +214,8 @@ west patch gh-fetch --owner Lora-net --repo usp_zephyr --pull-request <号> \
 |------|------|
 | `usp_zephyr/0001-zephyr-4.4-warning-fixes.patch` | Zephyr 4.4：SPI delay、分区宏、`nvs.h`、未用 LED |
 | `usp_zephyr/0002-fix-lr-fhss-src-path.patch` | LR-FHSS 源码路径，不改则编不过 |
+| `usp_zephyr/0003-xiao-nrf54l15-full-name.patch` | Xiao 板 board.yml 缺 `full_name`，扫板失败 |
+| `usp_zephyr/0004-sx1262-pa-compile-definitions.patch` | SX1262 型号宏传到 BSP，否则功放按 SX1261 配 |
 
 清单文件：`app/zephyr/patches.yml`。
 

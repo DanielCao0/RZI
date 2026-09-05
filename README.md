@@ -6,7 +6,7 @@
 
 **RZI** is a LoRaWAN Class A node firmware for the [RAK4631](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK4631/Overview/) (nRF52840 + SX1262), built on [Zephyr RTOS](https://github.com/zephyrproject-rtos/zephyr) and Semtech's [LoRa Basics Modem](https://github.com/Lora-net/usp) via the [usp_zephyr](https://github.com/Lora-net/usp_zephyr) module.
 
-The application performs an OTAA join, then transmits a 4-byte counter on port 1 every 60 seconds. Logs are available over the USB CDC console (115200 8N1); the blue LED indicates network join, the green LED toggles on each transmission.
+The application performs an OTAA join, then transmits a 4-byte counter on port 1 every 5 seconds. Logs are available over the USB CDC console (115200 8N1). The green LED blinks while joining and stays on after join; the blue LED stays off and flashes briefly on each uplink.
 
 ## Features
 
@@ -82,6 +82,7 @@ Rebuild and reflash after changing these values.
 
 Design notes (in Chinese) live in [`doc/`](./doc/README.md):
 
+- [How the firmware is built: files and frameworks](./doc/build-pipeline.md)
 - [usp_zephyr integration checklist: west / Kconfig / DTS / app](./doc/usp-zephyr-bringup.md)
 - [Docker environment, step by step](./doc/zephyr-docker-environment-explained.md)
 - [West topologies T1 / T2 / T3](./doc/west-topology.md)

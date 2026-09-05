@@ -32,6 +32,16 @@ Examples:
 EOF
 }
 
+# west -p always 会按 CMakeCache 里的 ZEPHYR_BASE 去跑 cmake/pristine.cmake。
+# 缓存若是本机 west 写下的 /home/... 路径，容器里不存在，pristine 直接失败。
+# 在宿主机上删构建目录，容器里永远从空目录 configure（路径是 /workdir/...）。
+wipe_host_build_dir() {
+  local dir="$1"
+  if [[ -d "$dir" ]]; then
+    rm -rf "$dir"
+  fi
+}
+
 run_docker() {
   local workdir="${DOCKER_WORKDIR:-/workdir}"
   local it=()
@@ -149,6 +159,7 @@ case "${cmd}" in
     west_patch_apply
     if [[ $# -eq 0 ]]; then
       if [[ -f "${ROOT}/app/CMakeLists.txt" ]]; then
+        wipe_host_build_dir "${ROOT}/app/build"
         set -- west build -p always -b rak4631/nrf52840 -d /workdir/app/build /workdir/app
       else
         set -- west build -p always -b qemu_x86 zephyr/samples/hello_world
@@ -162,6 +173,7 @@ case "${cmd}" in
   sample)
     ensure_workspace
     west_patch_apply
+    wipe_host_build_dir "${ROOT}/build-periodical-uplink"
     run_docker west build -p always \
       -b nrf52840dk/nrf52840 \
       --shield semtech_sx1261mb2bas \

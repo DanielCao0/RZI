@@ -131,22 +131,26 @@ USP 用的是自己的 binding `semtech,sx1262-new`
 `usp_zephyr` 的 `zephyr/dt-bindings/usp/sx126x.h`，overlay 顶部要
 `#include <zephyr/dt-bindings/usp/sx126x.h>`。
 
-### RX enable 脚：用 gpio-hog 代替
+### P1.05：RF 开关电源常高
 
-RAK4631 的 RX 通路要 P1.5 拉低（旧 binding 的 `rx-enable-gpios` 干的事）。
-新 binding 没有这个属性，用普通 Zephyr gpio-hog 常开：
+RAK4631 的 P1.05 是 RF 开关电源，TX/RX 都要保持高电平。天线切换走 SX1262 DIO2
+（`dio2-as-rf-switch`）。树上写成 `rx-enable-gpios` 是错的；USP binding 也没有
+这个属性，用 gpio-hog 常高：
 
 ```dts
 &gpio1 {
-	rxen-hog {
+	antenna-power-hog {
 		gpio-hog;
-		gpios = <5 GPIO_ACTIVE_LOW>;
-		output-low;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
 	};
 };
 ```
 
-不配的话能发射但收不到 RX1/RX2，Class A 入网会一直 JOINFAIL。
+不配或电平错了，能发不能收，Class A 入网会一直 JOINFAIL。
+
+全片擦除后 nRF52840 的 UICR `REGOUT0` 默认 1.8 V，SX1262 控制脚会失效。
+`app/src/board.c` 的 `board_early_init_hook` 在启动时把它写成 3.3 V 并复位。
 
 ### 密钥节点 `zephyr,user`
 
@@ -213,13 +217,14 @@ case SMTC_MODEM_EVENT_RESET:
 用 Zephyr 官方 `west patch`：清单仓里放 `app/zephyr/patches.yml` + `app/zephyr/patches/*.patch`，
 `west patch apply` 在每次 build 前自动打（本仓库由 `zephyr-docker.sh` 包办）。
 
-当前三个补丁（详见 [west-patch.md](./west-patch.md)）：
+当前补丁（详见 [west-patch.md](./west-patch.md)）：
 
 | 补丁 | 不打的后果 |
 |------|-----------|
 | `0001-zephyr-4.4-warning-fixes` | Zephyr 4.4 上一堆 deprecated 告警 |
 | `0002-fix-lr-fhss-src-path` | CMake 找不到 `lr_fhss_mac.c`，链接失败 |
 | `0003-xiao-nrf54l15-full-name` | 板列表扫描失败，编任何板都报错 |
+| `0004-sx1262-pa-compile-definitions` | BSP 按 SX1261 配功放（device_sel=1），发射偏弱 |
 
 ## 验证清单
 

@@ -39,3 +39,16 @@ patches:
     comments: |
       Zephyr 4.4 的 board.yml 要求 name 与 full_name 成对。usp_zephyr
       这份 Xiao 板缺 full_name，CMake 扫板列表时编 rak4631 也会失败。
+
+  - path: usp_zephyr/0004-sx1262-pa-compile-definitions.patch
+    sha256sum: ebcd38a69d0a00912c1b21137058d083c53c0b4e986a361e9aec8a2bbe95b966
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-05
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      SX1261/2/8 型号宏改成全局 compile definition。原先只加在 USP 库上，
+      BSP（另一份 zephyr_library）编 sx126x_ral_bsp.c 时看不到 SX1262，
+      功放会配成 SX1261（device_sel=1, hp_max=0），OCP 也跟着用 60mA。

@@ -16,3 +16,4 @@ python3 app/zephyr/gen-patches-yml.py   # 扫描 patches/，覆盖 patches.yml
 | `usp_zephyr/0001-zephyr-4.4-warning-fixes.patch` | Zephyr 4.4 告警 |
 | `usp_zephyr/0002-fix-lr-fhss-src-path.patch` | LR-FHSS 源码路径 |
 | `usp_zephyr/0003-xiao-nrf54l15-full-name.patch` | Xiao 板 board.yml 补 full_name |
+| `usp_zephyr/0004-sx1262-pa-compile-definitions.patch` | SX1262 型号宏传到 BSP，否则功放按 SX1261 配 |

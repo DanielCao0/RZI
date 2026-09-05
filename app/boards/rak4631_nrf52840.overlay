@@ -15,15 +15,12 @@
 		/* USP：线程 / HAL 用 DT_CHOSEN(zephyr_lorawan_transceiver) 找电台 */
 		zephyr,lorawan-transceiver = &lora;
 
-		/* 下面两行是普通 Zephyr：日志走 USB CDC，与 USP 无关 */
+		/* 日志走 USB CDC，与 USP 无关。板级默认是 uart1 */
 		zephyr,console = &cdc_acm_uart0;
-		zephyr,shell-uart = &cdc_acm_uart0;
 	};
 
 	aliases {
-		/* USP sample：DT_ALIAS(lora_transceiver) */
-		lora-transceiver = &lora;
-		/* 普通 Zephyr LED 别名，与 USP 无关 */
+		/* 板级只有 led0=蓝灯；绿灯给 main.c DT_ALIAS(led1) */
 		led1 = &green_led;
 	};
 
@@ -33,7 +30,7 @@
 	 */
 	zephyr,user {
 		/* ChirpStack 设备 RZI_001 */
-		user-lorawan-device-eui = <0x12 0x34 0x56 0x78 0x12 0x34 0x56 0x78>;
+		user-lorawan-device-eui = <0x11 0x22 0x33 0x44 0x55 0x66 0x77 0x88>;
 		/* Configuration 页若不是全 0，改成和 Join EUI 一致 */
 		user-lorawan-join-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
 		/* Gen App Key（Remote Multicast）；LBM set_appkey */
@@ -62,6 +59,7 @@
 	/* 以下属性只存在于 sx126x-new，树上旧驱动没有 */
 	dio2-as-rf-switch;
 	dio3-as-tcxo-control;
+	/* 与 beegee SX126x-Arduino hw_config.TCXO_CTRL_VOLTAGE 默认值一致 */
 	tcxo-voltage = <SX126X_TCXO_SUPPLY_3_3V>;
 	tcxo-wakeup-time = <5>;
 	reg-mode = <SX126X_REG_MODE_DCDC>;
@@ -70,18 +68,4 @@
 	/delete-property/ dio3-tcxo-voltage;
 	/delete-property/ tcxo-power-startup-delay-ms;
 	/delete-property/ rx-enable-gpios;
-	/delete-property/ label;
-};
-
-/*
- * 板级凑合，不是 USP binding。
- * 树上用 rx-enable-gpios = gpio1.5（低有效）开 RX。
- * sx1262-new 没有这个属性，gpio-hog 把 P1.5 拉低，RX 通路一直开，Class A 才能收到 RX1/RX2。
- */
-&gpio1 {
-	rxen-hog {
-		gpio-hog;
-		gpios = <5 GPIO_ACTIVE_LOW>;
-		output-low;
-	};
 };

@@ -192,6 +192,8 @@ Malformed board YAML file: .../usp_zephyr/boards/seeed/xiao_nrf54l15/board.yml
 
 以前产物在容器路径 `/app/build`。改挂载后源码是 `/workdir/app`，旧 `CMakeCache.txt` 会报目录不一致。
 
+本机若直接跑过 `west build`，缓存里会是 `/home/daniel/rzi/zephyr`。容器里再 `-p always` 会去跑这份不存在的 `pristine.cmake` 而失败。`./zephyr-docker.sh build` 会在进容器前删掉宿主机上的 `app/build`。
+
 ```bash
 rm -rf app/build
 ./zephyr-docker.sh build
