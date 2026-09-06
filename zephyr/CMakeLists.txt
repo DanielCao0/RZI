@@ -6,10 +6,14 @@ if(CONFIG_RZI)
 
   zephyr_library_sources_ifdef(
     CONFIG_RZI_LORAWAN
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/lorawan/usp_backend.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/lorawan/lorawan.c
+  )
+  zephyr_library_sources_ifdef(
+    CONFIG_RZI_LORAWAN_BACKEND_USP
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/lorawan/backends/usp.c
   )
   zephyr_library_link_libraries_ifdef(
-    CONFIG_RZI_LORAWAN
+    CONFIG_RZI_LORAWAN_BACKEND_USP
     lbm_compile_definitions
   )
 endif()

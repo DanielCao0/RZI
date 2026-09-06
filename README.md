@@ -13,7 +13,11 @@ rzi/
 │   ├── Kconfig          RZI feature configuration
 │   └── CMakeLists.txt   Zephyr library integration
 ├── include/rzi/         Public C API
-├── src/                 Private services and backend adapters
+├── src/
+│   └── lorawan/
+│       ├── lorawan.c          Backend-independent service
+│       ├── backend.h          Private backend contract
+│       └── backends/usp.c     Semtech USP implementation
 ├── samples/             RZI-owned buildable samples
 ├── doc/                 Architecture and internal documentation
 ├── LICENSE
@@ -59,6 +63,10 @@ RZI owns USP initialization, modem serialization, callback translation, and
 event queuing. Zephyr owns board hardware descriptions, USP owns its driver
 bindings, and the customer application owns credentials, region selection,
 product behavior, and its uplink schedule.
+
+The public API is implemented by a backend-independent service layer. Backend
+selection is a Kconfig choice, so another implementation can be added under
+`src/lorawan/backends/` without changing applications or the public headers.
 
 ## Configuration
 
