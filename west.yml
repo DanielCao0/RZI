@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Optional west manifest for the default USP LoRaWAN backend.
+#
+# Applications that use the default backend can import this file with
+# "import: true" on the rzi project instead of listing these dependencies
+# themselves. Projects defined in the application manifest take precedence
+# over the ones imported from here, and the import can be filtered with a
+# name-blocklist when another backend replaces USP.
+#
+# The projects are listed directly. Do NOT add "import: true" to usp_zephyr:
+# its own west.yml pins Zephyr to v4.2.0 and would override the Zephyr
+# revision selected by the application.
+
+manifest:
+  projects:
+    - name: usp_zephyr
+      url: https://github.com/Lora-net/usp_zephyr
+      revision: main
+
+    - name: usp
+      url: https://github.com/Lora-net/usp
+      revision: main
+      path: modules/lib/usp
+      submodules: true

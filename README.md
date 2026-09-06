@@ -29,7 +29,8 @@ no SDK wrapper directory and applications do not add RZI sources manually.
 
 ## Customer integration
 
-A customer application adds RZI as a project in its own `west.yml`:
+A customer application adds RZI as a project in its own `west.yml` and
+imports the RZI manifest:
 
 ```yaml
 manifest:
@@ -38,11 +39,17 @@ manifest:
       url: https://github.com/DanielCao0/RZI
       revision: main
       path: rzi
+      import: true
 ```
 
-The same application manifest supplies compatible `zephyr`, `usp_zephyr`,
-and USP projects. RZI declares its `usp_zephyr` module dependency, so Zephyr
-reports a missing backend during configuration.
+The import pulls the default USP backend dependencies (`usp_zephyr` and
+`usp`) at the revisions validated by RZI. The application manifest still
+selects a compatible `zephyr` revision itself.
+
+Projects defined in the application manifest take precedence over imported
+ones, so an application can override any imported version. To select another
+backend, blocklist the USP projects on the import and declare that backend's
+dependency set instead.
 
 Application CMake remains a normal Zephyr application:
 

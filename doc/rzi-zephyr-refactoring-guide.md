@@ -70,8 +70,13 @@ rzi/
 - 模块名称为 `rzi`；
 - CMake/Kconfig 使用 Zephyr 默认入口 `zephyr/CMakeLists.txt` 和 `zephyr/Kconfig`；
 - DTS root 是模块根目录；
-- 模块依赖 `usp_zephyr`；
+- 不声明模块级硬依赖（早期版本曾 `depends: usp_zephyr`，会把 USP 绑死给所有后端）；
 - Twister sample root 是模块内的 `samples/`。
+
+默认 USP 后端的 west 依赖由仓库根的可选 `west.yml` 声明（`usp_zephyr` +
+`usp`，直接列项目、不再 import usp_zephyr 自带清单）。客户应用在 `rzi`
+条目上写 `import: true` 即可连带拉入；应用清单里的同名 project 优先于
+import 结果，换版本或换后端都有出口。
 
 客户 `app/west.yml` 把 RZI 声明为独立 west project。`west update` 后，Zephyr
 通过 RZI 的 `zephyr/module.yml` 自动发现模块。客户应用的 CMake 不需要设置
@@ -335,7 +340,7 @@ AT 和 C++ RUI 层应当作为 RZI C API 的消费者。这样同一个 LoRaWAN 
 
 - `zephyr/module.yml` 位于待发布模块根目录下；
 - 使用默认的 `zephyr/CMakeLists.txt` 和 `zephyr/Kconfig` 集成入口；
-- 在 `module.yml` 中固定模块名并声明 `usp_zephyr` 依赖；
+- 在 `module.yml` 中固定模块名，但不声明 `usp_zephyr` 硬依赖，保持后端可替换；
 - 公共头文件使用模块名前缀 `include/rzi/`；
 - DTS root 指向模块根，并保持 `<dts_root>/dts` 目录结构；
 - sample 放在模块内，提供 `sample.yaml`、`README.rst`、应用 CMake、配置、

@@ -1,8 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: rzi
-build:
-  depends:
-    - usp_zephyr
 samples:
   - samples
