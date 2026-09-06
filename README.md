@@ -120,3 +120,27 @@ RZI follows the
 [Zephyr module specification](https://docs.zephyrproject.org/latest/develop/modules.html)
 and the layout conventions demonstrated by the
 [Zephyr example application](https://github.com/zephyrproject-rtos/example-application).
+
+## Style checks
+
+RZI follows the Zephyr coding style. The repository carries a copy of
+Zephyr's `.clang-format` (picked up automatically by editors and plain
+`clang-format`), and `scripts/check-style.sh` runs clang-format plus
+Zephyr's `checkpatch.pl` with Zephyr's own `.checkpatch.conf` rules.
+
+A versioned pre-commit hook runs the checks on staged changes. Enable it
+once per clone:
+
+```bash
+git config core.hooksPath .githooks
+# checkpatch.pl is located via ZEPHYR_BASE, or once per clone:
+git config rzi.zephyrbase <path-to-zephyr-checkout>
+```
+
+Bypass in an emergency with `git commit --no-verify`. Manual runs:
+
+```bash
+scripts/check-style.sh           # working tree, or HEAD when clean
+scripts/check-style.sh --staged  # staged changes only
+scripts/check-style.sh --fix     # apply clang-format in place
+```

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# RZI pre-commit hook: Zephyr coding-style gate for staged changes.
+#
+# Enable once per clone with:
+#   git config core.hooksPath .githooks
+# Bypass in an emergency with:
+#   git commit --no-verify
+
+exec "$(git rev-parse --show-toplevel)/scripts/check-style.sh" --staged
