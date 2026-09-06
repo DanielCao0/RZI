@@ -113,7 +113,7 @@ flowchart TB
 | TS006 | FMP 固件管理 |
 | TS007 | MPA 多包访问 |
 
-loramac-node / Zephyr `subsys/lorawan`：MAC 在栈里，FUOTA 通常写在**应用**或 LmHandler。  
+loramac-node / Zephyr `subsys/lorawan`：MAC 在栈里，FUOTA 通常写在**应用**或 LmHandler。
 LBM：这些包的**实现**在 `lorawan_packages/`，和 lr1mac 一起编进 modem 库，所以方框图看起来像「进了栈」。协议分层没变——仍骑在 MAC 上面，只是你不用在 `app/` 里自己实现。
 
 `prj.conf` 打开 `CONFIG_LORA_BASICS_MODEM_FUOTA` 只是把应用层包链进库，不会把 FUOTA 变成 MAC 命令。

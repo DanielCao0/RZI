@@ -64,7 +64,7 @@ def main():
     c.text_center((app.cx, app.y0 + 28), "你的应用", size=18)
     c.text_center(
         (app.cx, app.y0 + 58),
-        "app/src/main.c    smtc_modem_init / request_uplink    overlay 描述引脚",
+        "samples/lorawan/counter/src/main.c    smtc_modem_init / request_uplink    overlay 描述引脚",
         size=13,
         fill=MUTED,
     )

@@ -1,8 +1,22 @@
 # `rak4631_nrf52840.dts` 逐行说明
 
+## RZI 与 DTS 的边界
+
+RZI 核心不导出 DTS root，也不重新定义 RAK4631 硬件。
+`zephyr/module.yml` 因此不设置 `dts_root`。
+
+- RAK4631、SX1262 和 WisBlock 硬件描述属于 Zephyr BSP。
+- USP 专用 binding 和驱动适配属于 `usp_zephyr`。
+- 密钥、区域、console 和产品差异属于客户 app overlay。
+
+当前 sample 内的 `rak4631_usp_compat.dtsi` 只是为了让已锁定的 Zephyr BSP
+与 USP 驱动一起构建。它是 sample 内部的临时兼容文件，不是 RZI
+公开的板级接口。对应上游改动可用后应删除该文件和
+`rak4631_legacy_regout.c`。
+
 源文件：[zephyr/boards/rakwireless/rak4631/rak4631_nrf52840.dts](../zephyr/boards/rakwireless/rak4631/rak4631_nrf52840.dts)
 
-这是 Zephyr 树里的**板级设备树**（官方，不要改）。描述 RAK4631：nRF52840 + 板上焊死的 SX1262。你的 [app/boards/rak4631_nrf52840.overlay](../app/boards/rak4631_nrf52840.overlay) 叠在它上面。编完后的合并结果：`app/build/zephyr/zephyr.dts`。
+这是 Zephyr 树里的**板级设备树**（官方，不要改）。描述 RAK4631：nRF52840 + 板上焊死的 SX1262。你的 [samples/lorawan/class_a/boards/rak4631_nrf52840.overlay](../samples/lorawan/class_a/boards/rak4631_nrf52840.overlay) 叠在它上面。编完后的合并结果：`../build/rzi-class-a/zephyr/zephyr.dts`。
 
 行号按当前 145 行版本。
 
@@ -116,8 +130,8 @@ overlay 会改 `console` / `shell-uart` 为 USB CDC。没改的几项仍是 uart
 
 `compatible = "gpio-leds"`：Zephyr LED 子系统。
 
-- `blue_led`（标签 `led_2`）：P1.4，低有效  
-- `green_led`（标签 `led_1`）：P1.3，低有效  
+- `blue_led`（标签 `led_2`）：P1.4，低有效
+- `green_led`（标签 `led_1`）：P1.3，低有效
 
 `xxx: yyy` 里 `xxx` 是标签（`&blue_led`），`yyy` 是节点名。
 
@@ -155,7 +169,7 @@ ADC 打开。本 USP app 不一定用。
 
 ### 第 59–62 行：`&uicr`
 
-- `gpio-as-nreset`：某脚当复位  
+- `gpio-as-nreset`：某脚当复位
 - `nfct-pins-as-gpios`：NFC 脚改当普通 GPIO（这块板不走 NFC）
 
 ### 第 64–66 行：`&gpiote`
@@ -249,9 +263,9 @@ sx126x.h (树上)        SX126X_DIO3_TCXO_3V3
 *-pinctrl.dtsi         引脚
 rak4631_nrf52840.dts   本文件：打开外设 + 板上 SX1262
         ↓ 再叠
-app/boards/rak4631_nrf52840.overlay
+samples/lorawan/class_a/boards/rak4631_nrf52840.overlay
         ↓
-app/build/zephyr/zephyr.dts
+../build/rzi-class-a/zephyr/zephyr.dts
 ```
 
 不要改本文件。`west update` 会按清单把 `zephyr/` 重置。板级差异只放 `app/` 的 overlay。

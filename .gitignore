@@ -1,20 +1,10 @@
-# west 工作区内部状态 / 缓存
-/.west/
+# Local editor and build output
 /.cache/
-
-# west update 拉下来的第三方仓（版本钉在 app/west.yml）。
-# 必须锚定到根（/ 前缀），否则会把 app/zephyr/（补丁仓）也忽略掉。
-/zephyr/
-/modules/
-/usp_zephyr/
-/bootloader/
-/tools/
-/zephyrproject/
-
-# 上游 zephyrproject-rtos/reqmgmt 的本地 clone，不是本工程源码
-/doc/reqmgmt/
-
-# 构建产物
-/app/build/
-/build-*/
+/.venv/
 /compile_commands.json
+/build-*/
+/build/
+**/__pycache__/
+
+# External documentation checkout retained locally
+/doc/reqmgmt/

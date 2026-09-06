@@ -213,7 +213,7 @@ rzi/                          你的 git = west 工作区根
 
 ```mermaid
 flowchart TB
-  westYml[rzi/west.yml]
+  westYml[app/west.yml]
 
   westYml --> zephyrPin[zephyr v4.2.0]
   westYml --> uspZPin[usp_zephyr v1.0.0]
@@ -238,7 +238,7 @@ flowchart TB
 | 应用 | 继续写在 `app/src` |
 | 协议 / RAC | 用 `usp`，不用再实现 |
 | Zephyr 内核 / nRF52840 | 用现成 `rak4631/nrf52840` |
-| 射频 dts | 在 `app/boards/rak4631_nrf52840.overlay` 按 USP bindings 描述板上 SX1262（对照 `usp_zephyr/boards/shields/semtech_sx126xmb2xxs/`），不要改 `usp_zephyr/` 里的盾板 |
+| 射频 dts | 在 `samples/lorawan/class_a/boards/rak4631_nrf52840.overlay` 按 USP bindings 描述板上 SX1262（对照 `usp_zephyr/boards/shields/semtech_sx126xmb2xxs/`），不要改 `usp_zephyr/` 里的盾板 |
 
 板级 dts 里已有 Zephyr 驱动节点 `compatible = "semtech,sx1262"`。接 USP 时要改成 **USP 那套 binding**，两套驱动不要同时绑这颗芯片。
 

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig RZI
+	bool "RAK RZI SDK"
+	help
+	  Enable the RAK Zephyr Interface SDK. Individual RZI services are
+	  selected below.
+
+if RZI
+
+config RZI_LORAWAN
+	bool "RZI LoRaWAN service (USP/LBM backend)"
+	depends on FLASH
+	depends on !LORA && !LORAWAN
+	select LORA_BASICS_MODEM_DRIVERS
+	select USP
+	select USP_LORA_BASICS_MODEM
+	select USP_MAIN_THREAD
+	select USP_THREADS_MUTEXES
+	help
+	  Single-stack asynchronous LoRaWAN service. RZI owns the modem;
+	  applications must not call Semtech APIs directly.
+
+config RZI_LORAWAN_EVENT_QUEUE_SIZE
+	int "LoRaWAN event queue depth"
+	depends on RZI_LORAWAN
+	range 4 64
+	default 8
+
+endif
