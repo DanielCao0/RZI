@@ -30,23 +30,23 @@
 #include <rzi/lorawan.h>
 
 #define AT_THREAD_STACK_SIZE 2048
-#define AT_THREAD_PRIORITY K_PRIO_PREEMPT(14)
-#define AT_POLL_INTERVAL_MS 20
+#define AT_THREAD_PRIORITY   K_PRIO_PREEMPT(14)
+#define AT_POLL_INTERVAL_MS  20
 
 /* Longest input: AT+SEND=<port>:<484 hex digits>. */
 #define AT_LINE_MAX 600
 /* Longest output: downlink event with a maximum size payload. */
-#define AT_TX_MAX 640
+#define AT_TX_MAX   640
 
 #define AT_VERSION_STRING "RZI_0.1.0_" CONFIG_BOARD
-#define AT_STATUS_OK "OK"
+#define AT_STATUS_OK      "OK"
 
 /* Optional devicetree defaults, same contract as the class_a sample. */
 #define USER_NODE DT_PATH(zephyr_user)
 #if DT_NODE_EXISTS(USER_NODE)
 #define AT_HAS_DT_DEFAULTS 1
-#define REGION_ENUM(name) DT_CAT(RZI_LORAWAN_REGION_, name)
-#define AT_DT_REGION REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region))
+#define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
+#define AT_DT_REGION       REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region))
 #endif
 
 enum at_op {
@@ -191,36 +191,72 @@ static void at_bin2hex(const uint8_t *in, size_t len, char *out)
 static int band_to_region(int band, enum rzi_lorawan_region *region)
 {
 	switch (band) {
-	case 1: *region = RZI_LORAWAN_REGION_CN_470; return 0;
-	case 2: *region = RZI_LORAWAN_REGION_RU_864; return 0;
-	case 3: *region = RZI_LORAWAN_REGION_IN_865; return 0;
-	case 4: *region = RZI_LORAWAN_REGION_EU_868; return 0;
-	case 5: *region = RZI_LORAWAN_REGION_US_915; return 0;
-	case 6: *region = RZI_LORAWAN_REGION_AU_915; return 0;
-	case 7: *region = RZI_LORAWAN_REGION_KR_920; return 0;
-	case 8: *region = RZI_LORAWAN_REGION_AS_923_GRP1; return 0;
-	case 9: *region = RZI_LORAWAN_REGION_AS_923_GRP2; return 0;
-	case 10: *region = RZI_LORAWAN_REGION_AS_923_GRP3; return 0;
-	case 11: *region = RZI_LORAWAN_REGION_AS_923_GRP4; return 0;
-	default: return -EINVAL; /* 0 = EU433 and 12 = LA915 are unsupported. */
+	case 1:
+		*region = RZI_LORAWAN_REGION_CN_470;
+		return 0;
+	case 2:
+		*region = RZI_LORAWAN_REGION_RU_864;
+		return 0;
+	case 3:
+		*region = RZI_LORAWAN_REGION_IN_865;
+		return 0;
+	case 4:
+		*region = RZI_LORAWAN_REGION_EU_868;
+		return 0;
+	case 5:
+		*region = RZI_LORAWAN_REGION_US_915;
+		return 0;
+	case 6:
+		*region = RZI_LORAWAN_REGION_AU_915;
+		return 0;
+	case 7:
+		*region = RZI_LORAWAN_REGION_KR_920;
+		return 0;
+	case 8:
+		*region = RZI_LORAWAN_REGION_AS_923_GRP1;
+		return 0;
+	case 9:
+		*region = RZI_LORAWAN_REGION_AS_923_GRP2;
+		return 0;
+	case 10:
+		*region = RZI_LORAWAN_REGION_AS_923_GRP3;
+		return 0;
+	case 11:
+		*region = RZI_LORAWAN_REGION_AS_923_GRP4;
+		return 0;
+	default:
+		/* 0 = EU433 and 12 = LA915 are unsupported. */
+		return -EINVAL;
 	}
 }
 
 static int region_to_band(enum rzi_lorawan_region region)
 {
 	switch (region) {
-	case RZI_LORAWAN_REGION_CN_470: return 1;
-	case RZI_LORAWAN_REGION_RU_864: return 2;
-	case RZI_LORAWAN_REGION_IN_865: return 3;
-	case RZI_LORAWAN_REGION_EU_868: return 4;
-	case RZI_LORAWAN_REGION_US_915: return 5;
-	case RZI_LORAWAN_REGION_AU_915: return 6;
-	case RZI_LORAWAN_REGION_KR_920: return 7;
-	case RZI_LORAWAN_REGION_AS_923_GRP1: return 8;
-	case RZI_LORAWAN_REGION_AS_923_GRP2: return 9;
-	case RZI_LORAWAN_REGION_AS_923_GRP3: return 10;
-	case RZI_LORAWAN_REGION_AS_923_GRP4: return 11;
-	default: return 4;
+	case RZI_LORAWAN_REGION_CN_470:
+		return 1;
+	case RZI_LORAWAN_REGION_RU_864:
+		return 2;
+	case RZI_LORAWAN_REGION_IN_865:
+		return 3;
+	case RZI_LORAWAN_REGION_EU_868:
+		return 4;
+	case RZI_LORAWAN_REGION_US_915:
+		return 5;
+	case RZI_LORAWAN_REGION_AU_915:
+		return 6;
+	case RZI_LORAWAN_REGION_KR_920:
+		return 7;
+	case RZI_LORAWAN_REGION_AS_923_GRP1:
+		return 8;
+	case RZI_LORAWAN_REGION_AS_923_GRP2:
+		return 9;
+	case RZI_LORAWAN_REGION_AS_923_GRP3:
+		return 10;
+	case RZI_LORAWAN_REGION_AS_923_GRP4:
+		return 11;
+	default:
+		return 4;
 	}
 }
 
@@ -234,14 +270,12 @@ static int region_to_band(enum rzi_lorawan_region region)
 
 #if defined(CONFIG_RZI_AT_NVM)
 
-static int at_nvm_read(settings_read_cb read_cb, void *cb_arg, void *dst,
-		       size_t len)
+static int at_nvm_read(settings_read_cb read_cb, void *cb_arg, void *dst, size_t len)
 {
 	return read_cb(cb_arg, dst, len) == (ssize_t)len ? 0 : -EINVAL;
 }
 
-static int at_nvm_set(const char *name, size_t len, settings_read_cb read_cb,
-		      void *cb_arg)
+static int at_nvm_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
 {
 	const char *next;
 	uint8_t band;
@@ -286,7 +320,9 @@ static void at_nvm_save(const char *key, const void *value, size_t len)
 
 #else
 
-#define at_nvm_save(key, value, len) do { } while (0)
+#define at_nvm_save(key, value, len)                                                               \
+	do {                                                                                       \
+	} while (0)
 
 #endif /* CONFIG_RZI_AT_NVM */
 
@@ -315,8 +351,7 @@ static void at_join_start(void)
 		memcpy(config.dev_eui, at_dev_eui, sizeof(config.dev_eui));
 		memcpy(config.join_eui, at_join_eui, sizeof(config.join_eui));
 		memcpy(config.network_key, at_app_key, sizeof(config.network_key));
-		memcpy(config.application_key, at_app_key,
-		       sizeof(config.application_key));
+		memcpy(config.application_key, at_app_key, sizeof(config.application_key));
 
 		if (rzi_lorawan_init(&config) != 0) {
 			at_status("AT_ERROR");
@@ -422,8 +457,8 @@ static void handle_ver(enum at_op op, const char *arg)
 	}
 }
 
-static void handle_eui(const char *name, const char *desc, const char *nvm_key,
-		       uint8_t *value, size_t len, enum at_op op, const char *arg)
+static void handle_eui(const char *name, const char *desc, const char *nvm_key, uint8_t *value,
+		       size_t len, enum at_op op, const char *arg)
 {
 	char hex[33];
 
@@ -446,21 +481,19 @@ static void handle_eui(const char *name, const char *desc, const char *nvm_key,
 
 static void handle_deveui(enum at_op op, const char *arg)
 {
-	handle_eui("AT+DEVEUI", "AT+DEVEUI: get or set the device EUI (8 bytes in hex)",
-		   "deveui", at_dev_eui, sizeof(at_dev_eui), op, arg);
+	handle_eui("AT+DEVEUI", "AT+DEVEUI: get or set the device EUI (8 bytes in hex)", "deveui",
+		   at_dev_eui, sizeof(at_dev_eui), op, arg);
 }
 
 static void handle_appeui(enum at_op op, const char *arg)
 {
-	handle_eui("AT+APPEUI",
-		   "AT+APPEUI: get or set the application EUI (8 bytes in hex)",
+	handle_eui("AT+APPEUI", "AT+APPEUI: get or set the application EUI (8 bytes in hex)",
 		   "joineui", at_join_eui, sizeof(at_join_eui), op, arg);
 }
 
 static void handle_appkey(enum at_op op, const char *arg)
 {
-	handle_eui("AT+APPKEY",
-		   "AT+APPKEY: get or set the application key (16 bytes in hex)",
+	handle_eui("AT+APPKEY", "AT+APPKEY: get or set the application key (16 bytes in hex)",
 		   "appkey", at_app_key, sizeof(at_app_key), op, arg);
 }
 
@@ -478,8 +511,7 @@ static void handle_band(enum at_op op, const char *arg)
 		long band = strtol(arg, &end, 10);
 		enum rzi_lorawan_region region;
 
-		if (end == arg || *end != '\0' ||
-		    band_to_region((int)band, &region) != 0) {
+		if (end == arg || *end != '\0' || band_to_region((int)band, &region) != 0) {
 			at_status("AT_PARAM_ERROR");
 		} else {
 			uint8_t stored = (uint8_t)band;
@@ -684,19 +716,11 @@ static void handle_recv(enum at_op op, const char *arg)
 }
 
 static const struct at_cmd at_commands[] = {
-	{ "VER", handle_ver },
-	{ "DEVEUI", handle_deveui },
-	{ "APPEUI", handle_appeui },
-	{ "APPKEY", handle_appkey },
-	{ "BAND", handle_band },
-	{ "NJM", handle_njm },
-	{ "NJS", handle_njs },
-	{ "CLASS", handle_class },
-	{ "CFM", handle_cfm },
-	{ "CFS", handle_cfs },
-	{ "JOIN", handle_join },
-	{ "SEND", handle_send },
-	{ "RECV", handle_recv },
+	{"VER", handle_ver},       {"DEVEUI", handle_deveui}, {"APPEUI", handle_appeui},
+	{"APPKEY", handle_appkey}, {"BAND", handle_band},     {"NJM", handle_njm},
+	{"NJS", handle_njs},       {"CLASS", handle_class},   {"CFM", handle_cfm},
+	{"CFS", handle_cfs},       {"JOIN", handle_join},     {"SEND", handle_send},
+	{"RECV", handle_recv},
 };
 
 /* ATR: erase the persisted parameters, then reboot so the devicetree
@@ -909,12 +933,9 @@ int rzi_at_init(const struct device *uart)
 	at_uart = uart;
 
 #if defined(AT_HAS_DT_DEFAULTS)
-	BUILD_ASSERT(sizeof(at_dev_eui) ==
-		     DT_PROP_LEN(USER_NODE, user_lorawan_device_eui));
-	BUILD_ASSERT(sizeof(at_join_eui) ==
-		     DT_PROP_LEN(USER_NODE, user_lorawan_join_eui));
-	BUILD_ASSERT(sizeof(at_app_key) ==
-		     DT_PROP_LEN(USER_NODE, user_lorawan_app_key));
+	BUILD_ASSERT(sizeof(at_dev_eui) == DT_PROP_LEN(USER_NODE, user_lorawan_device_eui));
+	BUILD_ASSERT(sizeof(at_join_eui) == DT_PROP_LEN(USER_NODE, user_lorawan_join_eui));
+	BUILD_ASSERT(sizeof(at_app_key) == DT_PROP_LEN(USER_NODE, user_lorawan_app_key));
 	{
 		static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
 		static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
@@ -936,9 +957,8 @@ int rzi_at_init(const struct device *uart)
 	uart_irq_callback_set(at_uart, at_uart_isr);
 	uart_irq_rx_enable(at_uart);
 
-	k_thread_create(&at_thread, at_stack, AT_THREAD_STACK_SIZE,
-			at_thread_fn, NULL, NULL, NULL, AT_THREAD_PRIORITY, 0,
-			K_NO_WAIT);
+	k_thread_create(&at_thread, at_stack, AT_THREAD_STACK_SIZE, at_thread_fn, NULL, NULL, NULL,
+			AT_THREAD_PRIORITY, 0, K_NO_WAIT);
 	k_thread_name_set(&at_thread, "rzi_at");
 	return 0;
 }

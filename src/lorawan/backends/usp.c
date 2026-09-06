@@ -104,8 +104,8 @@ static int configure(void)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = result(smtc_modem_set_join_duty_cycle_backoff_bypass(
-		STACK_ID, settings.join_backoff_bypass));
+	rc = result(smtc_modem_set_join_duty_cycle_backoff_bypass(STACK_ID,
+								  settings.join_backoff_bypass));
 	if (rc != 0) {
 		return rc;
 	}
@@ -177,7 +177,8 @@ static void modem_event_callback(void)
 
 				event.type = RZI_LORAWAN_DOWNLINK;
 				rc = smtc_modem_get_downlink_data(event.downlink.data,
-					&event.downlink.size, &meta, &remaining);
+								  &event.downlink.size, &meta,
+								  &remaining);
 				if (rc != SMTC_MODEM_RC_OK) {
 					publish_error(result(rc));
 					break;
@@ -195,8 +196,7 @@ static void modem_event_callback(void)
 	} while (pending > 0);
 }
 
-static int usp_init(const struct rzi_lorawan_config *config,
-		    rzi_lorawan_event_sink_t sink)
+static int usp_init(const struct rzi_lorawan_config *config, rzi_lorawan_event_sink_t sink)
 {
 	smtc_modem_region_t selected;
 

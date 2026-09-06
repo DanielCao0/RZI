@@ -8,9 +8,9 @@
 
 LOG_MODULE_REGISTER(rzi_lorawan_sample, LOG_LEVEL_INF);
 
-#define USER_NODE DT_PATH(zephyr_user)
-#define REGION_ENUM(name) DT_CAT(RZI_LORAWAN_REGION_, name)
-#define RETRY_DELAY K_SECONDS(5)
+#define USER_NODE          DT_PATH(zephyr_user)
+#define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
+#define RETRY_DELAY        K_SECONDS(5)
 #define UPLINK_INTERVAL_MS 60000
 
 static const struct rzi_lorawan_config config = {
@@ -74,8 +74,8 @@ int main(void)
 			break;
 		case RZI_LORAWAN_DOWNLINK:
 			LOG_INF("Downlink: port %u, %u bytes, RSSI %d dBm, SNR %d/4 dB",
-				event.downlink.port, event.downlink.size,
-				event.downlink.rssi_dbm, event.downlink.snr_quarter_db);
+				event.downlink.port, event.downlink.size, event.downlink.rssi_dbm,
+				event.downlink.snr_quarter_db);
 			break;
 		case RZI_LORAWAN_ERROR:
 			LOG_ERR("RZI error: %d", event.error);

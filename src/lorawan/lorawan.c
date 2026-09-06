@@ -7,8 +7,7 @@
 
 #include "backend.h"
 
-K_MSGQ_DEFINE(events, sizeof(struct rzi_lorawan_event),
-	      CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE, 4);
+K_MSGQ_DEFINE(events, sizeof(struct rzi_lorawan_event), CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE, 4);
 
 static atomic_t initialized;
 static atomic_t overflow;
@@ -106,7 +105,6 @@ int rzi_lorawan_get_event(struct rzi_lorawan_event *event, int32_t timeout_ms)
 		return -EOVERFLOW;
 	}
 
-	rc = k_msgq_get(&events, event,
-			timeout_ms == -1 ? K_FOREVER : K_MSEC(timeout_ms));
+	rc = k_msgq_get(&events, event, timeout_ms == -1 ? K_FOREVER : K_MSEC(timeout_ms));
 	return rc != 0 ? -EAGAIN : 0;
 }
