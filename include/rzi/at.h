@@ -17,13 +17,17 @@ extern "C" {
  *
  *  The service is a consumer of the RZI LoRaWAN C API: it owns one
  *  interrupt-driven UART and translates RUI3-style commands into service
- *  calls. Implemented subset: AT, ATZ, AT+VER, AT+DEVEUI, AT+APPEUI,
+ *  calls. Implemented subset: AT, ATZ, ATR, AT+VER, AT+DEVEUI, AT+APPEUI,
  *  AT+APPKEY, AT+BAND, AT+NJM (OTAA only), AT+NJS, AT+CLASS (A only),
  *  AT+CFM, AT+CFS, AT+JOIN, AT+SEND and AT+RECV.
  *
- *  Credentials and the region live in RAM. Defaults come from the
- *  zephyr,user devicetree node when present; AT updates apply to the next
- *  AT+JOIN. Reboot restores the devicetree defaults.
+ *  Defaults come from the zephyr,user devicetree node when present and AT
+ *  updates apply to the next AT+JOIN. With CONFIG_RZI_AT_NVM the parameters
+ *  are also persisted in flash through the Zephyr settings subsystem (NVS
+ *  backend) and survive reboots; ATR erases them and reboots. The storage
+ *  area is board-defined: the standard "storage_partition" devicetree
+ *  partition, or the zephyr,settings-partition chosen node. RZI never
+ *  hardcodes flash addresses.
  *  @{
  */
 

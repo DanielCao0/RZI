@@ -14,7 +14,7 @@ Manual, so host software written for RUI3 modules can drive it directly.
 
 Implemented subset (OTAA, Class A):
 
-* ``AT``, ``ATZ``, ``AT+VER``
+* ``AT``, ``ATZ``, ``ATR``, ``AT+VER``
 * ``AT+DEVEUI``, ``AT+APPEUI``, ``AT+APPKEY``
 * ``AT+BAND`` (EU433 and LA915 are not supported by the backend)
 * ``AT+NJM`` (OTAA only), ``AT+NJS``, ``AT+CLASS`` (Class A only)
@@ -25,10 +25,26 @@ Asynchronous events: ``+EVT:JOINED``, ``+EVT:JOIN_FAILED_RX_TIMEOUT``,
 ``+EVT:TX_DONE``, ``+EVT:SEND_CONFIRMED_OK``, ``+EVT:SEND_CONFIRMED_FAILED``
 and ``+EVT:RX_1:<rssi>:<snr>:UNICAST:<port>:<payload>``.
 
-Credentials and the region live in RAM. The defaults come from the
-``zephyr,user`` devicetree node and updates apply to the next ``AT+JOIN``;
-a reboot restores the devicetree defaults. Flash persistence, ABP and the
-``AT+JOIN`` auto-join parameters are planned services.
+Persistence
+***********
+
+With ``CONFIG_RZI_AT_NVM`` (enabled in this sample) the parameters set over
+AT — DevEUI, JoinEUI, AppKey, band and confirm mode — are stored in flash
+through the Zephyr settings subsystem (NVS backend) and survive reboots.
+``ATR`` erases them and reboots, restoring the devicetree defaults.
+
+RZI does not hardcode any flash address. The storage area is board-defined
+through devicetree, following the standard Zephyr convention:
+
+* a partition labeled ``storage_partition`` in the board's fixed partition
+  table (RAK4631 provides the last 32 KiB of internal flash at ``0xf8000``
+  via ``nrf52840_partition.dtsi``), or
+* a ``zephyr,settings-partition`` chosen node pointing at any partition,
+  including one on external SPI flash.
+
+Boards without either definition fail at build time instead of writing to a
+wrong address at runtime. ABP and the ``AT+JOIN`` auto-join parameters are
+planned services.
 
 Requirements
 ************

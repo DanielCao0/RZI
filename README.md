@@ -106,13 +106,15 @@ Implemented now:
 
 - asynchronous LoRaWAN initialization, OTAA join, leave, uplink, and events;
 - USP/LBM backend isolation and serialized modem access;
-- a basic RAK RUI3-compatible AT command service (AT, ATZ, VER, DEVEUI,
+- a basic RAK RUI3-compatible AT command service (AT, ATZ, ATR, VER, DEVEUI,
   APPEUI, APPKEY, BAND, NJM, NJS, CLASS, CFM, CFS, JOIN, SEND, RECV) with a
   buildable sample;
+- flash persistence of AT parameters through Zephyr settings/NVS, using the
+  board-defined `storage_partition` convention (no hardcoded addresses);
 - standard Zephyr samples with Twister metadata.
 
-AT credential persistence in NVM, ABP, power policy, diagnostics, FUOTA, and
-the Arduino/RUI C++ wrapper remain planned services.
+ABP, power policy, diagnostics, FUOTA, and the Arduino/RUI C++ wrapper
+remain planned services.
 
 RZI follows the
 [Zephyr module specification](https://docs.zephyrproject.org/latest/develop/modules.html)

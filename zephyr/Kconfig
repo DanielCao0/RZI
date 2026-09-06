@@ -50,7 +50,24 @@ config RZI_AT
 	  Basic RAK RUI3-compatible AT command interface over UART. The
 	  application passes the UART device to rzi_at_init(); the service
 	  owns the UART and consumes the RZI LoRaWAN API. Implemented
-	  subset: AT, ATZ, VER, DEVEUI, APPEUI, APPKEY, BAND, NJM (OTAA
-	  only), NJS, CLASS (A only), CFM, CFS, JOIN, SEND and RECV.
+	  subset: AT, ATZ, ATR, VER, DEVEUI, APPEUI, APPKEY, BAND, NJM
+	  (OTAA only), NJS, CLASS (A only), CFM, CFS, JOIN, SEND and RECV.
+
+config RZI_AT_NVM
+	bool "Persist AT parameters in flash"
+	depends on RZI_AT
+	select SETTINGS
+	select NVS
+	select FLASH_MAP
+	help
+	  Persist the AT parameters (DEVEUI, APPEUI, APPKEY, BAND, CFM)
+	  with the Zephyr settings subsystem, and enable ATR to restore
+	  the devicetree defaults. The application selects the settings
+	  backend itself (CONFIG_SETTINGS_NVS=y recommended); the backend
+	  choice is a Kconfig choice symbol and cannot be selected here.
+	  The storage area is board-defined: RZI uses the standard
+	  "storage_partition" devicetree partition, or the partition
+	  pointed to by the zephyr,settings-partition chosen node. RZI
+	  never hardcodes flash addresses.
 
 endif

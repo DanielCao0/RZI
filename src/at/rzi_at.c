@@ -22,6 +22,10 @@
 #include <zephyr/sys/ring_buffer.h>
 #include <zephyr/sys/util.h>
 
+#if defined(CONFIG_RZI_AT_NVM)
+#include <zephyr/settings/settings.h>
+#endif
+
 #include <rzi/at.h>
 #include <rzi/lorawan.h>
 
@@ -221,6 +225,72 @@ static int region_to_band(enum rzi_lorawan_region region)
 }
 
 /* ------------------------------------------------------------------ */
+/* Flash persistence (Zephyr settings on NVS)                         */
+/*                                                                    */
+/* The storage area is board-defined through devicetree: the standard */
+/* "storage_partition" partition, or the zephyr,settings-partition    */
+/* chosen node. RZI never hardcodes flash addresses.                  */
+/* ------------------------------------------------------------------ */
+
+#if defined(CONFIG_RZI_AT_NVM)
+
+static int at_nvm_read(settings_read_cb read_cb, void *cb_arg, void *dst,
+		       size_t len)
+{
+	return read_cb(cb_arg, dst, len) == (ssize_t)len ? 0 : -EINVAL;
+}
+
+static int at_nvm_set(const char *name, size_t len, settings_read_cb read_cb,
+		      void *cb_arg)
+{
+	const char *next;
+	uint8_t band;
+	bool cfm;
+
+	ARG_UNUSED(len);
+
+	if (settings_name_steq(name, "deveui", &next) && !next) {
+		return at_nvm_read(read_cb, cb_arg, at_dev_eui, sizeof(at_dev_eui));
+	}
+	if (settings_name_steq(name, "joineui", &next) && !next) {
+		return at_nvm_read(read_cb, cb_arg, at_join_eui, sizeof(at_join_eui));
+	}
+	if (settings_name_steq(name, "appkey", &next) && !next) {
+		return at_nvm_read(read_cb, cb_arg, at_app_key, sizeof(at_app_key));
+	}
+	if (settings_name_steq(name, "band", &next) && !next) {
+		if (at_nvm_read(read_cb, cb_arg, &band, sizeof(band)) != 0) {
+			return -EINVAL;
+		}
+		return band_to_region(band, &at_region);
+	}
+	if (settings_name_steq(name, "cfm", &next) && !next) {
+		if (at_nvm_read(read_cb, cb_arg, &cfm, sizeof(cfm)) != 0) {
+			return -EINVAL;
+		}
+		at_cfm = cfm;
+		return 0;
+	}
+	return -ENOENT;
+}
+
+SETTINGS_STATIC_HANDLER_DEFINE(rzi_at, "rzi", NULL, at_nvm_set, NULL, NULL);
+
+static void at_nvm_save(const char *key, const void *value, size_t len)
+{
+	char name[24];
+
+	(void)snprintk(name, sizeof(name), "rzi/%s", key);
+	(void)settings_save_one(name, value, len);
+}
+
+#else
+
+#define at_nvm_save(key, value, len) do { } while (0)
+
+#endif /* CONFIG_RZI_AT_NVM */
+
+/* ------------------------------------------------------------------ */
 /* LoRaWAN service interaction                                        */
 /* ------------------------------------------------------------------ */
 
@@ -352,8 +422,8 @@ static void handle_ver(enum at_op op, const char *arg)
 	}
 }
 
-static void handle_eui(const char *name, const char *desc, uint8_t *value,
-		       size_t len, enum at_op op, const char *arg)
+static void handle_eui(const char *name, const char *desc, const char *nvm_key,
+		       uint8_t *value, size_t len, enum at_op op, const char *arg)
 {
 	char hex[33];
 
@@ -366,6 +436,7 @@ static void handle_eui(const char *name, const char *desc, uint8_t *value,
 		if (hex2bin_exact(arg, value, len) != 0) {
 			at_status("AT_PARAM_ERROR");
 		} else {
+			at_nvm_save(nvm_key, value, len);
 			at_status(AT_STATUS_OK);
 		}
 	} else {
@@ -376,21 +447,21 @@ static void handle_eui(const char *name, const char *desc, uint8_t *value,
 static void handle_deveui(enum at_op op, const char *arg)
 {
 	handle_eui("AT+DEVEUI", "AT+DEVEUI: get or set the device EUI (8 bytes in hex)",
-		   at_dev_eui, sizeof(at_dev_eui), op, arg);
+		   "deveui", at_dev_eui, sizeof(at_dev_eui), op, arg);
 }
 
 static void handle_appeui(enum at_op op, const char *arg)
 {
 	handle_eui("AT+APPEUI",
 		   "AT+APPEUI: get or set the application EUI (8 bytes in hex)",
-		   at_join_eui, sizeof(at_join_eui), op, arg);
+		   "joineui", at_join_eui, sizeof(at_join_eui), op, arg);
 }
 
 static void handle_appkey(enum at_op op, const char *arg)
 {
 	handle_eui("AT+APPKEY",
 		   "AT+APPKEY: get or set the application key (16 bytes in hex)",
-		   at_app_key, sizeof(at_app_key), op, arg);
+		   "appkey", at_app_key, sizeof(at_app_key), op, arg);
 }
 
 static void handle_band(enum at_op op, const char *arg)
@@ -411,7 +482,10 @@ static void handle_band(enum at_op op, const char *arg)
 		    band_to_region((int)band, &region) != 0) {
 			at_status("AT_PARAM_ERROR");
 		} else {
+			uint8_t stored = (uint8_t)band;
+
 			at_region = region;
+			at_nvm_save("band", &stored, sizeof(stored));
 			at_status(AT_STATUS_OK);
 		}
 	} else {
@@ -478,9 +552,11 @@ static void handle_cfm(enum at_op op, const char *arg)
 	} else if (op == AT_OP_SET) {
 		if (strcmp(arg, "0") == 0) {
 			at_cfm = false;
+			at_nvm_save("cfm", &at_cfm, sizeof(at_cfm));
 			at_status(AT_STATUS_OK);
 		} else if (strcmp(arg, "1") == 0) {
 			at_cfm = true;
+			at_nvm_save("cfm", &at_cfm, sizeof(at_cfm));
 			at_status(AT_STATUS_OK);
 		} else {
 			at_status("AT_PARAM_ERROR");
@@ -623,6 +699,27 @@ static const struct at_cmd at_commands[] = {
 	{ "RECV", handle_recv },
 };
 
+/* ATR: erase the persisted parameters, then reboot so the devicetree
+ * defaults apply again.
+ */
+static void at_factory_reset(void)
+{
+#if defined(CONFIG_RZI_AT_NVM)
+	static const char *const keys[] = {
+		"deveui", "joineui", "appkey", "band", "cfm",
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(keys); i++) {
+		char name[24];
+
+		(void)snprintk(name, sizeof(name), "rzi/%s", keys[i]);
+		(void)settings_delete(name);
+	}
+#endif
+	at_status(AT_STATUS_OK);
+	sys_reboot(SYS_REBOOT_COLD);
+}
+
 /* ------------------------------------------------------------------ */
 /* Parser                                                             */
 /* ------------------------------------------------------------------ */
@@ -653,6 +750,14 @@ static void at_execute(char *line)
 	}
 	if (strcmp(line, "ATZ?") == 0) {
 		desc_ok("ATZ: triggers a reset on the MCU.");
+		return;
+	}
+	if (strcmp(line, "ATR") == 0) {
+		at_factory_reset();
+		return;
+	}
+	if (strcmp(line, "ATR?") == 0) {
+		desc_ok("ATR: restore default parameters");
 		return;
 	}
 	if (strncmp(line, "AT+", 3) != 0) {
@@ -820,6 +925,12 @@ int rzi_at_init(const struct device *uart)
 		memcpy(at_app_key, app_key, sizeof(at_app_key));
 		at_region = AT_DT_REGION;
 	}
+#endif
+
+#if defined(CONFIG_RZI_AT_NVM)
+	/* Stored values override the devicetree defaults. */
+	(void)settings_subsys_init();
+	(void)settings_load();
 #endif
 
 	uart_irq_callback_set(at_uart, at_uart_isr);
