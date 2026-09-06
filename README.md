@@ -14,10 +14,12 @@ rzi/
 │   └── CMakeLists.txt   Zephyr library integration
 ├── include/rzi/         Public C API
 ├── src/
-│   └── lorawan/
-│       ├── lorawan.c          Backend-independent service
-│       ├── backend.h          Private backend contract
-│       └── backends/usp.c     Semtech USP implementation
+│   ├── lorawan/
+│   │   ├── lorawan.c          Backend-independent service
+│   │   ├── backend.h          Private backend contract
+│   │   └── backends/usp.c     Semtech USP implementation
+│   └── at/
+│       └── rzi_at.c           RUI3-compatible AT command service
 ├── samples/             RZI-owned buildable samples
 ├── doc/                 Architecture and internal documentation
 ├── LICENSE
@@ -93,8 +95,10 @@ support must carry that compatibility in their workspace or application until
 the corresponding upstream changes are available.
 
 See [`samples/lorawan/class_a`](samples/lorawan/class_a/README.rst) for a
-minimal API example. Its overlay contains zero-valued credentials and the
-sample-only compatibility required by the currently pinned dependencies.
+minimal API example and [`samples/lorawan/at`](samples/lorawan/at/README.rst)
+for a RAK RUI3-compatible AT command interface. Their overlays contain
+zero-valued credentials and the sample-only compatibility required by the
+currently pinned dependencies.
 
 ## Scope
 
@@ -102,9 +106,12 @@ Implemented now:
 
 - asynchronous LoRaWAN initialization, OTAA join, leave, uplink, and events;
 - USP/LBM backend isolation and serialized modem access;
-- a standard Zephyr sample with Twister metadata.
+- a basic RAK RUI3-compatible AT command service (AT, ATZ, VER, DEVEUI,
+  APPEUI, APPKEY, BAND, NJM, NJS, CLASS, CFM, CFS, JOIN, SEND, RECV) with a
+  buildable sample;
+- standard Zephyr samples with Twister metadata.
 
-AT commands, general NVM/configuration, power policy, diagnostics, FUOTA, and
+AT credential persistence in NVM, ABP, power policy, diagnostics, FUOTA, and
 the Arduino/RUI C++ wrapper remain planned services.
 
 RZI follows the

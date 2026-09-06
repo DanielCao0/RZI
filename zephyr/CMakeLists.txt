@@ -16,4 +16,8 @@ if(CONFIG_RZI)
     CONFIG_RZI_LORAWAN_BACKEND_USP
     lbm_compile_definitions
   )
+  zephyr_library_sources_ifdef(
+    CONFIG_RZI_AT
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/rzi_at.c
+  )
 endif()

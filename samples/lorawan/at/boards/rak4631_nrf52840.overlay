@@ -1,0 +1,32 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include "rak4631_usp_compat.dtsi"
+
+/ {
+	chosen {
+		/* The AT service uses the USB CDC port; the board default
+		 * console is uart1, which stays unused by this sample.
+		 */
+		zephyr,console = &cdc_acm_uart0;
+	};
+
+	zephyr,user {
+		/* Default credentials; change them at runtime with
+		 * AT+DEVEUI, AT+APPEUI and AT+APPKEY before AT+JOIN.
+		 */
+		user-lorawan-device-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-join-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-gen_app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+					    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+					0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-region = "EU_868";
+	};
+};
+
+/* Standard Zephyr USB CDC serial port. */
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};

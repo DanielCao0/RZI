@@ -42,4 +42,15 @@ config RZI_LORAWAN_EVENT_QUEUE_SIZE
 
 endif # RZI_LORAWAN
 
+config RZI_AT
+	bool "RUI3-compatible AT command service (basic subset)"
+	depends on RZI_LORAWAN
+	select UART_INTERRUPT_DRIVEN
+	help
+	  Basic RAK RUI3-compatible AT command interface over UART. The
+	  application passes the UART device to rzi_at_init(); the service
+	  owns the UART and consumes the RZI LoRaWAN API. Implemented
+	  subset: AT, ATZ, VER, DEVEUI, APPEUI, APPKEY, BAND, NJM (OTAA
+	  only), NJS, CLASS (A only), CFM, CFS, JOIN, SEND and RECV.
+
 endif
