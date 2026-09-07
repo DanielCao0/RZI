@@ -15,10 +15,10 @@ manifest:
   projects:
     - name: usp_zephyr
       url: https://github.com/Lora-net/usp_zephyr
-      revision: main
+      revision: bfacd435f53935ebea1a0e95fb877f4ede119985
 
     - name: usp
       url: https://github.com/Lora-net/usp
-      revision: main
+      revision: 351b2015350670eb4dfa3aec35eb04433e062654
       path: modules/lib/usp
       submodules: true
