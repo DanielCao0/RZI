@@ -1,6 +1,7 @@
 # RZI 文档
 
 - [RZI SDK 总体架构](./rzi-sdk-architecture.md)：正式的分层、职责边界、后端策略、依赖策略以及 AT、NVM、功耗、FUOTA 和 Arduino/RUI 路线图。
+- [RZI AT 框架](./at-framework.md)：AT core、命令注册、可选命令包和 transport 的边界。
 - [RZI 与 Zephyr 集成重构](./rzi-zephyr-refactoring-guide.md)：目录、公共 API、后端边界和验证结果。
 - [usp_zephyr 框架](./usp_zephyr-framework.md)：Semtech USP 分层和两个 Git 仓库。
 - [三者关系](./usp-lbm-zephyr.md)：Zephyr、usp_zephyr、LBM 各自负责什么。

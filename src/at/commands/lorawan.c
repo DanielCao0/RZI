@@ -1,12 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
-/**
- * @file
- * @brief Basic RAK RUI3-compatible AT command service.
- *
- * Command behaviors, status strings and asynchronous events follow the RAK
- * RUI3 AT Command Manual. Only the basic OTAA Class A subset is
- * implemented; unsupported parameters are rejected with AT_PARAM_ERROR.
- */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include <errno.h>
 #include <stdarg.h>
@@ -14,12 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <zephyr/device.h>
 #include <zephyr/devicetree.h>
-#include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/reboot.h>
-#include <zephyr/sys/ring_buffer.h>
 #include <zephyr/sys/util.h>
 
 #if defined(CONFIG_RZI_AT_NVM)
@@ -29,19 +17,8 @@
 #include <rzi/at.h>
 #include <rzi/lorawan.h>
 
-#define AT_THREAD_STACK_SIZE 2048
-#define AT_THREAD_PRIORITY   K_PRIO_PREEMPT(14)
-#define AT_POLL_INTERVAL_MS  20
+#include "../internal.h"
 
-/* Longest input: AT+SEND=<port>:<484 hex digits>. */
-#define AT_LINE_MAX 600
-/* Longest output: downlink event with a maximum size payload. */
-#define AT_TX_MAX   640
-
-#define AT_VERSION_STRING "RZI_0.1.0_" CONFIG_BOARD
-#define AT_STATUS_OK      "OK"
-
-/* Optional devicetree defaults, same contract as the class_a sample. */
 #define USER_NODE DT_PATH(zephyr_user)
 #if DT_NODE_EXISTS(USER_NODE)
 #define AT_HAS_DT_DEFAULTS 1
@@ -50,21 +27,20 @@
 #endif
 
 enum at_op {
-	AT_OP_RUN,  /* AT+XXX   */
-	AT_OP_DESC, /* AT+XXX?  */
-	AT_OP_GET,  /* AT+XXX=? */
-	AT_OP_SET,  /* AT+XXX=v */
+	AT_OP_RUN = RZI_AT_OP_RUN,
+	AT_OP_DESC = RZI_AT_OP_HELP,
+	AT_OP_GET = RZI_AT_OP_READ,
+	AT_OP_SET = RZI_AT_OP_WRITE,
 };
 
-struct at_cmd {
+struct legacy_command {
 	const char *name;
+	const char *help;
 	void (*handler)(enum at_op op, const char *arg);
 };
 
-static const struct device *at_uart;
 static bool lw_initialized;
 static bool join_pending;
-
 static uint8_t at_dev_eui[8];
 static uint8_t at_join_eui[8];
 static uint8_t at_app_key[16];
@@ -79,69 +55,25 @@ static struct {
 	uint8_t data[RZI_LORAWAN_MAX_PAYLOAD];
 } last_downlink;
 
-RING_BUF_DECLARE(at_rx_rb, 1024);
-static char at_line[AT_LINE_MAX];
-static size_t at_line_len;
-static bool at_line_overflow;
-static char at_tx[AT_TX_MAX];
+#define at_value     rzi_at_respond_value
+#define at_event     rzi_at_publish_event
+#define AT_STATUS_OK "OK"
 
-static K_THREAD_STACK_DEFINE(at_stack, AT_THREAD_STACK_SIZE);
-static struct k_thread at_thread;
-
-/* ------------------------------------------------------------------ */
-/* UART output                                                        */
-/* ------------------------------------------------------------------ */
-
-static void at_write(const char *s)
-{
-	while (*s != '\0') {
-		uart_poll_out(at_uart, (uint8_t)*s++);
-	}
-}
-
-/* RUI3 status reply: "\r\n<status>\r\n". */
 static void at_status(const char *status)
 {
-	at_write("\r\n");
-	at_write(status);
-	at_write("\r\n");
-}
+	enum rzi_at_status value = RZI_AT_STATUS_ERROR;
 
-/* RUI3 value reply: "\r\n<value>\r\nOK\r\n". */
-static void at_value(const char *fmt, ...)
-{
-	va_list ap;
-	int len;
-
-	at_write("\r\n");
-	va_start(ap, fmt);
-	len = vsnprintk(at_tx, sizeof(at_tx), fmt, ap);
-	va_end(ap);
-	if (len > 0) {
-		at_write(at_tx);
+	if (strcmp(status, "OK") == 0) {
+		value = RZI_AT_STATUS_OK;
+	} else if (strcmp(status, "AT_PARAM_ERROR") == 0) {
+		value = RZI_AT_STATUS_PARAM_ERROR;
+	} else if (strcmp(status, "AT_BUSY_ERROR") == 0) {
+		value = RZI_AT_STATUS_BUSY_ERROR;
+	} else if (strcmp(status, "AT_NO_NETWORK_JOINED") == 0) {
+		value = RZI_AT_STATUS_NO_NETWORK_JOINED;
 	}
-	at_write("\r\nOK\r\n");
+	(void)rzi_at_respond_status(value);
 }
-
-/* RUI3 unsolicited event: "\r\n+EVT:<...>\r\n". */
-static void at_event(const char *fmt, ...)
-{
-	va_list ap;
-	int len;
-
-	at_write("\r\n+EVT:");
-	va_start(ap, fmt);
-	len = vsnprintk(at_tx, sizeof(at_tx), fmt, ap);
-	va_end(ap);
-	if (len > 0) {
-		at_write(at_tx);
-	}
-	at_write("\r\n");
-}
-
-/* ------------------------------------------------------------------ */
-/* Hex helpers: RUI3 keys are MSB first, uppercase on output.         */
-/* ------------------------------------------------------------------ */
 
 static int hex_nibble(char c)
 {
@@ -150,6 +82,9 @@ static int hex_nibble(char c)
 	}
 	if (c >= 'A' && c <= 'F') {
 		return c - 'A' + 10;
+	}
+	if (c >= 'a' && c <= 'f') {
+		return c - 'a' + 10;
 	}
 	return -1;
 }
@@ -444,19 +379,6 @@ static void desc_ok(const char *text)
 	at_value("%s", text);
 }
 
-static void handle_ver(enum at_op op, const char *arg)
-{
-	ARG_UNUSED(arg);
-
-	if (op == AT_OP_DESC) {
-		desc_ok("AT+VER: get the version of the firmware");
-	} else if (op == AT_OP_GET) {
-		at_value("AT+VER=%s", AT_VERSION_STRING);
-	} else {
-		at_status("AT_ERROR");
-	}
-}
-
 static void handle_eui(const char *name, const char *desc, const char *nvm_key, uint8_t *value,
 		       size_t len, enum at_op op, const char *arg)
 {
@@ -715,223 +637,33 @@ static void handle_recv(enum at_op op, const char *arg)
 	}
 }
 
-static const struct at_cmd at_commands[] = {
-	{"VER", handle_ver},       {"DEVEUI", handle_deveui}, {"APPEUI", handle_appeui},
-	{"APPKEY", handle_appkey}, {"BAND", handle_band},     {"NJM", handle_njm},
-	{"NJS", handle_njs},       {"CLASS", handle_class},   {"CFM", handle_cfm},
-	{"CFS", handle_cfs},       {"JOIN", handle_join},     {"SEND", handle_send},
-	{"RECV", handle_recv},
+static const struct legacy_command legacy_commands[] = {
+	{"DEVEUI", "get or set the device EUI (8 bytes in hex)", handle_deveui},
+	{"APPEUI", "get or set the application EUI (8 bytes in hex)", handle_appeui},
+	{"APPKEY", "get or set the application key (16 bytes in hex)", handle_appkey},
+	{"BAND", "get or set the active LoRaWAN region", handle_band},
+	{"NJM", "get or set the network join mode", handle_njm},
+	{"NJS", "get the network join status", handle_njs},
+	{"CLASS", "get or set the LoRaWAN device class", handle_class},
+	{"CFM", "get or set the confirmed uplink mode", handle_cfm},
+	{"CFS", "get the status of the last confirmed uplink", handle_cfs},
+	{"JOIN", "start or stop network activation", handle_join},
+	{"SEND", "send an application payload", handle_send},
+	{"RECV", "read the last received application payload", handle_recv},
 };
 
-/* ATR: erase the persisted parameters, then reboot so the devicetree
- * defaults apply again.
- */
-static void at_factory_reset(void)
+static struct rzi_at_command commands[ARRAY_SIZE(legacy_commands)];
+
+static int dispatch_legacy(const struct rzi_at_request *request, void *user_data)
 {
-#if defined(CONFIG_RZI_AT_NVM)
-	static const char *const keys[] = {
-		"deveui", "joineui", "appkey", "band", "cfm",
-	};
+	const struct legacy_command *command = user_data;
 
-	for (size_t i = 0; i < ARRAY_SIZE(keys); i++) {
-		char name[24];
-
-		(void)snprintk(name, sizeof(name), "rzi/%s", keys[i]);
-		(void)settings_delete(name);
-	}
-#endif
-	at_status(AT_STATUS_OK);
-	sys_reboot(SYS_REBOOT_COLD);
+	command->handler((enum at_op)request->operation, request->argument);
+	return 0;
 }
 
-/* ------------------------------------------------------------------ */
-/* Parser                                                             */
-/* ------------------------------------------------------------------ */
-
-static void at_execute(char *line)
+static int extension_start(void)
 {
-	char *body;
-	enum at_op op;
-	const char *arg = NULL;
-
-	/* RUI3 accepts mixed case; all parameters of this subset are
-	 * numeric or case-insensitive hex, so uppercase the whole line.
-	 */
-	for (char *p = line; *p != '\0'; p++) {
-		if (*p >= 'a' && *p <= 'z') {
-			*p -= 'a' - 'A';
-		}
-	}
-
-	if (strcmp(line, "AT") == 0) {
-		at_status(AT_STATUS_OK);
-		return;
-	}
-	if (strcmp(line, "ATZ") == 0) {
-		/* ATZ resets the MCU without a reply. */
-		sys_reboot(SYS_REBOOT_COLD);
-		return;
-	}
-	if (strcmp(line, "ATZ?") == 0) {
-		desc_ok("ATZ: triggers a reset on the MCU.");
-		return;
-	}
-	if (strcmp(line, "ATR") == 0) {
-		at_factory_reset();
-		return;
-	}
-	if (strcmp(line, "ATR?") == 0) {
-		desc_ok("ATR: restore default parameters");
-		return;
-	}
-	if (strncmp(line, "AT+", 3) != 0) {
-		at_status("AT_ERROR");
-		return;
-	}
-
-	body = line + 3;
-	char *eq = strchr(body, '=');
-	char *qm = strchr(body, '?');
-
-	if (eq != NULL && eq[1] == '?') {
-		op = AT_OP_GET;
-		*eq = '\0';
-	} else if (eq != NULL) {
-		op = AT_OP_SET;
-		*eq = '\0';
-		arg = eq + 1;
-	} else if (qm != NULL && qm[1] == '\0') {
-		op = AT_OP_DESC;
-		*qm = '\0';
-	} else if (eq == NULL && qm == NULL) {
-		op = AT_OP_RUN;
-	} else {
-		at_status("AT_ERROR");
-		return;
-	}
-
-	for (size_t i = 0; i < ARRAY_SIZE(at_commands); i++) {
-		if (strcmp(body, at_commands[i].name) == 0) {
-			at_commands[i].handler(op, arg);
-			return;
-		}
-	}
-	at_status("AT_ERROR");
-}
-
-/* ------------------------------------------------------------------ */
-/* UART input                                                         */
-/* ------------------------------------------------------------------ */
-
-static void at_uart_isr(const struct device *dev, void *user_data)
-{
-	uint8_t buf[32];
-
-	ARG_UNUSED(user_data);
-	uart_irq_update(dev);
-	while (uart_irq_is_pending(dev) && uart_irq_rx_ready(dev)) {
-		/* uart_fifo_read must be called until the FIFO is drained. */
-		int n = uart_fifo_read(dev, buf, sizeof(buf));
-
-		if (n > 0) {
-			(void)ring_buf_put(&at_rx_rb, buf, (uint32_t)n);
-		}
-		if (n < (int)sizeof(buf)) {
-			break;
-		}
-		uart_irq_update(dev);
-	}
-}
-
-static void at_rx_byte(uint8_t c)
-{
-	if (c == '\b' || c == 0x7f) {
-		if (at_line_len > 0) {
-			at_line_len--;
-			at_write("\b \b");
-		}
-		return;
-	}
-	if (c == '\r' || c == '\n') {
-		if (c == '\r') {
-			at_write("\r\n");
-		}
-		if (at_line_overflow) {
-			at_line_overflow = false;
-			at_line_len = 0;
-			at_status("AT_TEST_PARAM_OVERFLOW");
-			return;
-		}
-		if (at_line_len > 0) {
-			at_line[at_line_len] = '\0';
-			at_line_len = 0;
-			at_execute(at_line);
-		}
-		return;
-	}
-	if (c < ' ' || c > '~') {
-		return;
-	}
-	if (at_line_len >= sizeof(at_line) - 1) {
-		at_line_overflow = true;
-		return;
-	}
-	at_line[at_line_len++] = (char)c;
-	uart_poll_out(at_uart, c);
-}
-
-static void at_drain_uart(void)
-{
-	uint8_t buf[64];
-	uint32_t n;
-
-	while ((n = ring_buf_get(&at_rx_rb, buf, sizeof(buf))) > 0) {
-		for (uint32_t i = 0; i < n; i++) {
-			at_rx_byte(buf[i]);
-		}
-	}
-}
-
-/* ------------------------------------------------------------------ */
-/* Service thread                                                     */
-/* ------------------------------------------------------------------ */
-
-static void at_thread_fn(void *p1, void *p2, void *p3)
-{
-	struct rzi_lorawan_event event;
-
-	ARG_UNUSED(p1);
-	ARG_UNUSED(p2);
-	ARG_UNUSED(p3);
-
-	for (;;) {
-		/* Before the first AT+JOIN the service is not initialized
-		 * and rzi_lorawan_get_event would return -EAGAIN at once.
-		 */
-		if (lw_initialized) {
-			if (rzi_lorawan_get_event(&event, AT_POLL_INTERVAL_MS) == 0) {
-				handle_lorawan_event(&event);
-			}
-		} else {
-			k_sleep(K_MSEC(AT_POLL_INTERVAL_MS));
-		}
-		at_drain_uart();
-	}
-}
-
-int rzi_at_init(const struct device *uart)
-{
-	static bool started;
-
-	if (uart == NULL || !device_is_ready(uart)) {
-		return -ENODEV;
-	}
-	if (started) {
-		return -EALREADY;
-	}
-	started = true;
-	at_uart = uart;
-
 #if defined(AT_HAS_DT_DEFAULTS)
 	BUILD_ASSERT(sizeof(at_dev_eui) == DT_PROP_LEN(USER_NODE, user_lorawan_device_eui));
 	BUILD_ASSERT(sizeof(at_join_eui) == DT_PROP_LEN(USER_NODE, user_lorawan_join_eui));
@@ -947,18 +679,65 @@ int rzi_at_init(const struct device *uart)
 		at_region = AT_DT_REGION;
 	}
 #endif
-
 #if defined(CONFIG_RZI_AT_NVM)
-	/* Stored values override the devicetree defaults. */
 	(void)settings_subsys_init();
-	(void)settings_load();
-#endif
-
-	uart_irq_callback_set(at_uart, at_uart_isr);
-	uart_irq_rx_enable(at_uart);
-
-	k_thread_create(&at_thread, at_stack, AT_THREAD_STACK_SIZE, at_thread_fn, NULL, NULL, NULL,
-			AT_THREAD_PRIORITY, 0, K_NO_WAIT);
-	k_thread_name_set(&at_thread, "rzi_at");
+	return settings_load_subtree("rzi");
+#else
 	return 0;
+#endif
+}
+
+static void extension_process(void)
+{
+	struct rzi_lorawan_event event;
+
+	if (!lw_initialized) {
+		return;
+	}
+	while (rzi_lorawan_get_event(&event, 0) == 0) {
+		handle_lorawan_event(&event);
+	}
+}
+
+static int extension_factory_reset(void)
+{
+#if defined(CONFIG_RZI_AT_NVM)
+	static const char *const keys[] = {"deveui", "joineui", "appkey", "band", "cfm"};
+	int result = 0;
+
+	for (size_t i = 0; i < ARRAY_SIZE(keys); ++i) {
+		char name[24];
+		int rc;
+
+		(void)snprintk(name, sizeof(name), "rzi/%s", keys[i]);
+		rc = settings_delete(name);
+		if (rc != 0 && rc != -ENOENT && result == 0) {
+			result = rc;
+		}
+	}
+	return result;
+#else
+	return 0;
+#endif
+}
+
+static const struct rzi_at_extension extension = {
+	.start = extension_start,
+	.process = extension_process,
+	.factory_reset = extension_factory_reset,
+};
+
+int rzi_at_lorawan_register(void)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(commands); ++i) {
+		commands[i].name = legacy_commands[i].name;
+		commands[i].help = legacy_commands[i].help;
+		commands[i].allowed_operations =
+			RZI_AT_ALLOW_RUN | RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE;
+		commands[i].handler = dispatch_legacy;
+		commands[i].user_data = (void *)&legacy_commands[i];
+	}
+	int rc = rzi_at_register(commands, ARRAY_SIZE(commands));
+
+	return rc == 0 ? rzi_at_registry_add_extension(&extension) : rc;
 }

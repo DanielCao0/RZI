@@ -8,9 +8,13 @@ Overview
 ********
 
 This sample starts the RZI AT command service on the USB CDC serial port.
-The service is a consumer of the RZI LoRaWAN C API and follows the command
+The UART transport feeds the transport-independent AT core. The optional
+LoRaWAN command package consumes the RZI LoRaWAN C API and follows the command
 behaviors, status strings and asynchronous events of the RAK RUI3 AT Command
 Manual, so host software written for RUI3 modules can drive it directly.
+
+The relevant configuration switches are ``CONFIG_RZI_AT``,
+``CONFIG_RZI_AT_TRANSPORT_UART`` and ``CONFIG_RZI_AT_COMMAND_LORAWAN``.
 
 Implemented subset (OTAA, Class A):
 

@@ -18,6 +18,20 @@ if(CONFIG_RZI)
   )
   zephyr_library_sources_ifdef(
     CONFIG_RZI_AT
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/rzi_at.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/core.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/parser.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/registry.c
+  )
+  zephyr_library_sources_ifdef(
+    CONFIG_RZI_AT
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/commands/system.c
+  )
+  zephyr_library_sources_ifdef(
+    CONFIG_RZI_AT_COMMAND_LORAWAN
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/commands/lorawan.c
+  )
+  zephyr_library_sources_ifdef(
+    CONFIG_RZI_AT_TRANSPORT_UART
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/transports/uart.c
   )
 endif()

@@ -315,17 +315,18 @@ Release manifests use tags or immutable SHAs and never follow an unmerged PR.
 
 ## 9. AT service
 
-Status: basic RUI3-compatible subset implemented.
+Status: transport-independent command framework and basic RUI3-compatible
+LoRaWAN command package implemented.
 
 AT is a client of public RZI services. It does not call `smtc_modem_*`, Zephyr
 LoRaWAN, or private backend APIs directly.
 
-The current `src/at/rzi_at.c` combines UART, parsing, commands, settings, and
-LoRaWAN event handling. The target structure separates them:
+The implementation separates protocol processing, command packages, and I/O:
 
 ```text
 src/at/
-├── core.c                   parser, response formatting, dispatch
+├── core.c                   lifecycle, RX queue, execution thread, output
+├── parser.c                 RUI3 line grammar and line editing
 ├── registry.c               command registration
 ├── commands/
 │   ├── system.c
@@ -339,6 +340,11 @@ src/at/
 This permits USB CDC, BLE UART, shell, and test transports without duplicating
 command semantics. Compatibility is documented command by command, including
 syntax, responses, events, persistence, reset behavior, and unsupported values.
+
+`CONFIG_RZI_AT` does not depend on LoRaWAN or UART. Command packages such as
+`CONFIG_RZI_AT_COMMAND_LORAWAN` depend only on the RZI service they expose, and
+transports such as `CONFIG_RZI_AT_TRANSPORT_UART` are selected independently.
+Applications may register static-lifetime commands before `rzi_at_start()`.
 
 ## 10. Configuration and NVM
 

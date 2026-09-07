@@ -5,7 +5,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
-#include <rzi/at.h>
+#include <rzi/at/uart.h>
 
 #define CONSOLE_NODE DT_CHOSEN(zephyr_console)
 
@@ -30,5 +30,5 @@ int main(void)
 	}
 
 	/* The AT service owns the UART from here on. */
-	return rzi_at_init(at_uart);
+	return rzi_at_uart_start(at_uart);
 }

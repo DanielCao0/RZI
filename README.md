@@ -24,7 +24,11 @@ rzi/
 │   │   ├── backend.h          Private backend contract
 │   │   └── backends/usp.c     Semtech USP implementation
 │   └── at/
-│       └── rzi_at.c           RUI3-compatible AT command service
+│       ├── core.c             Lifecycle, RX queue and output
+│       ├── parser.c           RUI3 command grammar
+│       ├── registry.c         Extensible command registry
+│       ├── commands/          Optional RZI service command packages
+│       └── transports/        Optional UART and future transports
 ├── samples/             RZI-owned buildable samples
 ├── doc/                 Architecture and internal documentation
 ├── LICENSE
@@ -111,9 +115,9 @@ Implemented now:
 
 - asynchronous LoRaWAN initialization, OTAA join, leave, uplink, and events;
 - USP/LBM backend isolation and serialized modem access;
-- a basic RAK RUI3-compatible AT command service (AT, ATZ, ATR, VER, DEVEUI,
-  APPEUI, APPKEY, BAND, NJM, NJS, CLASS, CFM, CFS, JOIN, SEND, RECV) with a
-  buildable sample;
+- a transport-independent, extensible RUI3-compatible AT framework with an
+  optional UART transport and LoRaWAN command package (AT, ATZ, ATR, VER,
+  DEVEUI, APPEUI, APPKEY, BAND, NJM, NJS, CLASS, CFM, CFS, JOIN, SEND, RECV);
 - flash persistence of AT parameters through Zephyr settings/NVS, using the
   board-defined `storage_partition` convention (no hardcoded addresses);
 - standard Zephyr samples with Twister metadata.

@@ -1,48 +1,69 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/**
- * @file
- * @brief RZI AT command service API.
- */
+/** @file @brief Transport-independent RUI3-compatible AT service. */
 #ifndef RZI_AT_H
 #define RZI_AT_H
 
-#include <zephyr/device.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** @defgroup rzi_at RZI AT command service
- *  @brief Basic RAK RUI3-compatible AT interface over UART.
- *
- *  The service is a consumer of the RZI LoRaWAN C API: it owns one
- *  interrupt-driven UART and translates RUI3-style commands into service
- *  calls. Implemented subset: AT, ATZ, ATR, AT+VER, AT+DEVEUI, AT+APPEUI,
- *  AT+APPKEY, AT+BAND, AT+NJM (OTAA only), AT+NJS, AT+CLASS (A only),
- *  AT+CFM, AT+CFS, AT+JOIN, AT+SEND and AT+RECV.
- *
- *  Defaults come from the zephyr,user devicetree node when present and AT
- *  updates apply to the next AT+JOIN. With CONFIG_RZI_AT_NVM the parameters
- *  are also persisted in flash through the Zephyr settings subsystem (NVS
- *  backend) and survive reboots; ATR erases them and reboots. The storage
- *  area is board-defined: the standard "storage_partition" devicetree
- *  partition, or the zephyr,settings-partition chosen node. RZI never
- *  hardcodes flash addresses.
- *  @{
- */
+enum rzi_at_operation {
+	RZI_AT_OP_RUN,
+	RZI_AT_OP_HELP,
+	RZI_AT_OP_READ,
+	RZI_AT_OP_WRITE,
+};
 
-/**
- * @brief Start the AT command service on a UART.
- *
- * Takes ownership of @p uart: no console, shell or logging backend may use
- * the same device. The UART must support interrupt-driven operation.
- *
- * @param uart UART device used for the AT interface.
- * @return 0 on success, or a negative errno value.
- */
-int rzi_at_init(const struct device *uart);
+#define RZI_AT_ALLOW_RUN   (1U << RZI_AT_OP_RUN)
+#define RZI_AT_ALLOW_READ  (1U << RZI_AT_OP_READ)
+#define RZI_AT_ALLOW_WRITE (1U << RZI_AT_OP_WRITE)
 
-/** @} */
+enum rzi_at_status {
+	RZI_AT_STATUS_OK,
+	RZI_AT_STATUS_ERROR,
+	RZI_AT_STATUS_PARAM_ERROR,
+	RZI_AT_STATUS_BUSY_ERROR,
+	RZI_AT_STATUS_NO_NETWORK_JOINED,
+	RZI_AT_STATUS_TEST_PARAM_OVERFLOW,
+};
+
+struct rzi_at_request {
+	enum rzi_at_operation operation;
+	const char *argument;
+};
+
+typedef int (*rzi_at_command_handler_t)(const struct rzi_at_request *request, void *user_data);
+
+/** Command names exclude the leading "AT+" and use uppercase ASCII. */
+struct rzi_at_command {
+	const char *name;
+	const char *help;
+	uint8_t allowed_operations;
+	rzi_at_command_handler_t handler;
+	void *user_data;
+};
+
+/** Synchronous byte transport used for replies and unsolicited events. */
+struct rzi_at_transport {
+	int (*write)(const uint8_t *data, size_t size, void *user_data);
+	void *user_data;
+};
+
+/** Register commands before starting the process-wide AT service. */
+int rzi_at_register(const struct rzi_at_command *commands, size_t count);
+
+/** Start the AT service on a transport. */
+int rzi_at_start(const struct rzi_at_transport *transport);
+
+/** Supply received bytes. This function is ISR-safe. */
+int rzi_at_receive(const uint8_t *data, size_t size);
+
+int rzi_at_respond_status(enum rzi_at_status status);
+int rzi_at_respond_value(const char *format, ...);
+int rzi_at_publish_event(const char *format, ...);
 
 #ifdef __cplusplus
 }
