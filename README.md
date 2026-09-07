@@ -16,7 +16,9 @@ rzi/
 ├── zephyr/
 │   ├── module.yml       Zephyr module metadata
 │   ├── Kconfig          RZI feature configuration
-│   └── CMakeLists.txt   Zephyr library integration
+│   ├── CMakeLists.txt   Zephyr library integration
+│   ├── patches.yml      Backend compatibility patch manifest
+│   └── patches/         Backend compatibility patches
 ├── include/rzi/         Public C API
 ├── src/
 │   ├── lorawan/
@@ -56,6 +58,17 @@ manifest:
 The import pulls the default USP backend dependencies (`usp_zephyr` and
 `usp`) at the revisions validated by RZI. The application manifest still
 selects a compatible `zephyr` revision itself.
+
+RZI also owns temporary compatibility patches for its pinned dependencies.
+After `west update`, apply them from the workspace root:
+
+```sh
+west patch -sm rzi clean
+west patch -sm rzi apply --roll-back
+```
+
+Build wrappers may run these commands automatically. See
+[`doc/west-patch.md`](doc/west-patch.md) for the ownership model and warnings.
 
 Projects defined in the application manifest take precedence over imported
 ones, so an application can override any imported version. To select another

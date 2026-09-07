@@ -378,7 +378,8 @@ Docker/烧录脚本、命令帮助和 README。补丁清单生成器的模板也
 - RZI 仓库只保留模块代码、公共头文件、DTS、sample 和架构文档；
 - 客户应用成为 `/home/daniel/rzi-workspace/app` 独立 Git 仓库；
 - `app/west.yml` 明确引用独立 RZI project；
-- 应用业务、凭据、Docker、烧录工具和临时 west patches 归客户应用维护；
+- 应用业务、凭据、Docker 和烧录工具归客户应用维护；
+- RZI 默认 backend 所需的临时 west patches 由 RZI 统一维护；
 - RZI 保留最小 API 示例 `samples/lorawan/class_a/`；
 - 真实 OTAA 凭据从应用示例移除，公开文件只保留零值占位符；
 - Zephyr、USP 等第三方 checkout 只存在于外层 workspace。
