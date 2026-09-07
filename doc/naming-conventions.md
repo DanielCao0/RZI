@@ -174,6 +174,8 @@ include/rzi/at/uart.h  -> RZI_AT_UART_H
 - Internal CMake variables SHOULD use uppercase `RZI_<NAME>`.
 - RZI-owned Devicetree properties use lowercase kebab-case and SHOULD carry
   an appropriate vendor prefix when defined by a binding.
+- RZI sample aliases MUST use `rzi-<service>-<role>`, for example
+  `rzi-at-uart`, and are referenced in C as `DT_ALIAS(rzi_at_uart)`.
 - Sample and test names SHOULD start with `rzi_` when exported to Zephyr
   tooling.
 

@@ -61,6 +61,24 @@ The RAK4631 overlay carries sample-only compatibility for the currently
 pinned BSP and USP driver; it is not exported as part of the RZI module
 interface.
 
+AT UART selection
+*****************
+
+The sample selects its exclusive AT transport with the ``rzi-at-uart``
+devicetree alias. It does not reuse ``zephyr,console`` because console and AT
+transport ownership are separate concerns. The RAK4631 overlay points the
+alias to a USB CDC ACM UART:
+
+.. code-block:: devicetree
+
+   aliases {
+       rzi-at-uart = &cdc_acm_uart0;
+   };
+
+An application can point the same alias to a ready physical UART instead.
+Logging and console output must remain disabled on a UART owned by the AT
+service.
+
 Building
 ********
 

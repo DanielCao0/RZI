@@ -3,11 +3,9 @@
 #include "rak4631_usp_compat.dtsi"
 
 / {
-	chosen {
-		/* The AT service uses the USB CDC port; the board default
-		 * console is uart1, which stays unused by this sample.
-		 */
-		zephyr,console = &cdc_acm_uart0;
+	aliases {
+		/* Keep the AT transport independent from the system console. */
+		rzi-at-uart = &cdc_acm_uart0;
 	};
 
 	zephyr,user {
