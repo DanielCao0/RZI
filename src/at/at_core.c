@@ -10,7 +10,7 @@
 
 #include <rzi/at.h>
 
-#include "internal.h"
+#include "at_priv.h"
 
 RING_BUF_DECLARE(rx_ring, CONFIG_RZI_AT_RX_BUFFER_SIZE);
 K_SEM_DEFINE(rx_ready, 0, 1);

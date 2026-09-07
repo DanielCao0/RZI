@@ -5,7 +5,7 @@
 #include <zephyr/sys/atomic.h>
 #include <rzi/lorawan.h>
 
-#include "backend.h"
+#include "lorawan_backend.h"
 
 K_MSGQ_DEFINE(events, sizeof(struct rzi_lorawan_event), CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE, 4);
 

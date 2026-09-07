@@ -6,7 +6,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/reboot.h>
 
-#include "internal.h"
+#include "at_priv.h"
 
 static char line[CONFIG_RZI_AT_LINE_MAX];
 static size_t line_length;

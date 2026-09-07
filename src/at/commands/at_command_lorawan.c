@@ -17,7 +17,7 @@
 #include <rzi/at.h>
 #include <rzi/lorawan.h>
 
-#include "../internal.h"
+#include "../at_priv.h"
 
 #define USER_NODE DT_PATH(zephyr_user)
 #if DT_NODE_EXISTS(USER_NODE)

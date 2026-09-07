@@ -10,7 +10,7 @@ if(CONFIG_RZI)
   )
   zephyr_library_sources_ifdef(
     CONFIG_RZI_LORAWAN_BACKEND_USP
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/lorawan/backends/usp.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/lorawan/backends/lorawan_backend_usp.c
   )
   zephyr_library_link_libraries_ifdef(
     CONFIG_RZI_LORAWAN_BACKEND_USP
@@ -18,20 +18,20 @@ if(CONFIG_RZI)
   )
   zephyr_library_sources_ifdef(
     CONFIG_RZI_AT
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/core.c
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/parser.c
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/registry.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/at_core.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/at_parser.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/at_registry.c
   )
   zephyr_library_sources_ifdef(
     CONFIG_RZI_AT
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/commands/system.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/commands/at_command_system.c
   )
   zephyr_library_sources_ifdef(
     CONFIG_RZI_AT_COMMAND_LORAWAN
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/commands/lorawan.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/commands/at_command_lorawan.c
   )
   zephyr_library_sources_ifdef(
     CONFIG_RZI_AT_TRANSPORT_UART
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/transports/uart.c
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/at/transports/at_transport_uart.c
   )
 endif()

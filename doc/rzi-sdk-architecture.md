@@ -208,8 +208,8 @@ The current `include/rzi/lorawan.h` supports:
 - a fixed-size event queue with overflow reporting.
 
 `src/lorawan/lorawan.c` validates requests and owns the application event
-queue. The private contract in `src/lorawan/backend.h` is implemented by one
-source under `src/lorawan/backends/`.
+queue. The private contract in `src/lorawan/lorawan_backend.h` is implemented
+by one source under `src/lorawan/backends/`.
 
 ### Target capability model
 
@@ -325,16 +325,17 @@ The implementation separates protocol processing, command packages, and I/O:
 
 ```text
 src/at/
-├── core.c                   lifecycle, RX queue, execution thread, output
-├── parser.c                 RUI3 line grammar and line editing
-├── registry.c               command registration
+├── at_core.c                lifecycle, RX queue, execution thread, output
+├── at_parser.c              RUI3 line grammar and line editing
+├── at_registry.c            command registration
+├── at_priv.h                cross-file private contract
 ├── commands/
-│   ├── system.c
-│   ├── lorawan.c
-│   ├── power.c
-│   └── fuota.c
+│   ├── at_command_system.c
+│   ├── at_command_lorawan.c
+│   ├── at_command_power.c
+│   └── at_command_fuota.c
 └── transports/
-    └── uart.c
+    └── at_transport_uart.c
 ```
 
 This permits USB CDC, BLE UART, shell, and test transports without duplicating
@@ -443,10 +444,10 @@ rzi/
 │   ├── core/
 │   ├── lorawan/
 │   │   ├── lorawan.c
-│   │   ├── backend.h
+│   │   ├── lorawan_backend.h
 │   │   └── backends/
-│   │       ├── usp.c
-│   │       └── zephyr_lbm.c       planned
+│   │       ├── lorawan_backend_usp.c
+│   │       └── lorawan_backend_zephyr_lbm.c       planned
 │   ├── at/
 │   ├── storage/
 │   ├── power/

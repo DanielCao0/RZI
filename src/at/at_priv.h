@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-#ifndef RZI_AT_INTERNAL_H
-#define RZI_AT_INTERNAL_H
+#ifndef RZI_AT_PRIV_H
+#define RZI_AT_PRIV_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -24,4 +24,4 @@ void rzi_at_parser_reset(void);
 int rzi_at_builtin_register(void);
 int rzi_at_write_raw(const char *text);
 
-#endif /* RZI_AT_INTERNAL_H */
+#endif /* RZI_AT_PRIV_H */

@@ -9,7 +9,7 @@
 #include <smtc_modem_hal.h>
 #include <rzi/lorawan.h>
 
-#include "../backend.h"
+#include "../lorawan_backend.h"
 
 #define STACK_ID 0
 /* usp_zephyr currently leaves registration to its integrating application. */

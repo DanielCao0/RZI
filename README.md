@@ -23,12 +23,14 @@ rzi/
 ├── src/
 │   ├── lorawan/
 │   │   ├── lorawan.c          Backend-independent service
-│   │   ├── backend.h          Private backend contract
-│   │   └── backends/usp.c     Semtech USP implementation
+│   │   ├── lorawan_backend.h  Private backend contract
+│   │   └── backends/
+│   │       └── lorawan_backend_usp.c
+│   │                              Semtech USP implementation
 │   └── at/
-│       ├── core.c             Lifecycle, RX queue and output
-│       ├── parser.c           RUI3 command grammar
-│       ├── registry.c         Extensible command registry
+│       ├── at_core.c          Lifecycle, RX queue and output
+│       ├── at_parser.c        RUI3 command grammar
+│       ├── at_registry.c      Extensible command registry
 │       ├── commands/          Optional RZI service command packages
 │       └── transports/        Optional UART and future transports
 ├── samples/             RZI-owned buildable samples
@@ -145,10 +147,12 @@ and the layout conventions demonstrated by the
 
 ## Style checks
 
-RZI follows the Zephyr coding style. The repository carries a copy of
-Zephyr's `.clang-format` (picked up automatically by editors and plain
-`clang-format`), and `scripts/check-style.sh` runs clang-format plus
-Zephyr's `checkpatch.pl` with Zephyr's own `.checkpatch.conf` rules.
+All new and modified RZI code must follow the normative
+[file and function naming conventions](doc/naming-conventions.md) in addition
+to the Zephyr coding style. The repository carries a copy of Zephyr's
+`.clang-format` (picked up automatically by editors and plain `clang-format`),
+and `scripts/check-style.sh` runs clang-format plus Zephyr's `checkpatch.pl`
+with Zephyr's own `.checkpatch.conf` rules.
 
 A versioned pre-commit hook runs the checks on staged changes. Enable it
 once per clone:

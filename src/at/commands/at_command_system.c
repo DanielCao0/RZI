@@ -4,7 +4,7 @@
 
 #include <rzi/at.h>
 
-#include "../internal.h"
+#include "../at_priv.h"
 
 #define VERSION_STRING "RZI_0.1.0_" CONFIG_BOARD
 

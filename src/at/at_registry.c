@@ -5,7 +5,7 @@
 
 #include <zephyr/kernel.h>
 
-#include "internal.h"
+#include "at_priv.h"
 
 static const struct rzi_at_command *registered[CONFIG_RZI_AT_MAX_COMMANDS];
 static const struct rzi_at_extension *extensions[CONFIG_RZI_AT_MAX_EXTENSIONS];
