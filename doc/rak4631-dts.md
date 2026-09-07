@@ -1,5 +1,9 @@
 # `rak4631_nrf52840.dts` 逐行说明
 
+> 历史说明：RZI 当前不导出 `dts_root`，也不复制已经进入上游 Zephyr 的
+> RAK4631 板级描述。本文仅保留早期射频问题分析；当前所有权规则以
+> [RZI SDK Architecture](./rzi-sdk-architecture.md) 为准。
+
 ## RZI 与 DTS 的边界
 
 RZI 核心不导出 DTS root，也不重新定义 RAK4631 硬件。
@@ -14,7 +18,7 @@ RZI 核心不导出 DTS root，也不重新定义 RAK4631 硬件。
 公开的板级接口。对应上游改动可用后应删除该文件和
 `rak4631_legacy_regout.c`。
 
-源文件：[zephyr/boards/rakwireless/rak4631/rak4631_nrf52840.dts](../zephyr/boards/rakwireless/rak4631/rak4631_nrf52840.dts)
+源文件：[zephyr/boards/rakwireless/rak4631/rak4631_nrf52840.dts](https://github.com/zephyrproject-rtos/zephyr/blob/main/boards/rakwireless/rak4631/rak4631_nrf52840.dts)
 
 这是 Zephyr 树里的**板级设备树**（官方，不要改）。描述 RAK4631：nRF52840 + 板上焊死的 SX1262。你的 [samples/lorawan/class_a/boards/rak4631_nrf52840.overlay](../samples/lorawan/class_a/boards/rak4631_nrf52840.overlay) 叠在它上面。编完后的合并结果：`../build/rzi-class-a/zephyr/zephyr.dts`。
 
@@ -86,7 +90,7 @@ RZI 核心不导出 DTS root，也不重新定义 RAK4631 硬件。
 
 ### 第 11 行：`#include "rak4631_nrf52840-pinctrl.dtsi"`
 
-磁盘：同目录 [rak4631_nrf52840-pinctrl.dtsi](../zephyr/boards/rakwireless/rak4631/rak4631_nrf52840-pinctrl.dtsi)。
+磁盘：同目录 [rak4631_nrf52840-pinctrl.dtsi](https://github.com/zephyrproject-rtos/zephyr/blob/main/boards/rakwireless/rak4631/rak4631_nrf52840-pinctrl.dtsi)。
 
 **作用**：把外设功能接到具体 pad。本 dts 里只写 `pinctrl-0 = <&uart1_default>`，真正的脚在这份 dtsi，例如：
 

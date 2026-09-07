@@ -1,8 +1,13 @@
 # RZI
 
 RZI is an independent Zephyr module that exposes RAK-oriented C APIs while
-keeping protocol-stack and board integration private. The first implemented
-service is LoRaWAN over Semtech USP and LoRa Basics Modem.
+keeping protocol-stack integration private and relying on upstream Zephyr
+board support. The first implemented service is LoRaWAN over Semtech USP and
+LoRa Basics Modem.
+
+The target architecture, ownership boundaries, backend migration policy, and
+service roadmap are defined in
+[`doc/rzi-sdk-architecture.md`](doc/rzi-sdk-architecture.md).
 
 ## Repository layout
 

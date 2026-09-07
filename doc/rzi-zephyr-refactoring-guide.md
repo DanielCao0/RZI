@@ -1,5 +1,9 @@
 # RZI 与 Zephyr 集成重构变更说明
 
+> 历史说明：本文记录早期重构过程，其中关于 RZI 自带 `dts_root`、板级 DTS
+> 和 `rak4631.c` 的内容已不再代表当前代码。当前架构以
+> [RZI SDK Architecture](./rzi-sdk-architecture.md) 为准。
+
 > 文档版本：v0.1
 > 对应目录：`/home/daniel/rzi`
 > 目标平台：RAK4631 / nRF52840 / SX1262

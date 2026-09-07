@@ -1,5 +1,9 @@
 # LoRa Basics Modem（LBM）分层
 
+> USP 路径说明：本文的目录和 RAC 描述针对 RZI 当前使用的 USP backend。
+> Zephyr 上游 LBM backend 的边界与迁移计划见
+> [RZI SDK Architecture](./rzi-sdk-architecture.md)。
+
 **LBM** = Semtech 的 **LoRaWAN 协议栈**（TS001 L2 1.0.4 + 区域参数 RP2-1.0.3）。它不认识 Zephyr，也不直接读写 SX1262 寄存器。
 
 源码在 `usp` 仓：`modules/lib/usp/protocols/lbm_lib/`。接到 Zephyr 上的办法见 [usp_zephyr 框架](./usp_zephyr-framework.md) §2.1。
@@ -249,4 +253,3 @@ LBM 可以跑在裸机或别的 RTOS 上；换平台只改第 5 层 HAL。Zephyr
 1. **LBM 是 LoRaWAN 状态机**，不是电台驱动。
 2. **你只调 `smtc_modem_`*，并周期 `run_engine`。**
 3. **在 USP 上射频入口是 RAC**，所以还要 `smtc_rac_init` / `smtc_rac_run_engine`。
-

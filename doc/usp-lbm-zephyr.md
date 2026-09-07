@@ -1,5 +1,9 @@
 # Zephyr、usp_zephyr、LBM 三者关系
 
+> USP 路径说明：本文描述当前 RZI 的 USP backend。Zephyr `main` 已经拉取
+> LoRa Basics Modem，并正在通过上游 PR 增加 LoRaWAN backend。RZI 的迁移
+> 条件和长期分层以 [RZI SDK Architecture](./rzi-sdk-architecture.md) 为准。
+
 三个不同的 Git 仓库，编进**同一份**固件。业务只写在你的 `app/`。
 
 打开本文件请用 Markdown 预览（`Ctrl+Shift+V`）。
