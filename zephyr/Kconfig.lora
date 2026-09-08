@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_LORA
+	bool "RZI raw LoRa and FSK service scaffold"
+	help
+	  Enable the reserved raw LoRa and FSK service boundary. No callable
+	  public API is implemented yet.

@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/**
+ * @file
+ * @brief AT service lifecycle, input buffering, execution, and output serialization.
+ */
 
 #include <errno.h>
 #include <stdarg.h>
@@ -18,7 +22,7 @@ K_MUTEX_DEFINE(tx_lock);
 K_THREAD_STACK_DEFINE(at_stack, CONFIG_RZI_AT_THREAD_STACK_SIZE);
 
 static struct k_thread at_thread;
-static struct rzi_at_transport active_transport;
+static struct rzi_at_io active_io;
 static atomic_t started;
 static atomic_t rx_overflow;
 
@@ -33,7 +37,7 @@ static int write_all(const char *text)
 	int rc;
 
 	k_mutex_lock(&tx_lock, K_FOREVER);
-	rc = active_transport.write((const uint8_t *)text, size, active_transport.user_data);
+	rc = active_io.write((const uint8_t *)text, size, active_io.user_data);
 	k_mutex_unlock(&tx_lock);
 	return rc;
 }
@@ -164,20 +168,20 @@ static void thread_entry(void *unused1, void *unused2, void *unused3)
 	}
 }
 
-int rzi_at_start(const struct rzi_at_transport *transport)
+int rzi_at_start(const struct rzi_at_io *io)
 {
 	int rc;
 
 	if (k_is_in_isr()) {
 		return -EWOULDBLOCK;
 	}
-	if (transport == NULL || transport->write == NULL) {
+	if (io == NULL || io->write == NULL) {
 		return -EINVAL;
 	}
 	if (!atomic_cas(&started, 0, 1)) {
 		return -EALREADY;
 	}
-	active_transport = *transport;
+	active_io = *io;
 	rc = rzi_at_builtin_register();
 	if (rc == 0) {
 		rzi_at_registry_seal();

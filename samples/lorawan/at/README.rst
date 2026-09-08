@@ -8,20 +8,21 @@ Overview
 ********
 
 This sample starts the RZI AT command service on the USB CDC serial port.
-The UART transport feeds the transport-independent AT core. The optional
+The UART adapter feeds the I/O-independent AT core. The optional
 LoRaWAN command package consumes the RZI LoRaWAN C API and follows the command
 behaviors, status strings and asynchronous events of the RAK RUI3 AT Command
 Manual, so host software written for RUI3 modules can drive it directly.
 
 The relevant configuration switches are ``CONFIG_RZI_AT``,
-``CONFIG_RZI_AT_TRANSPORT_UART`` and ``CONFIG_RZI_AT_COMMAND_LORAWAN``.
+``CONFIG_RZI_AT_ADAPTER_UART`` and ``CONFIG_RZI_AT_COMMAND_LORAWAN``.
 
 Implemented subset (OTAA, Class A):
 
 * ``AT``, ``ATZ``, ``ATR``, ``AT+VER``
 * ``AT+DEVEUI``, ``AT+APPEUI``, ``AT+APPKEY``
 * ``AT+BAND`` (EU433 and LA915 are not supported by the backend)
-* ``AT+NJM`` (OTAA only), ``AT+NJS``, ``AT+CLASS`` (Class A only)
+* ``AT+NWM`` (LoRaWAN mode only), ``AT+NJM`` (OTAA only), ``AT+NJS``,
+  ``AT+CLASS`` (Class A only)
 * ``AT+CFM``, ``AT+CFS``
 * ``AT+JOIN``, ``AT+SEND``, ``AT+RECV``
 
@@ -33,9 +34,9 @@ Persistence
 ***********
 
 With ``CONFIG_RZI_AT_NVM`` (enabled in this sample) the parameters set over
-AT — DevEUI, JoinEUI, AppKey, band and confirm mode — are stored in flash
-through the Zephyr settings subsystem (NVS backend) and survive reboots.
-``ATR`` erases them and reboots, restoring the devicetree defaults.
+AT — DevEUI, JoinEUI, AppKey, band, confirm mode and auto-join settings — are
+stored in flash through the Zephyr settings subsystem (NVS backend) and survive
+reboots. ``ATR`` erases them and reboots, restoring the devicetree defaults.
 
 RZI does not hardcode any flash address. The storage area is board-defined
 through devicetree, following the standard Zephyr convention:
@@ -47,8 +48,11 @@ through devicetree, following the standard Zephyr convention:
   including one on external SPI flash.
 
 Boards without either definition fail at build time instead of writing to a
-wrong address at runtime. ABP and the ``AT+JOIN`` auto-join parameters are
-planned services.
+wrong address at runtime. ``AT+JOIN`` supports the RUI3 start, auto-join,
+retry-interval and retry-count parameters. ABP remains a planned service.
+
+See ``doc/at-command-compatibility.md`` for the complete command reference and
+the precise compatibility limits compared with RUI3.
 
 Requirements
 ************
@@ -64,9 +68,9 @@ interface.
 AT UART selection
 *****************
 
-The sample selects its exclusive AT transport with the ``rzi-at-uart``
+The sample selects its exclusive AT UART adapter with the ``rzi-at-uart``
 devicetree alias. It does not reuse ``zephyr,console`` because console and AT
-transport ownership are separate concerns. The RAK4631 overlay points the
+adapter ownership are separate concerns. The RAK4631 overlay points the
 alias to a USB CDC ACM UART:
 
 .. code-block:: devicetree
@@ -100,7 +104,7 @@ Open the USB CDC port at 115200 baud and type:
    AT
    OK
    AT+VER=?
-   AT+VER=RZI_0.1.0_rak4631
+   AT+VER=RZI_0.2.0_rak4631
    OK
    AT+DEVEUI=0011223344556677
    OK

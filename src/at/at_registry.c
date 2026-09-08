@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/**
+ * @file
+ * @brief AT command and extension registry implementation.
+ */
 
 #include <errno.h>
 #include <string.h>

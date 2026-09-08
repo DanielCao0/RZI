@@ -1,0 +1,11 @@
+diff --git a/zephyr/module.yml b/zephyr/module.yml
+index 607b814..b9e56de 100644
+--- a/zephyr/module.yml
++++ b/zephyr/module.yml
+@@ -6,6 +6,5 @@ build:
+   kconfig: Kconfig
+   cmake: .
+   settings:
+-    board_root: .
+     dts_root: .
+     module_ext_root: .

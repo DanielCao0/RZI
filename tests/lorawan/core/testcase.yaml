@@ -5,3 +5,22 @@ tests:
       - lorawan
     platform_allow:
       - native_sim
+  rzi.lorawan.core.all_scaffolds:
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - native_sim
+    extra_configs:
+      - CONFIG_RZI_LORAWAN_MULTICAST=y
+      - CONFIG_RZI_LORAWAN_LINK_CHECK=y
+      - CONFIG_RZI_LORAWAN_FUOTA=y
+      - CONFIG_RZI_LORAWAN_DEVICE_TIME=y
+      - CONFIG_RZI_LORAWAN_CHANNEL_SCAN=y
+      - CONFIG_RZI_LORAWAN_CERTIFICATION=y
+      - CONFIG_RZI_LORAWAN_LONG_PACKET=y
+      - CONFIG_RZI_LORAWAN_PACKAGES=y
+      - CONFIG_RZI_LORAWAN_PACKAGE_COMPLIANCE=y
+      - CONFIG_RZI_LORAWAN_PACKAGE_CLOCK_SYNC=y
+      - CONFIG_RZI_LORAWAN_PACKAGE_REMOTE_MULTICAST_SETUP=y
+      - CONFIG_RZI_LORAWAN_PACKAGE_FRAGMENTATION=y

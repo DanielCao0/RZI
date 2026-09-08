@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
+/**
+ * @file
+ * @brief Semtech USP and LoRa Basics Modem backend for RZI LoRaWAN.
+ */
+
 #include <errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>

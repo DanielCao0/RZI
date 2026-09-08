@@ -1,0 +1,8 @@
+tests:
+  rzi.at.lorawan_command:
+    tags:
+      - rzi
+      - at
+      - lorawan
+    platform_allow:
+      - native_sim

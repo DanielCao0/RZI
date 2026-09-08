@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/**
+ * @file
+ * @brief Interrupt-driven UART I/O adapter for the RZI AT service.
+ */
 
 #include <errno.h>
 
@@ -43,7 +47,7 @@ static void uart_isr(const struct device *uart, void *user_data)
 
 int rzi_at_uart_start(const struct device *uart)
 {
-	struct rzi_at_transport transport = {
+	struct rzi_at_io io = {
 		.write = uart_write,
 		.user_data = (void *)uart,
 	};
@@ -60,7 +64,7 @@ int rzi_at_uart_start(const struct device *uart)
 		return rc;
 	}
 	active_uart = uart;
-	rc = rzi_at_start(&transport);
+	rc = rzi_at_start(&io);
 	if (rc != 0) {
 		active_uart = NULL;
 		(void)uart_irq_callback_user_data_set(uart, NULL, NULL);

@@ -30,18 +30,18 @@ patches:
       there is no lr_fhss_driver/ directory. Without this patch CMake cannot find
       the source and the link fails.
 
-  - path: usp_zephyr/0003-xiao-nrf54l15-full-name.patch
-    sha256sum: 1f5e7c201c10bed0bf6ceaab93ba62b8a6bee5fd38b719f234fd954dc9f0093a
+  - path: usp_zephyr/0003-disable-duplicate-xiao-board-root.patch
+    sha256sum: a55bb5040a3d288e10604151b9e5796e4f59ca81b00299ffb04f5fa09e295f80
     module: usp_zephyr
     author: rzi
     email: patches@rzi.local
-    date: 2026-09-03
+    date: 2026-09-08
     upstreamable: true
     apply-command: git apply
     comments: |
-      Zephyr 4.4 board.yml requires name and full_name together. The usp_zephyr
-      Xiao board lacks full_name, so CMake board discovery fails even when
-      building for RAK4631.
+      Zephyr 4.4 already provides the xiao_nrf54l15 board. Stop exporting the
+      duplicate USP board root while retaining the USP devicetree bindings,
+      shields, and module extensions.
 
   - path: usp_zephyr/0004-sx1262-pa-compile-definitions.patch
     sha256sum: 271d33f77ac39d716bba057c8fe280c917d76fa0c5e43c73f4b9acee76959489

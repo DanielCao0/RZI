@@ -88,6 +88,30 @@ run_clang_format() {
 	fi
 }
 
+run_doxygen_file_check() {
+	local -a files
+	local failed=no
+
+	mapfile -t files < <(find "${REPO}/include/rzi" "${REPO}/src" -type f \
+		\( -name '*.c' -o -name '*.h' \) | sort)
+	for file in "${files[@]}"; do
+		local header
+		header="$(awk 'NR <= 20 { print }' "${file}")"
+		if ! grep -Eq '^[[:space:]]*\*[[:space:]]+@file([[:space:]]|$)' <<<"${header}"; then
+			echo "doxygen-file: missing @file: ${file#"${REPO}/"}"
+			failed=yes
+		fi
+		if ! grep -Eq '^[[:space:]]*\*[[:space:]]+@brief[[:space:]]' <<<"${header}"; then
+			echo "doxygen-file: missing @brief: ${file#"${REPO}/"}"
+			failed=yes
+		fi
+	done
+	if [[ "${failed}" == "yes" ]]; then
+		return 1
+	fi
+	echo "doxygen-file: clean (${#files[@]} production files)"
+}
+
 run_checkpatch() {
 	local staged="$1"
 	local zb
@@ -146,6 +170,7 @@ case "${1:-}" in
 esac
 
 rc=0
+run_doxygen_file_check || rc=1
 run_clang_format "${fix}" "${staged}" || rc=1
 if [[ "${fix}" == "no" ]]; then
 	run_checkpatch "${staged}" || rc=1

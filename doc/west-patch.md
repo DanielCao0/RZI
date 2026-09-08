@@ -14,9 +14,14 @@ rzi/
         └── usp_zephyr/
             ├── 0001-zephyr-4.4-warning-fixes.patch
             ├── 0002-fix-lr-fhss-src-path.patch
-            ├── 0003-xiao-nrf54l15-full-name.patch
+            ├── 0003-disable-duplicate-xiao-board-root.patch
             └── 0004-sx1262-pa-compile-definitions.patch
 ```
+
+The third patch stops `usp_zephyr` from exporting its historical
+`xiao_nrf54l15` board root because the pinned Zephyr 4.4 revision already owns
+that board. USP devicetree bindings, shields, and module extensions remain
+exported.
 
 ## Applying the patches
 

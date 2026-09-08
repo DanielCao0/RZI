@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+/**
+ * @file
+ * @brief Backend-independent RZI LoRaWAN service implementation.
+ */
 
 #include <errno.h>
 #include <string.h>

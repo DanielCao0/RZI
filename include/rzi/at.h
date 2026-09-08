@@ -24,29 +24,44 @@ extern "C" {
 
 /** Parsed AT command operation. */
 enum rzi_at_operation {
+	/** Execute `AT+COMMAND`. */
 	RZI_AT_OP_RUN,
+	/** Describe `AT+COMMAND?`. */
 	RZI_AT_OP_HELP,
+	/** Read `AT+COMMAND=?`. */
 	RZI_AT_OP_READ,
+	/** Write `AT+COMMAND=value`. */
 	RZI_AT_OP_WRITE,
 };
 
+/** Allow the run operation for a registered command. */
 #define RZI_AT_ALLOW_RUN   (1U << RZI_AT_OP_RUN)
+/** Allow the read operation for a registered command. */
 #define RZI_AT_ALLOW_READ  (1U << RZI_AT_OP_READ)
+/** Allow the write operation for a registered command. */
 #define RZI_AT_ALLOW_WRITE (1U << RZI_AT_OP_WRITE)
 
 /** Standard RUI3-compatible response status. */
 enum rzi_at_status {
+	/** Request accepted or synchronous operation completed. */
 	RZI_AT_STATUS_OK,
+	/** Unclassified command execution error. */
 	RZI_AT_STATUS_ERROR,
+	/** Invalid or unsupported command parameter. */
 	RZI_AT_STATUS_PARAM_ERROR,
+	/** A conflicting operation is in progress. */
 	RZI_AT_STATUS_BUSY_ERROR,
+	/** Uplink requested without an active network session. */
 	RZI_AT_STATUS_NO_NETWORK_JOINED,
+	/** Input exceeded a configured parser or command limit. */
 	RZI_AT_STATUS_TEST_PARAM_OVERFLOW,
 };
 
 /** Parsed request passed to a registered command handler. */
 struct rzi_at_request {
+	/** Operation selected from the received command form. */
 	enum rzi_at_operation operation;
+	/** Parser-owned, NUL-terminated argument; empty when not applicable. */
 	const char *argument;
 };
 
@@ -57,21 +72,36 @@ struct rzi_at_request {
  * @param user_data Opaque pointer from struct rzi_at_command.
  *
  * @return Zero on success or a negative errno value.
+ *
+ * @note Handlers execute serially in the AT thread and must not retain request
+ *       or request->argument.
  */
 typedef int (*rzi_at_command_handler_t)(const struct rzi_at_request *request, void *user_data);
 
 /** Command names exclude the leading "AT+" and use uppercase ASCII. */
 struct rzi_at_command {
+	/** Static-lifetime uppercase command name. */
 	const char *name;
+	/** Static-lifetime one-line help text. */
 	const char *help;
+	/** Bitwise OR of RZI_AT_ALLOW_* values. */
 	uint8_t allowed_operations;
+	/** Handler invoked serially by the AT execution thread. */
 	rzi_at_command_handler_t handler;
+	/** Opaque application pointer passed to handler. */
 	void *user_data;
 };
 
-/** Synchronous byte transport used for replies and unsolicited events. */
-struct rzi_at_transport {
+/** Synchronous output binding used for replies and unsolicited events. */
+struct rzi_at_io {
+	/**
+	 * @brief Write one complete response fragment.
+	 *
+	 * The implementation must consume data before returning and must not retain
+	 * the pointer.
+	 */
 	int (*write)(const uint8_t *data, size_t size, void *user_data);
+	/** Opaque I/O implementation pointer passed to write. */
 	void *user_data;
 };
 
@@ -96,13 +126,13 @@ struct rzi_at_transport {
 __must_check int rzi_at_register(const struct rzi_at_command *commands, size_t count);
 
 /**
- * @brief Start the process-wide AT service on a transport.
+ * @brief Start the process-wide AT service with an I/O binding.
  *
- * The transport table is copied before this function returns. The object
- * referenced by transport->user_data must remain valid for the service
+ * The I/O table is copied before this function returns. The object referenced
+ * by io->user_data must remain valid for the service
  * lifetime.
  *
- * @param transport Synchronous output transport.
+ * @param io Synchronous output binding.
  *
  * @return Zero when started, otherwise a negative errno value from validation,
  *         command registration, or extension startup.
@@ -110,7 +140,7 @@ __must_check int rzi_at_register(const struct rzi_at_command *commands, size_t c
  * @note Thread context only. Runtime stop and restart are not supported.
  * @since 0.2
  */
-__must_check int rzi_at_start(const struct rzi_at_transport *transport);
+__must_check int rzi_at_start(const struct rzi_at_io *io);
 
 /**
  * @brief Supply received bytes to the AT parser.
@@ -137,7 +167,7 @@ __must_check int rzi_at_receive(const uint8_t *data, size_t size);
  * @param status Response status.
  *
  * @return Zero when written, otherwise a negative errno value from validation
- *         or the active transport.
+ *         or the active I/O binding.
  *
  * @note Thread context only.
  * @since 0.2
@@ -151,7 +181,7 @@ __must_check int rzi_at_respond_status(enum rzi_at_status status);
  * @param ... Values referenced by format.
  *
  * @return Zero when written, otherwise a negative errno value from validation,
- *         formatting, or the active transport.
+ *         formatting, or the active I/O binding.
  *
  * @note Thread context only.
  * @since 0.2
@@ -165,7 +195,7 @@ __printf_like(1, 2) __must_check int rzi_at_respond_value(const char *format, ..
  * @param ... Values referenced by format.
  *
  * @return Zero when written, otherwise a negative errno value from validation,
- *         formatting, or the active transport.
+ *         formatting, or the active I/O binding.
  *
  * @note Thread context only.
  * @since 0.2

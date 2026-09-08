@@ -2,16 +2,19 @@
 
 ## 1. 适用范围
 
-本规范适用于 `include/rzi/` 下所有公共 C API，包括函数、callback、结构体、
-枚举、常量和公开类型。新增或修改公共 API 时必须同时更新对应 Doxygen 注解。
+本规范适用于 `include/rzi/` 和 `src/` 下所有 RZI 生产库 C 源文件及头文件。
+公共 C API 包括函数、callback、结构体、枚举、常量和公开类型；新增或修改公共
+API 时必须同时更新对应 Doxygen 注解。
 
 公共头文件使用 Zephyr 风格 Doxygen，并通过 Zephyr toolchain attributes 提供
-编译期检查。私有实现可以使用普通注释解释设计原因，不要求为每个 `static`
-函数编写 Doxygen。
+编译期检查。每个生产库 `.c` 和 `.h` 文件均必须包含 `@file` 和 `@brief`
+文件级注解。私有 contract、跨文件类型和跨文件函数使用 Doxygen 记录；私有
+实现可以使用普通注释解释设计原因，不要求为每个 `static` 函数机械地编写
+Doxygen。`samples/` 和 `tests/` 不属于生产库文件，不强制使用文件级 Doxygen。
 
 ## 2. 文件和 API group
 
-每个公共头文件必须包含：
+每个生产库 C 源文件和头文件必须包含：
 
 ```c
 /**
@@ -20,7 +23,8 @@
  */
 ```
 
-每个 service 必须定义 Doxygen group，并记录首次公开版本和当前 API 版本：
+每个公共头文件还必须加入一个 service group。每个 service 必须定义
+Doxygen group，并记录首次公开版本和当前 API 版本：
 
 ```c
 /**
@@ -33,7 +37,11 @@
 ```
 
 子模块使用 `@ingroup` 加入所属 service。文件末尾必须使用 `/** @} */` 关闭
-group。
+group。私有头文件和 `.c` 文件不定义公共 group，避免把内部符号混入稳定 API
+参考手册。
+
+`scripts/check-style.sh` 会扫描 `include/rzi/` 和 `src/`，任何缺少 `@file`
+或 `@brief` 的生产库文件都会导致检查失败。
 
 ## 3. 公共函数
 
@@ -162,7 +170,8 @@ RZI 当前公共 API 运行在 supervisor mode，不得添加 `__syscall`。未�
 
 提交公共 API 修改前必须确认：
 
-- [ ] 文件和 group 包含 `@brief`、`@since`、`@version`；
+- [ ] 所有生产库 `.c/.h` 文件都包含 `@file` 和 `@brief`；
+- [ ] 公共头文件的 service group 包含 `@brief`、`@since`、`@version`；
 - [ ] 所有参数都有范围、方向、所有权和生命周期说明；
 - [ ] 同步返回值与异步完成结果没有混淆；
 - [ ] 公开错误码均有 `@retval` 或统一 `@return` 说明；

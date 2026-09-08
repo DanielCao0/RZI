@@ -14,7 +14,7 @@ K_MUTEX_DEFINE(output_lock);
 static char output[256];
 static char last_argument[32];
 
-static int transport_write(const uint8_t *data, size_t size, void *user_data)
+static int io_write(const uint8_t *data, size_t size, void *user_data)
 {
 	ARG_UNUSED(user_data);
 	if (size >= sizeof(output)) {
@@ -58,12 +58,12 @@ static void send_command(const char *command)
 
 static void *setup(void)
 {
-	static const struct rzi_at_transport transport = {
-		.write = transport_write,
+	static const struct rzi_at_io io = {
+		.write = io_write,
 	};
 
 	zassert_ok(rzi_at_register(&custom_command, 1));
-	zassert_ok(rzi_at_start(&transport));
+	zassert_ok(rzi_at_start(&io));
 	return NULL;
 }
 
@@ -76,7 +76,7 @@ ZTEST(rzi_at_core, test_attention_and_crlf)
 ZTEST(rzi_at_core, test_command_name_is_case_insensitive)
 {
 	send_command("at+ver=?\r");
-	zassert_not_null(strstr(output, "AT+VER=RZI_0.1.0_"));
+	zassert_not_null(strstr(output, "AT+VER=RZI_0.2.0_"));
 }
 
 ZTEST(rzi_at_core, test_argument_case_is_preserved)

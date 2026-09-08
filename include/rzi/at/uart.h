@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief Interrupt-driven UART transport for the RZI AT service.
+ * @brief Interrupt-driven UART I/O adapter for the RZI AT service.
  */
 #ifndef RZI_AT_UART_H
 #define RZI_AT_UART_H
@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 /**
- * @defgroup rzi_at_uart RZI AT UART transport
+ * @defgroup rzi_at_uart RZI AT UART adapter
  * @ingroup rzi_at
  * @brief UART binding for the RZI AT service.
  * @since 0.2

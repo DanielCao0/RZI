@@ -7,7 +7,9 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/ztest.h>
 
+#include <rzi/capabilities.h>
 #include <rzi/lorawan.h>
+#include <rzi/version.h>
 
 #include "lorawan_backend.h"
 
@@ -154,6 +156,13 @@ static void wait_for_callbacks(unsigned int count)
 	for (unsigned int i = 0; i < count; ++i) {
 		zassert_ok(k_sem_take(&callback_sem, K_SECONDS(1)));
 	}
+}
+
+ZTEST(rzi_lorawan_core, test_sdk_metadata_and_feature_discovery)
+{
+	zassert_equal(strcmp(rzi_version_get_string(), RZI_VERSION_STRING), 0);
+	zassert_equal(rzi_get_capabilities(), RZI_CAP_LORAWAN);
+	zassert_is_null(rzi_lorawan_feature_get(RZI_LORAWAN_FEATURE_MULTICAST));
 }
 
 ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)

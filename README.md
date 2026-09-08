@@ -15,24 +15,38 @@ service roadmap are defined in
 rzi/
 ├── zephyr/
 │   ├── module.yml       Zephyr module metadata
-│   ├── Kconfig          RZI feature configuration
-│   ├── CMakeLists.txt   Zephyr library integration
+│   ├── Kconfig*         Per-service feature configuration
+│   ├── CMakeLists.txt   Top-level Zephyr library integration
 │   ├── patches.yml      Backend compatibility patch manifest
 │   └── patches/         Backend compatibility patches
-├── include/rzi/         Public C API
+├── include/rzi/
+│   ├── version.h        Canonical SDK version
+│   ├── capabilities.h   Compiled service discovery
+│   ├── storage.h        Namespaced key-value storage
+│   ├── lorawan.h        LoRaWAN core public API
+│   └── at/uart.h        Implemented UART adapter API
 ├── src/
+│   ├── core/            Version and service capability implementation
+│   ├── storage/         Zephyr settings storage adapter
+│   ├── lora/            Raw LoRa private .c/.h scaffold
 │   ├── lorawan/
 │   │   ├── lorawan.c          Backend-independent service
 │   │   ├── lorawan_backend.h  Private backend contract
-│   │   └── backends/
-│   │       └── lorawan_backend_usp.c
-│   │                              Semtech USP implementation
+│   │   ├── lorawan_feature.h  Versioned backend feature extensions
+│   │   ├── backends/
+│   │   │   └── lorawan_backend_usp.c
+│   │   │                          Semtech USP implementation
+│   │   ├── mac_commands/         DeviceTimeReq and LinkCheckReq boundary
+│   │   ├── services/             RUI3 independent service .c/.h scaffolds
+│   │   └── packages/             Private standards package .c/.h scaffolds
 │   └── at/
 │       ├── at_core.c          Lifecycle, RX queue and output
 │       ├── at_parser.c        RUI3 command grammar
 │       ├── at_registry.c      Extensible command registry
-│       ├── commands/          Optional RZI service command packages
-│       └── transports/        Optional UART and future transports
+│       ├── commands/
+│       │   ├── at_command_system.c
+│       │   └── lorawan/       LoRaWAN commands grouped by RUI3 domain
+│       └── adapters/          UART and reserved RUI3 BLE UART adapters
 ├── samples/             RZI-owned buildable samples
 ├── doc/                 Architecture and internal documentation
 ├── LICENSE
@@ -131,15 +145,19 @@ Implemented now:
 - Zephyr-shaped LoRaWAN start/join/send API with RUI3-style asynchronous
   callbacks and multiple subscribers;
 - USP/LBM backend isolation and serialized modem access;
-- a transport-independent, extensible RUI3-compatible AT framework with an
-  optional UART transport and LoRaWAN command package (AT, ATZ, ATR, VER,
-  DEVEUI, APPEUI, APPKEY, BAND, NJM, NJS, CLASS, CFM, CFS, JOIN, SEND, RECV);
+- an I/O-independent, extensible RUI3-compatible AT framework with an optional
+  UART adapter and LoRaWAN command package (AT, ATZ, ATR, VER,
+  DEVEUI, APPEUI, APPKEY, BAND, NJM, NWM, NJS, CLASS, CFM, CFS, JOIN, SEND,
+  RECV);
 - flash persistence of AT parameters through Zephyr settings/NVS, using the
   board-defined `storage_partition` convention (no hardcoded addresses);
 - standard Zephyr samples with Twister metadata.
 
 ABP, power policy, diagnostics, FUOTA, and the Arduino/RUI C++ wrapper
 remain planned services.
+
+See [`doc/at-command-compatibility.md`](doc/at-command-compatibility.md) for the
+exact command behavior and the differences from the complete RUI3 command set.
 
 RZI follows the
 [Zephyr module specification](https://docs.zephyrproject.org/latest/develop/modules.html)

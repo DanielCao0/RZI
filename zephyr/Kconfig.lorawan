@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_LORAWAN
+	bool "RZI LoRaWAN service"
+	depends on FLASH
+	help
+	  Enable the backend-independent RZI LoRaWAN service API.
+
+if RZI_LORAWAN
+
+choice RZI_LORAWAN_BACKEND
+	prompt "LoRaWAN backend"
+	default RZI_LORAWAN_BACKEND_USP
+
+config RZI_LORAWAN_BACKEND_USP
+	bool "Semtech USP and LoRa Basics Modem"
+	depends on !LORA && !LORAWAN
+	select LORA_BASICS_MODEM_DRIVERS
+	select USP
+	select USP_LORA_BASICS_MODEM
+	select USP_MAIN_THREAD
+	select USP_THREADS_MUTEXES
+	help
+	  Use the Semtech USP and LoRa Basics Modem implementation. RZI owns
+	  the modem; applications must not call Semtech APIs directly.
+
+config RZI_LORAWAN_BACKEND_TEST
+	bool "In-process test backend"
+	depends on ZTEST
+	help
+	  Select a backend supplied by a RZI unit-test application. Do not use
+	  this option in production firmware.
+
+endchoice
+
+config RZI_LORAWAN_EVENT_QUEUE_SIZE
+	int "LoRaWAN event queue depth"
+	range 4 64
+	default 8
+
+config RZI_LORAWAN_MAX_CALLBACKS
+	int "Maximum LoRaWAN callback subscribers"
+	range 1 16
+	default 4
+
+config RZI_LORAWAN_DISPATCHER_STACK_SIZE
+	int "LoRaWAN callback dispatcher stack size"
+	range 1024 8192
+	default 2048
+
+config RZI_LORAWAN_DISPATCHER_PRIORITY
+	int "LoRaWAN callback dispatcher preemptive priority"
+	range 0 15
+	default 10
+
+menu "Reserved LoRaWAN features"
+
+config RZI_LORAWAN_MULTICAST
+	bool "Multicast service scaffold"
+
+config RZI_LORAWAN_LINK_CHECK
+	bool "LinkCheckReq MAC command scaffold"
+
+config RZI_LORAWAN_FUOTA
+	bool "FUOTA service scaffold"
+
+config RZI_LORAWAN_DEVICE_TIME
+	bool "DeviceTimeReq MAC command scaffold"
+
+config RZI_LORAWAN_CHANNEL_SCAN
+	bool "Channel-scan service scaffold"
+
+config RZI_LORAWAN_CERTIFICATION
+	bool "Certification service scaffold"
+
+config RZI_LORAWAN_LONG_PACKET
+	bool "Long-packet service scaffold"
+
+config RZI_LORAWAN_PACKAGES
+	bool "LoRaWAN application-package framework scaffold"
+
+if RZI_LORAWAN_PACKAGES
+
+config RZI_LORAWAN_PACKAGE_COMPLIANCE
+	bool "Compliance package scaffold"
+
+config RZI_LORAWAN_PACKAGE_CLOCK_SYNC
+	bool "Application Layer Clock Synchronization scaffold"
+
+config RZI_LORAWAN_PACKAGE_REMOTE_MULTICAST_SETUP
+	bool "Remote Multicast Setup scaffold"
+
+config RZI_LORAWAN_PACKAGE_FRAGMENTATION
+	bool "Fragmented Data Block Transport scaffold"
+
+endif # RZI_LORAWAN_PACKAGES
+
+endmenu
+
+endif # RZI_LORAWAN

@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/**
+ * @file
+ * @brief Built-in system AT commands and optional command-package registration.
+ */
 
 #include <zephyr/kernel.h>
 
 #include <rzi/at.h>
+#include <rzi/version.h>
 
 #include "../at_priv.h"
 
-#define VERSION_STRING "RZI_0.1.0_" CONFIG_BOARD
+#define VERSION_STRING "RZI_" RZI_VERSION_STRING "_" CONFIG_BOARD
 
 static int version(const struct rzi_at_request *request, void *user_data)
 {

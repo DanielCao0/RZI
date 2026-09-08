@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/**
+ * @file
+ * @brief RUI3-compatible AT line parser and built-in command dispatcher.
+ */
 
 #include <errno.h>
 #include <string.h>

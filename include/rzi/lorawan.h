@@ -24,109 +24,178 @@ extern "C" {
 
 /** Maximum storage reserved for a LoRaWAN application payload. */
 #define RZI_LORAWAN_MAX_PAYLOAD             242
+/** Sentinel that never identifies a registered callback subscriber. */
 #define RZI_LORAWAN_CALLBACK_HANDLE_INVALID 0U
 
 /** LoRaWAN regional parameter selection. */
 enum rzi_lorawan_region {
+	/** Europe 863-870 MHz. */
 	RZI_LORAWAN_REGION_EU_868,
+	/** United States 902-928 MHz. */
 	RZI_LORAWAN_REGION_US_915,
+	/** Australia 915-928 MHz. */
 	RZI_LORAWAN_REGION_AU_915,
+	/** China 470-510 MHz. */
 	RZI_LORAWAN_REGION_CN_470,
+	/** AS923 group 1. */
 	RZI_LORAWAN_REGION_AS_923_GRP1,
+	/** AS923 group 2. */
 	RZI_LORAWAN_REGION_AS_923_GRP2,
+	/** AS923 group 3. */
 	RZI_LORAWAN_REGION_AS_923_GRP3,
+	/** AS923 group 4. */
 	RZI_LORAWAN_REGION_AS_923_GRP4,
+	/** India 865-867 MHz. */
 	RZI_LORAWAN_REGION_IN_865,
+	/** South Korea 920-923 MHz. */
 	RZI_LORAWAN_REGION_KR_920,
+	/** Russia 864-870 MHz. */
 	RZI_LORAWAN_REGION_RU_864,
 };
 
 /** Network activation method. */
 enum rzi_lorawan_activation {
+	/** Over-the-air activation. */
 	RZI_LORAWAN_ACTIVATION_OTAA,
+	/** Activation by personalization. */
 	RZI_LORAWAN_ACTIVATION_ABP,
 };
 
 /** Uplink confirmation policy. */
 enum rzi_lorawan_message_type {
+	/** Uplink does not request a network acknowledgment. */
 	RZI_LORAWAN_MSG_UNCONFIRMED,
+	/** Uplink requests a network acknowledgment. */
 	RZI_LORAWAN_MSG_CONFIRMED,
 };
 
 /** Supported LoRaWAN device classes. */
 enum rzi_lorawan_class {
+	/** Class A operation. */
 	RZI_LORAWAN_CLASS_A,
+	/** Beacon-synchronized Class B operation. */
 	RZI_LORAWAN_CLASS_B,
+	/** Continuously listening Class C operation. */
 	RZI_LORAWAN_CLASS_C,
 };
 
 /** Backend capabilities returned by @ref rzi_lorawan_get_capabilities. */
 enum rzi_lorawan_capability {
+	/** Backend supports OTAA. */
 	RZI_LORAWAN_CAP_OTAA = (1U << 0),
+	/** Backend supports ABP. */
 	RZI_LORAWAN_CAP_ABP = (1U << 1),
+	/** Backend supports Class A. */
 	RZI_LORAWAN_CAP_CLASS_A = (1U << 2),
+	/** Backend supports Class B. */
 	RZI_LORAWAN_CAP_CLASS_B = (1U << 3),
+	/** Backend supports Class C. */
 	RZI_LORAWAN_CAP_CLASS_C = (1U << 4),
+	/** Backend supports multicast-session management. */
+	RZI_LORAWAN_CAP_MULTICAST = (1U << 5),
+	/** Backend supports LinkCheckReq operations. */
+	RZI_LORAWAN_CAP_LINK_CHECK = (1U << 6),
+	/** Backend supports the complete RZI FUOTA coordination contract. */
+	RZI_LORAWAN_CAP_FUOTA = (1U << 7),
+	/** Backend supports standardized LoRaWAN application packages. */
+	RZI_LORAWAN_CAP_PACKAGES = (1U << 8),
+	/** Backend supports channel-plan management. */
+	RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT = (1U << 9),
+	/** Backend supports network and MAC parameter management. */
+	RZI_LORAWAN_CAP_NETWORK_MANAGEMENT = (1U << 10),
+	/** Backend supports network-provided device time. */
+	RZI_LORAWAN_CAP_DEVICE_TIME = (1U << 11),
+	/** Backend supports channel scanning. */
+	RZI_LORAWAN_CAP_CHANNEL_SCAN = (1U << 12),
+	/** Backend supports certification mode. */
+	RZI_LORAWAN_CAP_CERTIFICATION = (1U << 13),
+	/** Backend supports the RZI long-packet extension. */
+	RZI_LORAWAN_CAP_LONG_PACKET = (1U << 14),
 };
 
 /** OTAA credentials. They are copied before @ref rzi_lorawan_join returns. */
 struct rzi_lorawan_join_otaa {
+	/** Device EUI in network registration byte order. */
 	uint8_t dev_eui[8];
+	/** Join EUI in network registration byte order. */
 	uint8_t join_eui[8];
-	/* LBM network root key: LoRaWAN 1.0.x AppKey / 1.1 NwkKey. */
+	/** LBM network root key: LoRaWAN 1.0.x AppKey or 1.1 NwkKey. */
 	uint8_t network_key[16];
-	/* LBM application root key (1.1 AppKey / backend service key). */
+	/** LBM application root key: LoRaWAN 1.1 AppKey or backend service key. */
 	uint8_t application_key[16];
 };
 
 /** ABP session parameters. A backend may report this mode as unsupported. */
 struct rzi_lorawan_join_abp {
+	/** LoRaWAN device address in host byte order. */
 	uint32_t dev_addr;
+	/** Network session key. */
 	uint8_t network_session_key[16];
+	/** Application session key. */
 	uint8_t application_session_key[16];
 };
 
 /** Network activation parameters. */
 struct rzi_lorawan_join_config {
+	/** Selects the active union member. */
 	enum rzi_lorawan_activation activation;
 	union {
+		/** Parameters used when activation is OTAA. */
 		struct rzi_lorawan_join_otaa otaa;
+		/** Parameters used when activation is ABP. */
 		struct rzi_lorawan_join_abp abp;
 	};
 };
 
 /** Observable service states delivered through state_changed. */
 enum rzi_lorawan_state {
+	/** Service has not started. */
 	RZI_LORAWAN_STATE_STOPPED,
+	/** Backend startup is in progress. */
 	RZI_LORAWAN_STATE_STARTING,
+	/** Backend is ready to accept network activation. */
 	RZI_LORAWAN_STATE_READY,
+	/** Network activation is in progress. */
 	RZI_LORAWAN_STATE_JOINING,
+	/** A network session is active. */
 	RZI_LORAWAN_STATE_JOINED,
 };
 
 /** Result of a completed uplink request. */
 enum rzi_lorawan_tx_status {
+	/** Unconfirmed uplink was transmitted. */
 	RZI_LORAWAN_TX_SENT,
+	/** Confirmed uplink was acknowledged. */
 	RZI_LORAWAN_TX_ACKED,
+	/** Uplink did not complete successfully. */
 	RZI_LORAWAN_TX_NOT_SENT,
 };
 
 /** Detailed result delivered when an asynchronous uplink completes. */
 struct rzi_lorawan_tx_result {
+	/** Protocol-level transmit result. */
 	enum rzi_lorawan_tx_status status;
+	/** Zero on normal completion, otherwise a negative errno value. */
 	int error;
 };
 
 /** Downlink metadata and payload. Data is valid only for the callback duration. */
 struct rzi_lorawan_downlink {
+	/** LoRaWAN application port. */
 	uint8_t port;
+	/** Number of payload bytes referenced by data. */
 	size_t size;
+	/** Received signal strength in dBm. */
 	int16_t rssi_dbm;
+	/** Signal-to-noise ratio in quarter-dB units. */
 	int8_t snr_quarter_db;
+	/** Backend-independent downlink flags. */
 	uint32_t flags;
+	/** Dispatcher-owned payload valid only during the callback. */
 	const uint8_t *data;
 };
 
+/** Opaque callback subscriber registration handle. */
 typedef uint16_t rzi_lorawan_callback_handle_t;
 
 /**
@@ -140,11 +209,17 @@ typedef uint16_t rzi_lorawan_callback_handle_t;
  * @since 0.2
  */
 struct rzi_lorawan_callbacks {
+	/** Called with zero after join success or negative errno after failure. */
 	void (*join_done)(int status, void *user_data);
+	/** Called after an accepted uplink reaches a terminal result. */
 	void (*send_done)(const struct rzi_lorawan_tx_result *result, void *user_data);
+	/** Called for each application downlink. */
 	void (*downlink)(const struct rzi_lorawan_downlink *downlink, void *user_data);
+	/** Called for observable service state transitions. */
 	void (*state_changed)(enum rzi_lorawan_state state, void *user_data);
+	/** Called for asynchronous errors not attached to another result. */
 	void (*error)(int error, void *user_data);
+	/** Opaque subscriber pointer passed to every callback. */
 	void *user_data;
 };
 

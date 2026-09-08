@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+
+tests:
+  rzi.storage.api:
+    platform_allow:
+      - native_sim
+    tags:
+      - rzi
+      - storage

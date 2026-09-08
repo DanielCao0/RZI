@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_AT
+	bool "RUI3-compatible AT command framework"
+	select REBOOT
+	help
+	  Enable the I/O-independent AT parser, command registry,
+	  response formatter and execution thread. Command packages and
+	  I/O adapters are selected independently below.
+
+if RZI_AT
+
+config RZI_AT_COMMAND_LORAWAN
+	bool "LoRaWAN AT command package"
+	depends on RZI_LORAWAN
+	default n
+	help
+	  Enable the RUI3-compatible LoRaWAN command subset. This package is
+	  a client of the public RZI LoRaWAN API.
+
+config RZI_AT_COMMAND_LORA
+	bool "Raw LoRa and FSK AT command package scaffold"
+	depends on RZI_LORA
+	default n
+
+config RZI_AT_ADAPTER_UART
+	bool "UART AT I/O adapter"
+	depends on SERIAL
+	select UART_INTERRUPT_DRIVEN
+	default n
+	help
+	  Bind the AT framework to one application-selected interrupt UART.
+
+config RZI_AT_MAX_COMMANDS
+	int "Maximum registered AT commands"
+	range 8 256
+	default 32
+
+config RZI_AT_MAX_EXTENSIONS
+	int "Maximum AT command extensions"
+	range 1 16
+	default 4
+
+config RZI_AT_LINE_MAX
+	int "Maximum AT input line length"
+	range 64 2048
+	default 600
+
+config RZI_AT_RX_BUFFER_SIZE
+	int "AT receive ring buffer size"
+	range 128 4096
+	default 1024
+
+config RZI_AT_TX_BUFFER_SIZE
+	int "AT response formatting buffer size"
+	range 128 2048
+	default 640
+
+config RZI_AT_THREAD_STACK_SIZE
+	int "AT execution thread stack size"
+	range 1024 8192
+	default 2048
+
+config RZI_AT_THREAD_PRIORITY
+	int "AT execution thread preemptive priority"
+	range 0 15
+	default 14
+
+config RZI_AT_PROCESS_INTERVAL_MS
+	int "AT extension processing interval in milliseconds"
+	range 1 1000
+	default 20
+
+config RZI_AT_ECHO
+	bool "Echo AT input characters"
+	default y
+	help
+	  Echo printable input and line editing characters using RUI3-style
+	  terminal behavior. Disable this when the host performs local echo.
+
+config RZI_AT_NVM
+	bool "Persist LoRaWAN AT parameters in flash"
+	depends on RZI_AT_COMMAND_LORAWAN
+	select RZI_STORAGE
+	select NVS
+	select FLASH_MAP
+	help
+	  Persist the AT parameters (DEVEUI, APPEUI, APPKEY, BAND, CFM and
+	  JOIN auto-join settings) through the RZI storage service, and
+	  enable ATR to restore the devicetree defaults. The application
+	  selects the Zephyr settings backend itself (CONFIG_SETTINGS_NVS=y
+	  recommended). RZI never hardcodes flash addresses.
+
+endif # RZI_AT

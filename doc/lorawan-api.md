@@ -12,7 +12,20 @@ RZI LoRaWAN API 是应用与具体协议栈之间稳定的 C 接口。公共接�
 - API 返回值只表示请求是否被接受，最终结果由 callback 报告。
 
 本文档是 LoRaWAN 公共 API 的权威规范；头文件
-`include/rzi/lorawan.h` 是精确的 ABI 定义。
+`include/rzi/lorawan.h` 是当前核心 ABI 的精确定义。
+
+Class B、network/channel management 和 information 属于 LoRaWAN Core，
+不建立空的独立服务目录。DeviceTimeReq 与 LinkCheckReq 统一保留在
+`src/lorawan/mac_commands/`。RUI3 确实独立实现的 channel scan、multicast、
+certification、long packet 和 FUOTA 放在 `src/lorawan/services/`；标准
+application packages 保留在 `src/lorawan/packages/`。
+
+这些内部 header 的版本为 `0.0.0`，不进入公共 include 路径，也不代表 backend
+具备对应 capability。新能力只有在公共 API、backend contract、Kconfig、测试和
+文档同时完成后，才新增 `include/rzi/lorawan/<feature>.h` facade。
+
+RUI3 的 LoRa P2P/FSK 能力不属于 LoRaWAN，RZI 将其保留在独立的
+`src/lora/` 内部边界。完整映射见 `doc/rui3-c-service-framework.md`。
 
 ## 2. 与 Zephyr 和 RUI3 的关系
 
@@ -148,7 +161,13 @@ dispatch snapshot 包含该订阅者，但注销时已经开始的 callback 可�
 - 不直接调用用户 callback；
 - 不把供应商对象、enum 或线程模型泄漏到公共头文件。
 
-新增 backend 只需实现这个私有 contract，不应要求应用修改公共调用流程。
+`lorawan_feature.h` 定义可选能力的 versioned extension descriptor。每个真实
+feature 在自己的私有头中定义 typed operations table，并通过 feature ID 从
+backend 获取；`size` 和 `version` 用于兼容性校验。公共 capability bit 表示
+运行时支持，Kconfig 只表示该 feature facade 被编译，二者不能互相替代。
+
+新增 backend 只需实现 core contract，并按实际能力提供 extension；不应要求
+应用修改公共调用流程。
 
 ## 9. 兼容性策略
 

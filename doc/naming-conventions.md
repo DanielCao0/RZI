@@ -38,6 +38,9 @@ requirements for RZI contributions.
 - A subordinate public API belongs below its service:
   `include/rzi/at/uart.h`.
 - A service implementation belongs below `src/<service>/`.
+- A reserved or private feature header belongs beside its implementation under
+  `src/<service>/<feature>/`; it MUST NOT enter `include/rzi/` before a
+  callable public contract exists.
 - Backend implementations belong below
   `src/<service>/backends/<service>_backend_<backend>.c`.
 - Tests and samples SHOULD mirror the service directory they exercise.
@@ -50,9 +53,16 @@ include/rzi/at/uart.h
 src/lorawan/lorawan.c
 src/lorawan/lorawan_backend.h
 src/lorawan/backends/lorawan_backend_usp.c
+src/lorawan/services/multicast/lorawan_multicast.c
+src/lorawan/services/multicast/lorawan_multicast.h
+src/lora/lora.c
+src/lora/lora.h
+src/lora/lora_backend.h
 src/at/at_core.c
 src/at/at_priv.h
 src/at/commands/at_command_system.c
+src/at/commands/lorawan/at_command_lorawan.c
+src/at/commands/lorawan/at_command_lorawan_key_id.c
 tests/at/core/src/main.c
 ```
 
@@ -169,6 +179,12 @@ include/rzi/at/uart.h  -> RZI_AT_UART_H
 - A command handler SHOULD be named `handle_<lowercase_command>()`.
 - Command package registration functions MUST use
   `rzi_at_<package>_register()`.
+- A command package with multiple command domains SHOULD use a package
+  subdirectory, for example `commands/lorawan/`, and split files by stable
+  command domain rather than by individual command.
+- Command descriptor names, help text, allowed operations, and handlers MUST
+  remain together in one `struct rzi_at_command` array. Do not create separate
+  `_def.h` files that duplicate command metadata or documentation.
 - Responses and unsolicited events MUST follow the documented RUI3 syntax;
   implementation-specific spellings MUST NOT leak into command names.
 

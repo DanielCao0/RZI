@@ -161,7 +161,7 @@ application and need a documented removal condition.
 
 Application headers live under `include/rzi/` and provide a C ABI with C++
 guards. They contain RZI types, standard C types, and only unavoidable stable
-Zephyr types at transport boundaries.
+Zephyr types at I/O adapter boundaries.
 
 Public APIs:
 
@@ -176,22 +176,23 @@ Public APIs:
 RZI is not a one-to-one wrapper for every upstream API. A public operation is
 added when it represents a supported RAK product capability.
 
-Planned header groups are:
+Public header groups are:
 
 ```text
 include/rzi/
 ├── version.h              SDK version and compatibility queries
 ├── capabilities.h         Service and backend capabilities
 ├── lorawan.h              Backend-independent LoRaWAN service
-├── at.h                   AT lifecycle and transport binding
+├── at.h                   AT lifecycle and I/O binding
 ├── storage.h              Versioned RZI configuration
 ├── power.h                Sleep constraints and wake policy
 ├── fuota.h                Update state and control
 └── diagnostics.h          Stable counters and health data
 ```
 
-Headers that do not exist in the current tree are target architecture, not
-implemented API commitments.
+`version.h`, `capabilities.h`, `lorawan.h`, `at.h`, and `storage.h` are
+implemented. Headers that do not exist in the current tree remain target
+architecture rather than API commitments.
 
 ## 6. LoRaWAN service
 
@@ -211,18 +212,32 @@ The current `include/rzi/lorawan.h` supports:
 `src/lorawan/lorawan.c` validates requests and dispatches copied backend events
 to subscribers outside the modem callback context. The private contract in
 `src/lorawan/lorawan_backend.h` is implemented by one source under
-`src/lorawan/backends/`. See `doc/lorawan-api.md` for the normative API and
-concurrency contract.
+`src/lorawan/backends/`. Optional capabilities are resolved through the
+versioned private extension descriptor in `src/lorawan/lorawan_feature.h`;
+each implemented feature owns its typed private operation table. This keeps
+the core backend vtable stable while allowing features to evolve separately.
+See `doc/lorawan-api.md` for the normative API and concurrency contract.
+
+Reserved feature boundaries cover the RUI3 C LoRa service surface: network and
+channel management, information, channel scanning, device time, Class B, link
+checks, multicast, certification, long packets, FUOTA, and standard LoRaWAN
+application packages. Each reserved feature keeps its `.c/.h` pair together
+below `src/lorawan/<feature>/`. Version `0.0.0` marks an internal scaffold; it
+does not enter the public include tree or advertise runtime capability. Each
+scaffold has an independent, default-disabled Kconfig symbol and is excluded
+from production builds until selected. A public facade is added only when the
+feature contract is implemented. Raw LoRa P2P and FSK use the separate
+`CONFIG_RZI_LORA` and `src/lora/` private boundary.
 
 ### Target capability model
 
 Backends will not always provide the same features. The common service exposes
-a capability bitset; the currently defined bits cover OTAA, ABP, and Classes
-A/B/C. Future candidate capabilities include:
+a capability bitset covering activation, device classes, multicast, link
+check, FUOTA, packages, channel/network management, device time, channel scan,
+certification, and long-packet support. Further candidate capabilities include:
 
 ```text
-ADR_CONTROL, CHANNEL_MASK, LINK_CHECK, DEVICE_TIME,
-MULTICAST, FUOTA, CSMA, RELAY
+ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY
 ```
 
 An unsupported operation returns `-ENOTSUP`. AT and C++ layers query
@@ -318,7 +333,7 @@ Release manifests use tags or immutable SHAs and never follow an unmerged PR.
 
 ## 9. AT service
 
-Status: transport-independent command framework and basic RUI3-compatible
+Status: I/O-independent command framework and basic RUI3-compatible
 LoRaWAN command package implemented.
 
 AT is a client of public RZI services. It does not call `smtc_modem_*`, Zephyr
@@ -333,21 +348,38 @@ src/at/
 ├── at_registry.c            command registration
 ├── at_priv.h                cross-file private contract
 ├── commands/
-│   ├── at_command_system.c
-│   ├── at_command_lorawan.c
-│   ├── at_command_power.c
-│   └── at_command_fuota.c
-└── transports/
-    └── at_transport_uart.c
+│   ├── at_command_system.c  system command package
+│   └── lorawan/
+│       ├── at_command_lorawan.c
+│       │                         package state, callbacks, NVM, registration
+│       ├── at_command_lorawan_priv.h
+│       │                         private command-package contract
+│       ├── at_command_lorawan_key_id.c
+│       │                         OTAA identifiers and keys
+│       ├── at_command_lorawan_join_send.c
+│       │                         activation and application data
+│       └── at_command_lorawan_network_management.c
+│                                 mode, region, and device class
+└── adapters/
+    ├── at_adapter_uart.c    implemented interrupt-driven UART adapter
+    └── at_adapter_ble_uart.c
+                              reserved RUI3 SERIAL_BLE0 boundary
 ```
 
-This permits USB CDC, BLE UART, shell, and test transports without duplicating
-command semantics. Compatibility is documented command by command, including
-syntax, responses, events, persistence, reset behavior, and unsupported values.
+Adapters carry bytes between an I/O API and AT core; they never bypass parsing
+or transparently forward data to a modem. USB CDC ACM exposed as a Zephyr UART
+uses the UART adapter. The BLE UART boundary is grounded in RUI3
+`SERIAL_BLE0`; it is not compiled until its Zephyr GATT contract is
+implemented. Compatibility is documented command by command, including
+syntax, responses, events, persistence, reset behavior, and unsupported
+values.
+Large command packages are divided by stable RUI3 command domains. Each domain
+owns native `struct rzi_at_command` descriptors, so command names, help,
+allowed operations, and handlers have one source of truth.
 
 `CONFIG_RZI_AT` does not depend on LoRaWAN or UART. Command packages such as
 `CONFIG_RZI_AT_COMMAND_LORAWAN` depend only on the RZI service they expose, and
-transports such as `CONFIG_RZI_AT_TRANSPORT_UART` are selected independently.
+adapters such as `CONFIG_RZI_AT_ADAPTER_UART` are selected independently.
 Applications may register static-lifetime commands before `rzi_at_start()`.
 
 ## 10. Configuration and NVM
@@ -361,9 +393,11 @@ Persistent state has separate owners:
 | LoRaWAN protocol context | Backend | frame counters, DevNonce, session, ADR |
 | Update state | RZI FUOTA | progress, image version, pending confirmation |
 
-The current AT component persists basic parameters through settings/NVS. The
-target storage service centralizes schema versioning, defaults, validation,
-migration, factory reset, and atomic updates. Suggested namespaces are:
+The implemented `rzi/storage.h` service provides serialized namespaced
+read/write/delete operations and currently adapts Zephyr settings. The AT
+component consumes this API and no longer calls settings directly. Schema
+versioning, migrations, transactions, and cross-service factory reset remain
+future storage-layer responsibilities. Suggested namespaces are:
 
 ```text
 rzi/meta/*
@@ -441,18 +475,19 @@ session context are never exposed. Backend log text is not an API contract.
 
 ```text
 rzi/
-├── zephyr/
+├── zephyr/                  Top-level and per-service Kconfig integration
 ├── include/rzi/
 ├── src/
-│   ├── core/
+│   ├── core/                Version and compiled-service capabilities
 │   ├── lorawan/
 │   │   ├── lorawan.c
 │   │   ├── lorawan_backend.h
+│   │   ├── lorawan_feature.h
 │   │   └── backends/
 │   │       ├── lorawan_backend_usp.c
 │   │       └── lorawan_backend_zephyr_lbm.c       planned
 │   ├── at/
-│   ├── storage/
+│   ├── storage/             Namespaced settings adapter
 │   ├── power/
 │   ├── fuota/
 │   └── diagnostics/
@@ -465,8 +500,9 @@ rzi/
 └── README.md
 ```
 
-Directories are added with an implementation or accepted design. Empty
-placeholder directories are not required.
+Each service owns its CMake source list. Reserved feature directories are
+accepted design boundaries, but their Kconfig symbols default to disabled and
+their translation units are excluded until explicitly selected.
 
 ## 16. Verification strategy
 
@@ -505,16 +541,16 @@ pass does not replace RF and power measurements.
 
 | Area | Current state | Required work |
 |---|---|---|
-| Capabilities | No query API | Add before optional LoRaWAN APIs |
-| Events | One destructive consumer | Add dispatcher before multiple clients |
-| AT | One UART-specific file | Separate parser, commands, transport |
-| Configuration | AT owns settings keys | Add versioned RZI storage schema |
+| Capabilities | SDK and LoRaWAN queries implemented | Add feature tests as APIs land |
+| Events | Multi-subscriber dispatcher implemented | Add overflow stress coverage |
+| AT | Core, commands, and adapters separated | Add command-package matrix |
+| Configuration | AT consumes RZI storage API | Add schema version and migrations |
 | Backend context | USP HAL owns it | Preserve backend ownership |
 | Zephyr LBM | Open upstream PR | Evaluate without release dependency |
 | Power | No RZI policy | Define blockers, wake contract, targets |
 | FUOTA | Not implemented | Define package and MCUboot profile |
 | C++ RUI | External future layer | Depend on public C only |
-| API/ABI version | No formal policy | Define before prebuilt libraries |
+| API/ABI version | Canonical SDK version API exists | Define ABI policy before 1.0 |
 
 This table is reviewed at each milestone. Architecture documentation must
 separate implemented behavior from planned behavior and change when an
