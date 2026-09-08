@@ -13,6 +13,11 @@ static size_t line_length;
 static bool line_overflow;
 static bool ignore_lf;
 
+static void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 static int ascii_casecmp_n(const char *left, const char *right, size_t count)
 {
 	for (size_t i = 0; i < count; ++i) {
@@ -40,13 +45,13 @@ static bool equals_ignore_case(const char *left, const char *right)
 static void respond_for_error(int rc)
 {
 	if (rc == -EINVAL) {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_PARAM_ERROR);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_PARAM_ERROR));
 	} else if (rc == -EBUSY) {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_BUSY_ERROR);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_BUSY_ERROR));
 	} else if (rc == -ENETDOWN) {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_NO_NETWORK_JOINED);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_NO_NETWORK_JOINED));
 	} else if (rc != 0) {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_ERROR);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
 	}
 }
 
@@ -68,7 +73,7 @@ static void execute(char *input)
 	int rc;
 
 	if (equals_ignore_case(input, "AT")) {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_OK);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
 		return;
 	}
 	if (equals_ignore_case(input, "ATZ")) {
@@ -76,23 +81,24 @@ static void execute(char *input)
 		return;
 	}
 	if (equals_ignore_case(input, "ATZ?")) {
-		(void)rzi_at_respond_value("ATZ: triggers a reset on the MCU.");
+		ignore_result(rzi_at_respond_value("ATZ: triggers a reset on the MCU."));
 		return;
 	}
 	if (equals_ignore_case(input, "ATR")) {
 		rc = rzi_at_registry_factory_reset();
-		(void)rzi_at_respond_status(rc == 0 ? RZI_AT_STATUS_OK : RZI_AT_STATUS_ERROR);
+		ignore_result(
+			rzi_at_respond_status(rc == 0 ? RZI_AT_STATUS_OK : RZI_AT_STATUS_ERROR));
 		if (rc == 0) {
 			sys_reboot(SYS_REBOOT_COLD);
 		}
 		return;
 	}
 	if (equals_ignore_case(input, "ATR?")) {
-		(void)rzi_at_respond_value("ATR: restore default parameters");
+		ignore_result(rzi_at_respond_value("ATR: restore default parameters"));
 		return;
 	}
 	if (ascii_casecmp_n(input, "AT+", 3) != 0) {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_ERROR);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
 		return;
 	}
 
@@ -112,11 +118,11 @@ static void execute(char *input)
 		*separator = '\0';
 		argument = separator + 1;
 	} else {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_ERROR);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
 		return;
 	}
 	if (body[0] == '\0') {
-		(void)rzi_at_respond_status(RZI_AT_STATUS_ERROR);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
 		return;
 	}
 	uppercase_name(body);

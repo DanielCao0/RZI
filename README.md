@@ -128,7 +128,8 @@ currently pinned dependencies.
 
 Implemented now:
 
-- asynchronous LoRaWAN initialization, OTAA join, leave, uplink, and events;
+- Zephyr-shaped LoRaWAN start/join/send API with RUI3-style asynchronous
+  callbacks and multiple subscribers;
 - USP/LBM backend isolation and serialized modem access;
 - a transport-independent, extensible RUI3-compatible AT framework with an
   optional UART transport and LoRaWAN command package (AT, ATZ, ATR, VER,

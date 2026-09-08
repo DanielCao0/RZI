@@ -21,6 +21,7 @@ AllowShortLoopsOnASingleLine: false
 AttributeMacros:
   - __aligned
   - __deprecated
+  - __must_check
   - __packed
   - __printf_like
   - __syscall

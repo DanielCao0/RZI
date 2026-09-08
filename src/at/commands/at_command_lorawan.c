@@ -8,6 +8,7 @@
 
 #include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 
 #if defined(CONFIG_RZI_AT_NVM)
@@ -40,13 +41,17 @@ struct legacy_command {
 };
 
 static bool lw_initialized;
-static bool join_pending;
+static atomic_t join_pending;
+static rzi_lorawan_callback_handle_t callback_handle;
 static uint8_t at_dev_eui[8];
 static uint8_t at_join_eui[8];
 static uint8_t at_app_key[16];
 static enum rzi_lorawan_region at_region = RZI_LORAWAN_REGION_EU_868;
-static bool at_cfm;
-static bool at_cfs;
+static struct rzi_lorawan_join_config pending_join_config;
+static atomic_t at_cfm;
+static atomic_t at_cfs;
+static atomic_t tx_confirmed;
+K_MUTEX_DEFINE(lorawan_state_lock);
 
 static struct {
 	bool valid;
@@ -55,9 +60,15 @@ static struct {
 	uint8_t data[RZI_LORAWAN_MAX_PAYLOAD];
 } last_downlink;
 
-#define at_value     rzi_at_respond_value
-#define at_event     rzi_at_publish_event
 #define AT_STATUS_OK "OK"
+
+static void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
+#define at_value(...) ignore_result(rzi_at_respond_value(__VA_ARGS__))
+#define at_event(...) ignore_result(rzi_at_publish_event(__VA_ARGS__))
 
 static void at_status(const char *status)
 {
@@ -72,7 +83,7 @@ static void at_status(const char *status)
 	} else if (strcmp(status, "AT_NO_NETWORK_JOINED") == 0) {
 		value = RZI_AT_STATUS_NO_NETWORK_JOINED;
 	}
-	(void)rzi_at_respond_status(value);
+	ignore_result(rzi_at_respond_status(value));
 }
 
 static int hex_nibble(char c)
@@ -237,7 +248,7 @@ static int at_nvm_set(const char *name, size_t len, settings_read_cb read_cb, vo
 		if (at_nvm_read(read_cb, cb_arg, &cfm, sizeof(cfm)) != 0) {
 			return -EINVAL;
 		}
-		at_cfm = cfm;
+		atomic_set(&at_cfm, cfm);
 		return 0;
 	}
 	return -ENOENT;
@@ -275,26 +286,40 @@ static bool at_is_joined(void)
 	return rzi_lorawan_is_joined(&joined) == 0 && joined;
 }
 
+static void prepare_join_config(struct rzi_lorawan_join_config *config)
+{
+	memset(config, 0, sizeof(*config));
+	config->activation = RZI_LORAWAN_ACTIVATION_OTAA;
+	memcpy(config->otaa.dev_eui, at_dev_eui, sizeof(config->otaa.dev_eui));
+	memcpy(config->otaa.join_eui, at_join_eui, sizeof(config->otaa.join_eui));
+	memcpy(config->otaa.network_key, at_app_key, sizeof(config->otaa.network_key));
+	memcpy(config->otaa.application_key, at_app_key, sizeof(config->otaa.application_key));
+}
+
+static int at_join_request(void)
+{
+	struct rzi_lorawan_join_config config;
+
+	prepare_join_config(&config);
+	return rzi_lorawan_join(&config);
+}
+
 static void at_join_start(void)
 {
 	if (!lw_initialized) {
-		struct rzi_lorawan_config config = {
-			.region = at_region,
-			/* LoRaWAN 1.0.x: AppKey is the LBM network root key. */
-		};
+		int rc = rzi_lorawan_set_region(at_region);
 
-		memcpy(config.dev_eui, at_dev_eui, sizeof(config.dev_eui));
-		memcpy(config.join_eui, at_join_eui, sizeof(config.join_eui));
-		memcpy(config.network_key, at_app_key, sizeof(config.network_key));
-		memcpy(config.application_key, at_app_key, sizeof(config.application_key));
-
-		if (rzi_lorawan_init(&config) != 0) {
+		if (rc == 0) {
+			prepare_join_config(&pending_join_config);
+			atomic_set(&join_pending, 1);
+			rc = rzi_lorawan_start();
+		}
+		if (rc != 0) {
+			atomic_clear(&join_pending);
 			at_status("AT_ERROR");
 			return;
 		}
 		lw_initialized = true;
-		/* Join when the backend reports READY. */
-		join_pending = true;
 		at_status(AT_STATUS_OK);
 		return;
 	}
@@ -305,7 +330,7 @@ static void at_join_start(void)
 		return;
 	}
 
-	int rc = rzi_lorawan_join();
+	int rc = at_join_request();
 
 	if (rc == -EBUSY) {
 		at_status("AT_BUSY_ERROR");
@@ -318,57 +343,74 @@ static void at_join_start(void)
 
 static void at_join_stop(void)
 {
-	join_pending = false;
+	atomic_clear(&join_pending);
 	if (lw_initialized) {
-		(void)rzi_lorawan_leave();
+		ignore_result(rzi_lorawan_leave());
 	}
 	at_status(AT_STATUS_OK);
 }
 
-static void handle_lorawan_event(const struct rzi_lorawan_event *event)
+static void on_lorawan_state_changed(enum rzi_lorawan_state state, void *user_data)
 {
-	switch (event->type) {
-	case RZI_LORAWAN_READY:
-		if (join_pending) {
-			join_pending = false;
-			(void)rzi_lorawan_join();
-		}
-		break;
-	case RZI_LORAWAN_JOINED:
-		at_event("JOINED");
-		break;
-	case RZI_LORAWAN_JOIN_FAILED:
-		at_event("JOIN_FAILED_RX_TIMEOUT");
-		break;
-	case RZI_LORAWAN_TX_DONE:
-		if (!at_cfm) {
-			at_event("TX_DONE");
-		} else if (event->tx_result == RZI_LORAWAN_TX_ACKED) {
-			at_cfs = true;
-			at_event("SEND_CONFIRMED_OK");
-		} else if (event->tx_result == RZI_LORAWAN_TX_NOT_SENT) {
-			at_cfs = false;
-			at_event("SEND_CONFIRMED_FAILED");
-		} else {
-			at_event("TX_DONE");
-		}
-		break;
-	case RZI_LORAWAN_DOWNLINK: {
-		char hex[RZI_LORAWAN_MAX_PAYLOAD * 2 + 1];
+	ARG_UNUSED(user_data);
 
-		last_downlink.valid = true;
-		last_downlink.port = event->downlink.port;
-		last_downlink.size = event->downlink.size;
-		memcpy(last_downlink.data, event->downlink.data, event->downlink.size);
-		at_bin2hex(event->downlink.data, event->downlink.size, hex);
-		at_event("RX_1:%d:%d:UNICAST:%u:%s", event->downlink.rssi_dbm,
-			 event->downlink.snr_quarter_db / 4, event->downlink.port, hex);
-		break;
-	}
-	case RZI_LORAWAN_ERROR:
-		break;
+	if (state == RZI_LORAWAN_STATE_READY && atomic_cas(&join_pending, 1, 0)) {
+		if (rzi_lorawan_join(&pending_join_config) != 0) {
+			at_event("JOIN_FAILED_RX_TIMEOUT");
+		}
 	}
 }
+
+static void on_lorawan_join_done(int status, void *user_data)
+{
+	ARG_UNUSED(user_data);
+
+	if (status == 0) {
+		at_event("JOINED");
+	} else {
+		at_event("JOIN_FAILED_RX_TIMEOUT");
+	}
+}
+
+static void on_lorawan_send_done(const struct rzi_lorawan_tx_result *result, void *user_data)
+{
+	ARG_UNUSED(user_data);
+
+	if (!atomic_get(&tx_confirmed)) {
+		at_event("TX_DONE");
+	} else if (result->status == RZI_LORAWAN_TX_ACKED) {
+		atomic_set(&at_cfs, 1);
+		at_event("SEND_CONFIRMED_OK");
+	} else if (result->status == RZI_LORAWAN_TX_NOT_SENT) {
+		atomic_clear(&at_cfs);
+		at_event("SEND_CONFIRMED_FAILED");
+	} else {
+		at_event("TX_DONE");
+	}
+}
+
+static void on_lorawan_downlink(const struct rzi_lorawan_downlink *downlink, void *user_data)
+{
+	char hex[RZI_LORAWAN_MAX_PAYLOAD * 2 + 1];
+
+	ARG_UNUSED(user_data);
+	k_mutex_lock(&lorawan_state_lock, K_FOREVER);
+	last_downlink.valid = true;
+	last_downlink.port = downlink->port;
+	last_downlink.size = downlink->size;
+	memcpy(last_downlink.data, downlink->data, downlink->size);
+	k_mutex_unlock(&lorawan_state_lock);
+	at_bin2hex(downlink->data, downlink->size, hex);
+	at_event("RX_1:%d:%d:UNICAST:%u:%s", downlink->rssi_dbm, downlink->snr_quarter_db / 4,
+		 downlink->port, hex);
+}
+
+static const struct rzi_lorawan_callbacks lorawan_callbacks = {
+	.join_done = on_lorawan_join_done,
+	.send_done = on_lorawan_send_done,
+	.downlink = on_lorawan_downlink,
+	.state_changed = on_lorawan_state_changed,
+};
 
 /* ------------------------------------------------------------------ */
 /* Command handlers                                                   */
@@ -433,7 +475,9 @@ static void handle_band(enum at_op op, const char *arg)
 		long band = strtol(arg, &end, 10);
 		enum rzi_lorawan_region region;
 
-		if (end == arg || *end != '\0' || band_to_region((int)band, &region) != 0) {
+		if (lw_initialized) {
+			at_status("AT_BUSY_ERROR");
+		} else if (end == arg || *end != '\0' || band_to_region((int)band, &region) != 0) {
 			at_status("AT_PARAM_ERROR");
 		} else {
 			uint8_t stored = (uint8_t)band;
@@ -502,15 +546,19 @@ static void handle_cfm(enum at_op op, const char *arg)
 	if (op == AT_OP_DESC) {
 		desc_ok("AT+CFM: get or set the confirmation mode (0 = OFF, 1 = ON)");
 	} else if (op == AT_OP_GET) {
-		at_value("AT+CFM=%d", at_cfm ? 1 : 0);
+		at_value("AT+CFM=%d", atomic_get(&at_cfm) ? 1 : 0);
 	} else if (op == AT_OP_SET) {
 		if (strcmp(arg, "0") == 0) {
-			at_cfm = false;
-			at_nvm_save("cfm", &at_cfm, sizeof(at_cfm));
+			bool enabled = false;
+
+			atomic_clear(&at_cfm);
+			at_nvm_save("cfm", &enabled, sizeof(enabled));
 			at_status(AT_STATUS_OK);
 		} else if (strcmp(arg, "1") == 0) {
-			at_cfm = true;
-			at_nvm_save("cfm", &at_cfm, sizeof(at_cfm));
+			bool enabled = true;
+
+			atomic_set(&at_cfm, 1);
+			at_nvm_save("cfm", &enabled, sizeof(enabled));
 			at_status(AT_STATUS_OK);
 		} else {
 			at_status("AT_PARAM_ERROR");
@@ -528,7 +576,7 @@ static void handle_cfs(enum at_op op, const char *arg)
 		desc_ok("AT+CFS: get the confirmation status of the last AT+SEND"
 			" (0 = failure, 1 = success)");
 	} else if (op == AT_OP_GET) {
-		at_value("AT+CFS=%d", at_cfs ? 1 : 0);
+		at_value("AT+CFS=%d", atomic_get(&at_cfs) ? 1 : 0);
 	} else {
 		at_status("AT_ERROR");
 	}
@@ -564,6 +612,7 @@ static void handle_send(enum at_op op, const char *arg)
 	const char *hex;
 	long port;
 	size_t hex_len;
+	bool confirmed;
 	int rc;
 
 	if (op == AT_OP_DESC) {
@@ -604,7 +653,10 @@ static void handle_send(enum at_op op, const char *arg)
 		return;
 	}
 
-	rc = rzi_lorawan_send((uint8_t)port, payload, hex_len / 2, at_cfm);
+	confirmed = atomic_get(&at_cfm) != 0;
+	atomic_set(&tx_confirmed, confirmed);
+	rc = rzi_lorawan_send((uint8_t)port, payload, hex_len / 2,
+			      confirmed ? RZI_LORAWAN_MSG_CONFIRMED : RZI_LORAWAN_MSG_UNCONFIRMED);
 	if (rc == -EBUSY) {
 		at_status("AT_BUSY_ERROR");
 	} else if (rc == -EINVAL) {
@@ -618,17 +670,29 @@ static void handle_send(enum at_op op, const char *arg)
 
 static void handle_recv(enum at_op op, const char *arg)
 {
+	uint8_t data[RZI_LORAWAN_MAX_PAYLOAD];
 	char hex[RZI_LORAWAN_MAX_PAYLOAD * 2 + 1];
+	uint8_t port = 0;
+	uint8_t size = 0;
+	bool valid = false;
 
 	ARG_UNUSED(arg);
 
 	if (op == AT_OP_DESC) {
 		desc_ok("AT+RECV: print the last received data in hex format");
 	} else if (op == AT_OP_GET) {
-		if (last_downlink.valid) {
+		k_mutex_lock(&lorawan_state_lock, K_FOREVER);
+		valid = last_downlink.valid;
+		if (valid) {
 			last_downlink.valid = false;
-			at_bin2hex(last_downlink.data, last_downlink.size, hex);
-			at_value("AT+RECV=%u:%s", last_downlink.port, hex);
+			port = last_downlink.port;
+			size = last_downlink.size;
+			memcpy(data, last_downlink.data, size);
+		}
+		k_mutex_unlock(&lorawan_state_lock);
+		if (valid) {
+			at_bin2hex(data, size, hex);
+			at_value("AT+RECV=%u:%s", port, hex);
 		} else {
 			at_value("AT+RECV=");
 		}
@@ -664,6 +728,8 @@ static int dispatch_legacy(const struct rzi_at_request *request, void *user_data
 
 static int extension_start(void)
 {
+	int rc;
+
 #if defined(AT_HAS_DT_DEFAULTS)
 	BUILD_ASSERT(sizeof(at_dev_eui) == DT_PROP_LEN(USER_NODE, user_lorawan_device_eui));
 	BUILD_ASSERT(sizeof(at_join_eui) == DT_PROP_LEN(USER_NODE, user_lorawan_join_eui));
@@ -679,24 +745,16 @@ static int extension_start(void)
 		at_region = AT_DT_REGION;
 	}
 #endif
+	rc = rzi_lorawan_register_callbacks(&lorawan_callbacks, &callback_handle);
+	if (rc != 0) {
+		return rc;
+	}
 #if defined(CONFIG_RZI_AT_NVM)
 	(void)settings_subsys_init();
 	return settings_load_subtree("rzi");
 #else
 	return 0;
 #endif
-}
-
-static void extension_process(void)
-{
-	struct rzi_lorawan_event event;
-
-	if (!lw_initialized) {
-		return;
-	}
-	while (rzi_lorawan_get_event(&event, 0) == 0) {
-		handle_lorawan_event(&event);
-	}
 }
 
 static int extension_factory_reset(void)
@@ -723,7 +781,6 @@ static int extension_factory_reset(void)
 
 static const struct rzi_at_extension extension = {
 	.start = extension_start,
-	.process = extension_process,
 	.factory_reset = extension_factory_reset,
 };
 

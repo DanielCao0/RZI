@@ -32,6 +32,13 @@ config RZI_LORAWAN_BACKEND_USP
 	  Use the Semtech USP and LoRa Basics Modem implementation. RZI owns
 	  the modem; applications must not call Semtech APIs directly.
 
+config RZI_LORAWAN_BACKEND_TEST
+	bool "In-process test backend"
+	depends on ZTEST
+	help
+	  Select a backend supplied by a RZI unit-test application. Do not use
+	  this option in production firmware.
+
 endchoice
 
 config RZI_LORAWAN_EVENT_QUEUE_SIZE
@@ -39,6 +46,24 @@ config RZI_LORAWAN_EVENT_QUEUE_SIZE
 	depends on RZI_LORAWAN
 	range 4 64
 	default 8
+
+config RZI_LORAWAN_MAX_CALLBACKS
+	int "Maximum LoRaWAN callback subscribers"
+	depends on RZI_LORAWAN
+	range 1 16
+	default 4
+
+config RZI_LORAWAN_DISPATCHER_STACK_SIZE
+	int "LoRaWAN callback dispatcher stack size"
+	depends on RZI_LORAWAN
+	range 1024 8192
+	default 2048
+
+config RZI_LORAWAN_DISPATCHER_PRIORITY
+	int "LoRaWAN callback dispatcher preemptive priority"
+	depends on RZI_LORAWAN
+	range 0 15
+	default 10
 
 endif # RZI_LORAWAN
 

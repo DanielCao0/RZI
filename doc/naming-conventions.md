@@ -72,6 +72,10 @@ their removal condition.
 
 Every public RZI symbol MUST start with `rzi_` or `RZI_`.
 
+Public declarations MUST also follow
+[`api-documentation-guidelines.md`](./api-documentation-guidelines.md) for
+Doxygen and compiler attributes.
+
 ### Functions
 
 Public functions MUST use:
@@ -83,10 +87,10 @@ rzi_<service>_<operation>()
 Use a verb or established operation for the final component:
 
 ```c
-rzi_lorawan_init()
+rzi_lorawan_start()
 rzi_lorawan_join()
 rzi_lorawan_send()
-rzi_lorawan_get_event()
+rzi_lorawan_register_callbacks()
 rzi_at_register()
 rzi_at_uart_start()
 ```
@@ -111,8 +115,8 @@ rzi_at_uart_start()
 Examples:
 
 ```c
-struct rzi_lorawan_config;
-struct rzi_lorawan_event;
+struct rzi_lorawan_join_config;
+struct rzi_lorawan_callbacks;
 enum rzi_lorawan_region;
 rzi_at_command_handler_t;
 ```

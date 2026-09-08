@@ -1,0 +1,7 @@
+tests:
+  rzi.lorawan.core:
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - native_sim

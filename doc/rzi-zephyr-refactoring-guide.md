@@ -118,37 +118,27 @@ CONFIG_RZI_LORAWAN=y
 公共接口位于 `include/rzi/lorawan.h`：
 
 ```c
-int rzi_lorawan_init(const struct rzi_lorawan_config *config);
-int rzi_lorawan_join(void);
+int rzi_lorawan_register_callbacks(
+    const struct rzi_lorawan_callbacks *callbacks,
+    rzi_lorawan_callback_handle_t *handle);
+int rzi_lorawan_set_region(enum rzi_lorawan_region region);
+int rzi_lorawan_start(void);
+int rzi_lorawan_join(const struct rzi_lorawan_join_config *config);
 int rzi_lorawan_leave(void);
 int rzi_lorawan_send(uint8_t port, const uint8_t *data,
-                     size_t size, bool confirmed);
+                     size_t size, enum rzi_lorawan_message_type type);
+int rzi_lorawan_set_class(enum rzi_lorawan_class device_class);
 int rzi_lorawan_is_joined(bool *joined);
-int rzi_lorawan_get_event(struct rzi_lorawan_event *event,
-                          int32_t timeout_ms);
+uint32_t rzi_lorawan_get_capabilities(void);
 ```
 
 API 使用纯 C ABI，并带 `extern "C"` 保护，因此未来 Arduino-core/Zephyr 的 C++ RUI 层可以直接包装它，而不用包含 Semtech 头文件。
 
-初始化配置包含：
-
-- LoRaWAN region；
-- DevEUI；
-- JoinEUI；
-- Network root key；
-- Application root key；
-- 仅用于开发调试的 join backoff bypass。
-
-公共事件包括：
-
-- `RZI_LORAWAN_READY`
-- `RZI_LORAWAN_JOINED`
-- `RZI_LORAWAN_JOIN_FAILED`
-- `RZI_LORAWAN_TX_DONE`
-- `RZI_LORAWAN_DOWNLINK`
-- `RZI_LORAWAN_ERROR`
-
-下行事件会携带 port、payload、RSSI 和 SNR。LBM 的 RSSI 偏移表示会在 RZI 内转换为 dBm；SNR 明确保留为四分之一 dB 单位 `snr_quarter_db`。
+API 操作形态接近 Zephyr，异步结果采用 RUI3 风格 typed callbacks。join config
+独立包含 activation 和凭据；callback 包含 `join_done`、`send_done`、
+`downlink`、`state_changed` 和 `error`。下行携带 port、payload、RSSI、SNR
+和 flags，LBM 的 RSSI 在 RZI 内转换为 dBm；SNR 保留为四分之一 dB 单位
+`snr_quarter_db`。完整规范见 `lorawan-api.md`。
 
 ## 6. 运行时调用流程
 
@@ -156,31 +146,37 @@ API 使用纯 C ABI，并带 `extern "C"` 保护，因此未来 Arduino-core/Zep
 sequenceDiagram
     participant App as Zephyr App
     participant RZI as RZI C API
-    participant Queue as RZI Event Queue
+    participant Queue as RZI Private Queue
+    participant Dispatcher as RZI Dispatcher
     participant USP as USP/LBM Thread
     participant Radio as SX1262
 
-    App->>RZI: rzi_lorawan_init(config)
+    App->>RZI: register_callbacks()
+    App->>RZI: set_region(); start()
     RZI->>USP: 初始化 RAC 和 modem
     USP->>Queue: READY
-    App->>Queue: rzi_lorawan_get_event()
-    Queue-->>App: READY
-    App->>RZI: rzi_lorawan_join()
+    Queue->>Dispatcher: copied event
+    Dispatcher-->>App: ready callback
+    App->>RZI: join(config)
     RZI->>USP: smtc_modem_join_network()
     USP->>Radio: 发送 Join Request
     Radio-->>USP: Join Accept / Timeout
     USP->>Queue: JOINED / JOIN_FAILED
-    Queue-->>App: 入网结果
-    App->>RZI: rzi_lorawan_send()
+    Queue->>Dispatcher: copied event
+    Dispatcher-->>App: join callback
+    App->>RZI: send(type)
     RZI->>USP: request_uplink()
     USP->>Radio: 上行发送
     USP->>Queue: TX_DONE / DOWNLINK
-    Queue-->>App: 发送结果或下行数据
+    Queue->>Dispatcher: copied event
+    Dispatcher-->>App: uplink/downlink callback
 ```
 
-RZI 初始化时复制配置，因此调用者不需要永久保存配置对象。modem 发出 RESET 事件后，RZI 设置密钥和区域，然后发布 READY。应用收到 READY 后才允许 join/send。
+RZI 在 join 返回前复制 activation config，因此调用者不需要永久保存配置对象。
+modem 发出 RESET 事件后，RZI 恢复 service 配置并发布 ready。应用收到 ready
+后才发起 join。
 
-## 7. 为什么使用消息队列
+## 7. 为什么使用私有消息队列和 dispatcher
 
 USP engine 的 modem callback 在协议栈执行环境中发生。如果直接在 callback 中运行用户代码，用户的日志、存储或其他阻塞操作可能长时间占用协议栈锁，影响接收窗口和时间敏感操作。
 
@@ -191,15 +187,18 @@ USP engine 的 modem callback 在协议栈执行环境中发生。如果直接�
 3. 复制到固定容量的 Zephyr `k_msgq`；
 4. 立即返回。
 
-应用在自己的线程中调用 `rzi_lorawan_get_event()`。这样应用事件处理与 USP engine 隔离。队列默认深度为 8，可以通过 `CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE` 调整。队列满时返回一次 `-EOVERFLOW`，不会静默丢失而不报告。
+RZI dispatcher thread 消费私有队列并串行调用已注册订阅者。这样 typed callback
+体验不会把应用代码带入 USP engine。队列默认深度为 8，可通过
+`CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE` 调整；溢出通过 `error(-EOVERFLOW)`
+报告。
 
-当前 v0.1 的约束是：
+当前约束是：
 
 - 一个 modem 实例；
 - 一个 LoRaWAN stack，ID 为 0；
-- 一个事件消费者；
+- 最多 `CONFIG_RZI_LORAWAN_MAX_CALLBACKS` 个 callback 订阅者；
 - 同时只允许一个未完成 TX；
-- 初始化每次启动只能执行一次；
+- start 每次启动只能执行一次；
 - 不支持运行时 teardown/reinit。
 
 这些限制被写入公共接口契约，后续增加多实例、请求 ID 或多个订阅者时再扩展，而不是现在提供空实现。

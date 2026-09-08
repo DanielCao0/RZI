@@ -22,6 +22,11 @@ static struct rzi_at_transport active_transport;
 static atomic_t started;
 static atomic_t rx_overflow;
 
+static void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 static int write_all(const char *text)
 {
 	size_t size = strlen(text);
@@ -137,7 +142,7 @@ static void process_input(void)
 
 	if (atomic_cas(&rx_overflow, 1, 0)) {
 		rzi_at_parser_reset();
-		(void)rzi_at_respond_status(RZI_AT_STATUS_TEST_PARAM_OVERFLOW);
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_TEST_PARAM_OVERFLOW));
 	}
 	while ((count = ring_buf_get(&rx_ring, buffer, sizeof(buffer))) != 0U) {
 		for (uint32_t i = 0; i < count; ++i) {

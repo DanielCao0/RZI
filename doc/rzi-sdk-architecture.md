@@ -195,31 +195,34 @@ implemented API commitments.
 
 ## 6. LoRaWAN service
 
-### Implemented v0.1 contract
+### Implemented contract
 
 The current `include/rzi/lorawan.h` supports:
 
-- initialization with region and OTAA credentials;
-- OTAA join and leave;
+- Zephyr-shaped region selection, start, activation config, and send operations;
+- OTAA join, leave, and a public ABP model for capable future backends;
 - confirmed and unconfirmed uplink requests;
 - joined-state query;
-- READY, JOINED, JOIN_FAILED, TX_DONE, DOWNLINK, and ERROR events;
-- one modem instance, one event consumer, and one outstanding uplink;
-- a fixed-size event queue with overflow reporting.
+- typed join-done, send-done, downlink, state-change, and error callbacks;
+- a backend capability bitset and device-class operation;
+- multiple callback subscribers, one modem instance, and one outstanding uplink;
+- a fixed-size private event queue with overflow reporting.
 
-`src/lorawan/lorawan.c` validates requests and owns the application event
-queue. The private contract in `src/lorawan/lorawan_backend.h` is implemented
-by one source under `src/lorawan/backends/`.
+`src/lorawan/lorawan.c` validates requests and dispatches copied backend events
+to subscribers outside the modem callback context. The private contract in
+`src/lorawan/lorawan_backend.h` is implemented by one source under
+`src/lorawan/backends/`. See `doc/lorawan-api.md` for the normative API and
+concurrency contract.
 
 ### Target capability model
 
-Backends will not always provide the same features. The common service shall
-expose a capability bitset before optional operations are added. Candidate
-capabilities are:
+Backends will not always provide the same features. The common service exposes
+a capability bitset; the currently defined bits cover OTAA, ABP, and Classes
+A/B/C. Future candidate capabilities include:
 
 ```text
-OTAA, ABP, CLASS_B, CLASS_C, ADR_CONTROL, CHANNEL_MASK,
-LINK_CHECK, DEVICE_TIME, MULTICAST, FUOTA, CSMA, RELAY
+ADR_CONTROL, CHANNEL_MASK, LINK_CHECK, DEVICE_TIME,
+MULTICAST, FUOTA, CSMA, RELAY
 ```
 
 An unsupported operation returns `-ENOTSUP`. AT and C++ layers query

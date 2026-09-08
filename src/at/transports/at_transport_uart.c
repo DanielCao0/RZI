@@ -10,6 +10,11 @@
 
 static const struct device *active_uart;
 
+static void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 static int uart_write(const uint8_t *data, size_t size, void *user_data)
 {
 	const struct device *uart = user_data;
@@ -32,7 +37,7 @@ static void uart_isr(const struct device *uart, void *user_data)
 		if (count <= 0) {
 			break;
 		}
-		(void)rzi_at_receive(buffer, (size_t)count);
+		ignore_result(rzi_at_receive(buffer, (size_t)count));
 	}
 }
 
