@@ -25,10 +25,6 @@ if(CONFIG_RZI_AT_COMMAND_LORAWAN)
     commands/lorawan/at_command_lorawan_multicast.c)
   zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_CERTIFICATION
     commands/lorawan/at_command_lorawan_certification.c)
-  zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_LONG_PACKET
-    commands/lorawan/at_command_lorawan_long_packet.c)
-  zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_PACKAGES
-    commands/lorawan/at_command_lorawan_packages.c)
   zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_LINK_CHECK
     commands/lorawan/at_command_lorawan_supplementary.c)
 endif()

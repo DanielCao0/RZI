@@ -63,6 +63,11 @@ config RZI_LORAWAN_LINK_CHECK
 
 config RZI_LORAWAN_FUOTA
 	bool "FUOTA service scaffold"
+	select LORA_BASICS_MODEM_FUOTA if RZI_LORAWAN_BACKEND_USP
+	help
+	  Reserve the backend-independent RZI FUOTA coordination boundary.
+	  The USP backend uses the FUOTA packages built into LoRa Basics Modem;
+	  RZI does not provide a duplicate package implementation.
 
 config RZI_LORAWAN_DEVICE_TIME
 	bool "DeviceTimeReq MAC command scaffold"
@@ -72,28 +77,6 @@ config RZI_LORAWAN_CHANNEL_SCAN
 
 config RZI_LORAWAN_CERTIFICATION
 	bool "Certification service scaffold"
-
-config RZI_LORAWAN_LONG_PACKET
-	bool "Long-packet service scaffold"
-
-config RZI_LORAWAN_PACKAGES
-	bool "LoRaWAN application-package framework scaffold"
-
-if RZI_LORAWAN_PACKAGES
-
-config RZI_LORAWAN_PACKAGE_COMPLIANCE
-	bool "Compliance package scaffold"
-
-config RZI_LORAWAN_PACKAGE_CLOCK_SYNC
-	bool "Application Layer Clock Synchronization scaffold"
-
-config RZI_LORAWAN_PACKAGE_REMOTE_MULTICAST_SETUP
-	bool "Remote Multicast Setup scaffold"
-
-config RZI_LORAWAN_PACKAGE_FRAGMENTATION
-	bool "Fragmented Data Block Transport scaffold"
-
-endif # RZI_LORAWAN_PACKAGES
 
 endmenu
 

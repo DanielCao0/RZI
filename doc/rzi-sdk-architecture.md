@@ -218,23 +218,22 @@ each implemented feature owns its typed private operation table. This keeps
 the core backend vtable stable while allowing features to evolve separately.
 See `doc/lorawan-api.md` for the normative API and concurrency contract.
 
-Reserved feature boundaries cover the RUI3 C LoRa service surface: network and
-channel management, information, channel scanning, device time, Class B, link
-checks, multicast, certification, long packets, FUOTA, and standard LoRaWAN
-application packages. Each reserved feature keeps its `.c/.h` pair together
-below `src/lorawan/<feature>/`. Version `0.0.0` marks an internal scaffold; it
-does not enter the public include tree or advertise runtime capability. Each
-scaffold has an independent, default-disabled Kconfig symbol and is excluded
-from production builds until selected. A public facade is added only when the
-feature contract is implemented. Raw LoRa P2P and FSK use the separate
-`CONFIG_RZI_LORA` and `src/lora/` private boundary.
+Reserved feature boundaries cover channel scanning, device time, link checks,
+multicast, certification, and FUOTA. Backend libraries own the LoRaWAN
+application-package implementations required by those services; RZI does not
+duplicate them. Core concerns such as class and network/channel management
+remain in the core service. Version `0.0.0` marks an internal scaffold; it does
+not enter the public include tree or advertise runtime capability. Scaffolds
+are excluded from production builds until selected. A public facade is added
+only when the feature contract is implemented. Raw LoRa P2P and FSK use the
+separate `CONFIG_RZI_LORA` and `src/lora/` private boundary.
 
 ### Target capability model
 
 Backends will not always provide the same features. The common service exposes
 a capability bitset covering activation, device classes, multicast, link
-check, FUOTA, packages, channel/network management, device time, channel scan,
-certification, and long-packet support. Further candidate capabilities include:
+check, FUOTA, channel/network management, device time, channel scan, and
+certification support. Further candidate capabilities include:
 
 ```text
 ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY

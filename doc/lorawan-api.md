@@ -17,8 +17,9 @@ RZI LoRaWAN API 是应用与具体协议栈之间稳定的 C 接口。公共接�
 Class B、network/channel management 和 information 属于 LoRaWAN Core，
 不建立空的独立服务目录。DeviceTimeReq 与 LinkCheckReq 统一保留在
 `src/lorawan/mac_commands/`。RUI3 确实独立实现的 channel scan、multicast、
-certification、long packet 和 FUOTA 放在 `src/lorawan/services/`；标准
-application packages 保留在 `src/lorawan/packages/`。
+certification 和 FUOTA 放在 `src/lorawan/services/`。FUOTA 所需的 Clock
+Synchronization、Remote Multicast Setup、Fragmentation 和 Firmware
+Management Package 由具体 backend 提供；RZI 不复制协议包实现。
 
 这些内部 header 的版本为 `0.0.0`，不进入公共 include 路径，也不代表 backend
 具备对应 capability。新能力只有在公共 API、backend contract、Kconfig、测试和

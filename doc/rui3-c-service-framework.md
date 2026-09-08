@@ -27,26 +27,20 @@ complete.
 - RUI3 ARSSI maps to `src/lorawan/services/channel_scan/`.
 - Multicast session management maps to `src/lorawan/services/multicast/`.
 - Certification modes map to `src/lorawan/services/certification/`.
-- RUI3 LPTP segmented payloads map to `src/lorawan/services/long_packet/`.
 - FUOTA coordination maps to `src/lorawan/services/fuota/`.
 
 Persistent OTAA and ABP setter/getter functions are not duplicated as a second
 core API. RZI activation credentials remain explicit inputs to
 `rzi_lorawan_join()`. A future provisioning service may own persistent secrets.
 
-## Standard application packages
+## FUOTA package ownership
 
-`src/lorawan/packages/` is the private package boundary. Its `.c/.h` pairs
-mirror the standards used by RUI3:
-
-- compliance;
-- clock synchronization;
-- remote multicast setup;
-- fragmented data block transport.
-
-FUOTA composes Clock Synchronization, Remote Multicast Setup, Fragmented Data
-Block Transport, image validation, and the bootloader. It does not expose
-Semtech `Lmhp*`, fragment decoder, or LoRaMac handler types.
+`src/lorawan/services/fuota/` is the backend-independent coordination boundary.
+It does not reimplement LoRaWAN application packages. The USP backend uses the
+Clock Synchronization, Remote Multicast Setup, Fragmented Data Block Transport,
+and Firmware Management Package implementations built into LoRa Basics Modem.
+RZI owns event translation, image validation, storage, and bootloader
+coordination without exposing Semtech package or fragment-decoder types.
 
 ## Raw LoRa and FSK
 
@@ -70,13 +64,12 @@ Implemented and reserved LoRaWAN AT files follow the RUI3 command domains:
 
 - `key_id`: OTAA commands are implemented; ABP identifiers and session keys are
   reserved.
-- `join_send`: join, confirmation, send, and receive are implemented; retry and
-  long-packet extensions are reserved.
+- `join_send`: join, confirmation, send, receive, and retry are implemented.
 - `network_management`: basic mode, band, and Class A are implemented; ADR,
   duty cycle, data rate, receive windows, transmit power, time request, and LBT
   are reserved.
-- `class_b`, `information`, `multicast`, `supplementary`, `certification`,
-  `long_packet`, and `packages` have explicit source placeholders.
+- `class_b`, `information`, `multicast`, `supplementary`, and `certification`
+  have explicit source placeholders.
 - Raw LoRa P2P commands have a separate `commands/lora/` package placeholder.
 
 Placeholder files do not register command descriptors. Unsupported commands

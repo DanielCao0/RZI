@@ -52,7 +52,7 @@ include/rzi/lorawan.h
 include/rzi/at/uart.h
 src/lorawan/lorawan.c
 src/lorawan/lorawan_backend.h
-src/lorawan/backends/lorawan_backend_usp.c
+src/lorawan/backends/usp/lorawan_backend_usp.c
 src/lorawan/services/multicast/lorawan_multicast.c
 src/lorawan/services/multicast/lorawan_multicast.h
 src/lora/lora.c

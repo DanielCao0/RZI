@@ -34,11 +34,10 @@ rzi/
 │   │   ├── lorawan_backend.h  Private backend contract
 │   │   ├── lorawan_feature.h  Versioned backend feature extensions
 │   │   ├── backends/
-│   │   │   └── lorawan_backend_usp.c
+│   │   │   └── usp/lorawan_backend_usp.c
 │   │   │                          Semtech USP implementation
 │   │   ├── mac_commands/         DeviceTimeReq and LinkCheckReq boundary
 │   │   ├── services/             RUI3 independent service .c/.h scaffolds
-│   │   └── packages/             Private standards package .c/.h scaffolds
 │   └── at/
 │       ├── at_core.c          Lifecycle, RX queue and output
 │       ├── at_parser.c        RUI3 command grammar

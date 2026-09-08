@@ -97,8 +97,6 @@ enum rzi_lorawan_capability {
 	RZI_LORAWAN_CAP_LINK_CHECK = (1U << 6),
 	/** Backend supports the complete RZI FUOTA coordination contract. */
 	RZI_LORAWAN_CAP_FUOTA = (1U << 7),
-	/** Backend supports standardized LoRaWAN application packages. */
-	RZI_LORAWAN_CAP_PACKAGES = (1U << 8),
 	/** Backend supports channel-plan management. */
 	RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT = (1U << 9),
 	/** Backend supports network and MAC parameter management. */
@@ -109,8 +107,6 @@ enum rzi_lorawan_capability {
 	RZI_LORAWAN_CAP_CHANNEL_SCAN = (1U << 12),
 	/** Backend supports certification mode. */
 	RZI_LORAWAN_CAP_CERTIFICATION = (1U << 13),
-	/** Backend supports the RZI long-packet extension. */
-	RZI_LORAWAN_CAP_LONG_PACKET = (1U << 14),
 };
 
 /** OTAA credentials. They are copied before @ref rzi_lorawan_join returns. */
