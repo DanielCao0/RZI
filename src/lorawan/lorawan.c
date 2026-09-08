@@ -12,6 +12,16 @@
 
 #include "lorawan_backend.h"
 
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+#include <rzi/fuota.h>
+#include "services/fuota/lorawan_fuota.h"
+
+static void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+#endif
+
 K_MSGQ_DEFINE(events, sizeof(struct rzi_lorawan_backend_event), CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE,
 	      4);
 K_MUTEX_DEFINE(callbacks_lock);
@@ -49,7 +59,7 @@ static void publish_state(enum rzi_lorawan_state state)
 
 static void dispatch(const struct rzi_lorawan_backend_event *event)
 {
-	struct callback_slot subscribers[CONFIG_RZI_LORAWAN_MAX_CALLBACKS];
+	struct callback_slot subscribers[CONFIG_RZI_LORAWAN_MAX_CALLBACKS] = {0};
 	size_t count = 0;
 
 	k_mutex_lock(&callbacks_lock, K_FOREVER);
@@ -79,9 +89,12 @@ static void dispatch(const struct rzi_lorawan_backend_event *event)
 							 user_data);
 			}
 			if (callbacks->join_done != NULL) {
-				callbacks->join_done(
-					event->type == RZI_LORAWAN_BACKEND_JOINED ? 0 : -ETIMEDOUT,
-					user_data);
+				int status = 0;
+
+				if (event->type == RZI_LORAWAN_BACKEND_JOIN_FAILED) {
+					status = event->error != 0 ? event->error : -ETIMEDOUT;
+				}
+				callbacks->join_done(status, user_data);
 			}
 			break;
 		case RZI_LORAWAN_BACKEND_TX_DONE:
@@ -118,8 +131,13 @@ static void dispatch(const struct rzi_lorawan_backend_event *event)
 				callbacks->state_changed(event->state, user_data);
 			}
 			break;
+		case RZI_LORAWAN_BACKEND_FUOTA:
+			break;
 		}
 	}
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	rzi_lorawan_fuota_on_backend_event(event);
+#endif
 }
 
 static void dispatcher(void *unused1, void *unused2, void *unused3)
@@ -286,6 +304,10 @@ int rzi_lorawan_start(void)
 	if (rc != 0) {
 		atomic_clear(&started);
 		publish_state(RZI_LORAWAN_STATE_STOPPED);
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	} else {
+		ignore_result(rzi_fuota_start());
+#endif
 	}
 	return rc;
 }

@@ -115,10 +115,26 @@ struct rzi_lorawan_join_otaa {
 	uint8_t dev_eui[8];
 	/** Join EUI in network registration byte order. */
 	uint8_t join_eui[8];
-	/** LBM network root key: LoRaWAN 1.0.x AppKey or 1.1 NwkKey. */
+	/** LoRaWAN 1.0.x AppKey or 1.1 NwkKey. */
 	uint8_t network_key[16];
-	/** LBM application root key: LoRaWAN 1.1 AppKey or backend service key. */
+	/**
+	 * LoRaWAN 1.0.x GenAppKey or 1.1 AppKey.
+	 *
+	 * USP/LBM uses this as GenAppKey. The Zephyr LoRaWAN API maps it to
+	 * join app_key, so LoRaWAN 1.0.x applications must set both keys to
+	 * AppKey unless the backend documents separate GenAppKey support.
+	 */
 	uint8_t application_key[16];
+	/**
+	 * Device nonce used by backends that do not persist DevNonce
+	 * themselves.
+	 *
+	 * Zero means the backend should increment its own stored value.
+	 * LoRaWAN 1.0.4+ requires a monotonically increasing nonce for the
+	 * same DevEUI; the application should persist and supply it when the
+	 * backend cannot.
+	 */
+	uint16_t dev_nonce;
 };
 
 /** ABP session parameters. A backend may report this mode as unsupported. */
@@ -285,7 +301,8 @@ __must_check int rzi_lorawan_set_region(enum rzi_lorawan_region region);
  * @retval -EWOULDBLOCK Called from an ISR.
  *
  * @warning Enabling this option may violate regional duty-cycle requirements
- *          and must not be used in production.
+ *          and must not be used in production. Backends that have no join
+ *          duty-cycle control ignore this setting.
  * @pre The service has not started.
  * @note Thread context only.
  * @since 0.2
@@ -339,6 +356,7 @@ __must_check int rzi_lorawan_join(const struct rzi_lorawan_join_config *config);
  * @retval -EAGAIN The service or backend is not ready.
  * @retval -EBUSY An uplink is still outstanding.
  * @retval -EINVAL The backend rejected the current session state.
+ * @retval -ENOTSUP The selected backend cannot leave a session.
  * @retval -EIO The backend operation failed.
  * @retval -EWOULDBLOCK Called from an ISR.
  *

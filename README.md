@@ -24,6 +24,7 @@ rzi/
 │   ├── capabilities.h   Compiled service discovery
 │   ├── storage.h        Namespaced key-value storage
 │   ├── lorawan.h        LoRaWAN core public API
+│   ├── fuota.h          FUOTA coordination API
 │   └── at/uart.h        Implemented UART adapter API
 ├── src/
 │   ├── core/            Version and service capability implementation
@@ -37,7 +38,7 @@ rzi/
 │   │   │   └── usp/lorawan_backend_usp.c
 │   │   │                          Semtech USP implementation
 │   │   ├── mac_commands/         DeviceTimeReq and LinkCheckReq boundary
-│   │   ├── services/             RUI3 independent service .c/.h scaffolds
+│   │   ├── services/fuota/       ChirpStack-compatible FUOTA coordinator
 │   └── at/
 │       ├── at_core.c          Lifecycle, RX queue and output
 │       ├── at_parser.c        RUI3 command grammar

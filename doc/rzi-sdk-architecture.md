@@ -286,17 +286,29 @@ The proposed backend supports OTAA and Class A. ABP, Class B/C, device time,
 channel-mask control, and several modem controls remain unavailable. RZI keeps
 the USP backend until the required capability matrix is met.
 
+### Zephyr LoRaWAN API backend
+
+Status: implemented as a second real backend for contract validation. It is
+not the default.
+
+`CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR` adapts Zephyr's public
+`<zephyr/lorawan/lorawan.h>` stack with the loramac-node module backend.
+That is a different path from the planned Zephyr LBM backend. See
+`doc/lorawan-backend-zephyr.md`.
+
 ### Selection
 
 Backend selection is a build-time Kconfig `choice`:
 
 ```text
 CONFIG_RZI_LORAWAN_BACKEND_USP
+CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR
 CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR_LBM       planned
 ```
 
 The common layer does not contain backend API conditionals. CMake selects one
-adapter, and each adapter provides the same private operations table.
+adapter, and each adapter provides the same private operations table. Build
+commands and overlay rules are in `doc/lorawan-backends.md`.
 
 ## 8. Dependency and version policy
 
@@ -424,7 +436,7 @@ sleep/join/send cycles.
 
 ## 12. FUOTA
 
-Status: planned architecture.
+Status: implemented coordination API; MCUboot product profile remains optional.
 
 ```mermaid
 flowchart LR
@@ -483,7 +495,8 @@ rzi/
 │   │   ├── lorawan_backend.h
 │   │   ├── lorawan_feature.h
 │   │   └── backends/
-│   │       ├── lorawan_backend_usp.c
+│   │       ├── usp/lorawan_backend_usp.c
+│   │       ├── zephyr/lorawan_backend_zephyr.c
 │   │       └── lorawan_backend_zephyr_lbm.c       planned
 │   ├── at/
 │   ├── storage/             Namespaced settings adapter
@@ -547,7 +560,7 @@ pass does not replace RF and power measurements.
 | Backend context | USP HAL owns it | Preserve backend ownership |
 | Zephyr LBM | Open upstream PR | Evaluate without release dependency |
 | Power | No RZI policy | Define blockers, wake contract, targets |
-| FUOTA | Not implemented | Define package and MCUboot profile |
+| FUOTA | Coordination API and USP/LBM packages | Optional MCUboot apply path |
 | C++ RUI | External future layer | Depend on public C only |
 | API/ABI version | Canonical SDK version API exists | Define ABI policy before 1.0 |
 

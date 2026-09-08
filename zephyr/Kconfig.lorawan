@@ -24,6 +24,29 @@ config RZI_LORAWAN_BACKEND_USP
 	  Use the Semtech USP and LoRa Basics Modem implementation. RZI owns
 	  the modem; applications must not call Semtech APIs directly.
 
+config RZI_LORAWAN_BACKEND_ZEPHYR
+	bool "Zephyr LoRaWAN API"
+	select LORA
+	select LORAWAN
+	help
+	  Use Zephyr's public <zephyr/lorawan/lorawan.h> stack. The LoRa
+	  module backend must be loramac-node; set
+	  CONFIG_LORA_MODULE_BACKEND_LORAMAC_NODE=y. Native and LoRa Basics
+	  Modem radio backends are not supported. RZI owns the stack;
+	  applications must not call lorawan_* APIs directly. This is not
+	  the planned Zephyr LBM LoRaWAN backend. The USP choice already
+	  depends on !LORA && !LORAWAN.
+
+# select cannot force a choice symbol. Reopen the LoRa module choice so
+# loramac-node wins unless an earlier board default already matched.
+if LORA
+
+choice LORA_MODULE_BACKEND
+	default LORA_MODULE_BACKEND_LORAMAC_NODE if RZI_LORAWAN_BACKEND_ZEPHYR
+endchoice
+
+endif
+
 config RZI_LORAWAN_BACKEND_TEST
 	bool "In-process test backend"
 	depends on ZTEST
@@ -32,6 +55,23 @@ config RZI_LORAWAN_BACKEND_TEST
 	  this option in production firmware.
 
 endchoice
+
+if RZI_LORAWAN_BACKEND_ZEPHYR
+
+config RZI_LORAWAN_ZEPHYR_WORKER_STACK_SIZE
+	int "Zephyr backend worker stack size"
+	range 1024 8192
+	default 2048
+	help
+	  Stack for the thread that runs blocking Zephyr lorawan_join()
+	  and lorawan_send() calls.
+
+config RZI_LORAWAN_ZEPHYR_WORKER_PRIORITY
+	int "Zephyr backend worker preemptive priority"
+	range 0 15
+	default 11
+
+endif
 
 config RZI_LORAWAN_EVENT_QUEUE_SIZE
 	int "LoRaWAN event queue depth"
@@ -62,12 +102,52 @@ config RZI_LORAWAN_LINK_CHECK
 	bool "LinkCheckReq MAC command scaffold"
 
 config RZI_LORAWAN_FUOTA
-	bool "FUOTA service scaffold"
+	bool "LoRaWAN FUOTA coordination"
 	select LORA_BASICS_MODEM_FUOTA if RZI_LORAWAN_BACKEND_USP
+	imply LORAWAN_SERVICES if RZI_LORAWAN_BACKEND_ZEPHYR
+	imply LORAWAN_APP_CLOCK_SYNC if RZI_LORAWAN_BACKEND_ZEPHYR
+	imply LORAWAN_FRAG_TRANSPORT if RZI_LORAWAN_BACKEND_ZEPHYR
+	imply LORAWAN_REMOTE_MULTICAST if RZI_LORAWAN_BACKEND_ZEPHYR
 	help
-	  Reserve the backend-independent RZI FUOTA coordination boundary.
-	  The USP backend uses the FUOTA packages built into LoRa Basics Modem;
-	  RZI does not provide a duplicate package implementation.
+	  Enable backend-independent FUOTA coordination for ChirpStack and
+	  other LoRaWAN FUOTA servers. Clock Synchronization, Remote
+	  Multicast Setup and Fragmentation stay inside the selected
+	  backend. RZI owns session state, image access and optional
+	  MCUboot installation.
+
+if RZI_LORAWAN_FUOTA
+
+config RZI_FUOTA_KEEPALIVE_INTERVAL_S
+	int "Unicast keepalive interval in seconds"
+	range 0 86400
+	default 0
+	help
+	  ChirpStack advances FUOTA unicast steps after the device-profile
+	  expected uplink interval. Set a non-zero value to send a one-byte
+	  keepalive automatically. Zero disables the timer so the
+	  application can send its own periodic uplinks.
+
+config RZI_FUOTA_KEEPALIVE_PORT
+	int "Keepalive LoRaWAN port"
+	range 1 223
+	default 2
+	depends on RZI_FUOTA_KEEPALIVE_INTERVAL_S > 0
+
+config RZI_FUOTA_AUTO_APPLY
+	bool "Apply a completed image automatically"
+	depends on IMG_MANAGER
+	help
+	  Copy a reconstructed MCUboot image to the secondary slot and
+	  reboot after a successful transfer or an FMP reboot request.
+
+config RZI_FUOTA_HW_VERSION
+	hex "Hardware version reported to FMP"
+	default 0x1
+	help
+	  32-bit hardware version returned to the Firmware Management
+	  Package. ChirpStack FUOTA does not require FMP.
+
+endif # RZI_LORAWAN_FUOTA
 
 config RZI_LORAWAN_DEVICE_TIME
 	bool "DeviceTimeReq MAC command scaffold"

@@ -81,12 +81,15 @@ rzi_lorawan_join(&join_config);
 `rzi_lorawan_join_config` 的结构与 Zephyr `lorawan_join_config` 对齐，使用
 activation enum 和 union：
 
-- OTAA：`dev_eui`、`join_eui`、`network_key`、`application_key`；
+- OTAA：`dev_eui`、`join_eui`、`network_key`、`application_key`。
+  当前 USP backend 将 `network_key` 映射为 LoRaWAN 1.0.x AppKey，将
+  `application_key` 映射为 **GenAppKey**（ChirpStack FUOTA 组播/分片根密钥）；
 - ABP：`dev_addr`、`network_session_key`、`application_session_key`。
 
 公共 API 可以表达 OTAA 和 ABP，但具体支持由 capability 决定。应用应通过
 `rzi_lorawan_get_capabilities()` 检查能力。当前 USP backend 支持 OTAA 和
-Class A；ABP、Class B、Class C 返回 `-ENOTSUP`。
+Class A。启用 `CONFIG_RZI_LORAWAN_FUOTA` 后增加 Class B/C、multicast 和
+FUOTA capability；ABP 仍返回 `-ENOTSUP`。
 
 join config 在 `rzi_lorawan_join()` 返回前完成深拷贝，调用者之后可以释放或
 修改原对象。返回 `0` 仅表示请求已被 backend 接受。`join_done` 的 status 为

@@ -260,17 +260,28 @@ RZI 可以增加 `src/lorawan/backends/zephyr_lbm.c` 作为实验 backend。满�
 mask 和一些 modem 控制还不完整。在需要的能力达到要求前，RZI 保留 USP
 backend。
 
-### 7.3 Backend 选择
+### 7.3 Zephyr LoRaWAN API backend
+
+状态：已实现，用于检验 RZI 合同，不是默认 backend。
+
+`CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR` 适配 Zephyr 公共
+`<zephyr/lorawan/lorawan.h>`，下层固定为 loramac-node。它和规划中的
+Zephyr LBM backend 不是同一条路径。合同评估见
+`doc/lorawan-backend-zephyr.md`。
+
+### 7.4 Backend 选择
 
 Backend 使用 Kconfig `choice` 在编译期选择：
 
 ```text
 CONFIG_RZI_LORAWAN_BACKEND_USP
+CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR
 CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR_LBM       规划中
 ```
 
 Common layer 不写针对具体 backend API 的条件分支。CMake 只编译一个 adapter，
-每个 adapter 都实现相同的私有 operations table。
+每个 adapter 都实现相同的私有 operations table。具体 west 命令、overlay
+和互斥项见 `doc/lorawan-backends.md`。
 
 ## 8. 依赖和版本策略
 
@@ -386,7 +397,7 @@ latency、配置保持，以及反复 sleep/join/send 的稳定性。
 
 ## 12. FUOTA
 
-状态：目标架构，尚未实现。
+状态：协调 API 已实现；MCUboot 产品安装路径仍为可选项。
 
 ```mermaid
 flowchart LR
@@ -447,7 +458,8 @@ rzi/
 │   │   ├── lorawan.c
 │   │   ├── backend.h
 │   │   └── backends/
-│   │       ├── usp.c
+│   │       ├── usp/lorawan_backend_usp.c
+│   │       ├── zephyr/lorawan_backend_zephyr.c
 │   │       └── zephyr_lbm.c       规划中
 │   ├── at/
 │   ├── storage/
@@ -517,7 +529,7 @@ rzi/
 | Backend context | USP HAL 管理 | 所有 backend 都保持自己所有权 |
 | Zephyr LBM | 上游 PR 尚未合并 | 只验证，不作为 release 依赖 |
 | 功耗 | 没有 RZI policy | 定义 blocker、wake contract 和指标 |
-| FUOTA | 尚未实现 | 定义 package 与 MCUboot profile |
+| FUOTA | 协调 API 与 USP/LBM 协议包 | 可选 MCUboot apply 路径 |
 | C++ RUI | 外部未来层 | 只依赖公共 C API |
 | API/ABI 版本 | 没有正式规则 | 发布预编译库之前定义 |
 

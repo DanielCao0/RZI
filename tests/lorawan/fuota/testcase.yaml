@@ -1,0 +1,8 @@
+tests:
+  rzi.lorawan.fuota:
+    tags:
+      - rzi
+      - lorawan
+      - fuota
+    platform_allow:
+      - native_sim

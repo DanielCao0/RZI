@@ -26,6 +26,22 @@ enum rzi_lorawan_backend_event_type {
 	RZI_LORAWAN_BACKEND_ERROR,
 	/** Backend explicitly reports a service state transition. */
 	RZI_LORAWAN_BACKEND_STATE_CHANGED,
+	/** Optional FUOTA session event consumed by the FUOTA service. */
+	RZI_LORAWAN_BACKEND_FUOTA,
+};
+
+/** FUOTA session kind carried by RZI_LORAWAN_BACKEND_FUOTA. */
+enum rzi_lorawan_backend_fuota_kind {
+	/** Application-layer or MAC time has been synchronized. */
+	RZI_LORAWAN_BACKEND_FUOTA_CLOCK_SYNCED,
+	/** A multicast fragment session has started. */
+	RZI_LORAWAN_BACKEND_FUOTA_SESSION_STARTED,
+	/** A multicast session has ended. */
+	RZI_LORAWAN_BACKEND_FUOTA_SESSION_ENDED,
+	/** Fragment reconstruction finished. */
+	RZI_LORAWAN_BACKEND_FUOTA_TRANSFER_DONE,
+	/** Firmware Management Package requested a reboot. */
+	RZI_LORAWAN_BACKEND_FUOTA_REBOOT_REQUESTED,
 };
 
 /**
@@ -38,7 +54,7 @@ struct rzi_lorawan_backend_event {
 	/** Selects the active union member. */
 	enum rzi_lorawan_backend_event_type type;
 	union {
-		/** Negative errno value for RZI_LORAWAN_BACKEND_ERROR. */
+		/** Negative errno for ERROR and JOIN_FAILED. */
 		int error;
 		/** Uplink result for RZI_LORAWAN_BACKEND_TX_DONE. */
 		enum rzi_lorawan_tx_status tx_status;
@@ -59,6 +75,15 @@ struct rzi_lorawan_backend_event {
 			/** Payload copied into the service event queue. */
 			uint8_t data[RZI_LORAWAN_MAX_PAYLOAD];
 		} downlink;
+		/** FUOTA session details for RZI_LORAWAN_BACKEND_FUOTA. */
+		struct {
+			/** Selects the FUOTA session kind. */
+			enum rzi_lorawan_backend_fuota_kind kind;
+			/** True when a transfer completed successfully. */
+			bool successful;
+			/** Reconstructed image size in bytes, or zero if unknown. */
+			uint32_t image_size;
+		} fuota;
 	};
 };
 

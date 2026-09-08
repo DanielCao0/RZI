@@ -35,12 +35,13 @@ core API. RZI activation credentials remain explicit inputs to
 
 ## FUOTA package ownership
 
-`src/lorawan/services/fuota/` is the backend-independent coordination boundary.
-It does not reimplement LoRaWAN application packages. The USP backend uses the
-Clock Synchronization, Remote Multicast Setup, Fragmented Data Block Transport,
-and Firmware Management Package implementations built into LoRa Basics Modem.
-RZI owns event translation, image validation, storage, and bootloader
-coordination without exposing Semtech package or fragment-decoder types.
+`src/lorawan/services/fuota/` is the backend-independent coordination boundary
+exposed by `include/rzi/fuota.h`. It does not reimplement LoRaWAN application
+packages. The USP backend uses the Clock Synchronization, Remote Multicast
+Setup, Fragmented Data Block Transport, and Firmware Management Package
+implementations built into LoRa Basics Modem. RZI owns event translation,
+image access, optional MCUboot installation, and reboot without exposing
+Semtech package or fragment-decoder types. See `doc/fuota.md`.
 
 ## Raw LoRa and FSK
 
