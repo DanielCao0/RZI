@@ -14,7 +14,6 @@ choice RZI_LORAWAN_BACKEND
 
 config RZI_LORAWAN_BACKEND_USP
 	bool "Semtech USP and LoRa Basics Modem"
-	depends on !LORA && !LORAWAN
 	select LORA_BASICS_MODEM_DRIVERS
 	select USP
 	select USP_LORA_BASICS_MODEM
@@ -22,7 +21,10 @@ config RZI_LORAWAN_BACKEND_USP
 	select USP_THREADS_MUTEXES
 	help
 	  Use the Semtech USP and LoRa Basics Modem implementation. RZI owns
-	  the modem; applications must not call Semtech APIs directly.
+	  the modem; applications must not call Semtech APIs directly. Keep
+	  CONFIG_LORA=n and CONFIG_LORAWAN=n so Zephyr does not drive the
+	  same radio. Do not depend on !LORA here: this choice also has a
+	  Zephyr option that selects LORA, and kconfiglib recurses.
 
 config RZI_LORAWAN_BACKEND_ZEPHYR
 	bool "Zephyr LoRaWAN API"
@@ -34,18 +36,7 @@ config RZI_LORAWAN_BACKEND_ZEPHYR
 	  CONFIG_LORA_MODULE_BACKEND_LORAMAC_NODE=y. Native and LoRa Basics
 	  Modem radio backends are not supported. RZI owns the stack;
 	  applications must not call lorawan_* APIs directly. This is not
-	  the planned Zephyr LBM LoRaWAN backend. The USP choice already
-	  depends on !LORA && !LORAWAN.
-
-# select cannot force a choice symbol. Reopen the LoRa module choice so
-# loramac-node wins unless an earlier board default already matched.
-if LORA
-
-choice LORA_MODULE_BACKEND
-	default LORA_MODULE_BACKEND_LORAMAC_NODE if RZI_LORAWAN_BACKEND_ZEPHYR
-endchoice
-
-endif
+	  the planned Zephyr LBM LoRaWAN backend.
 
 config RZI_LORAWAN_BACKEND_TEST
 	bool "In-process test backend"
