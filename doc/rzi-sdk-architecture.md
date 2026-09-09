@@ -477,6 +477,10 @@ compatibility. It contains no protocol integration and includes no private RZI
 headers. Native Zephyr, AT firmware, and Arduino therefore share one RZI C
 implementation.
 
+Status: ArduinoCore-zephyr `cores/arduino/RUI.*` now provides an `api.lorawan`
+OTAA subset (join / send / band / njm / callbacks). ADR, P2P, and the full
+RUI3 system API are still missing. Sketches must not include USP headers.
+
 ## 14. Diagnostics
 
 Status: planned.
@@ -565,7 +569,7 @@ pass does not replace RF and power measurements.
 | Zephyr LBM | Open upstream PR | Evaluate without release dependency |
 | Power | No RZI policy | Define blockers, wake contract, targets |
 | FUOTA | Coordination API and USP/LBM packages | Optional MCUboot apply path |
-| C++ RUI | External future layer | Depend on public C only |
+| C++ RUI | Arduino Core has an OTAA facade | ADR / P2P / full system API still pending |
 | API/ABI version | Canonical SDK version API exists | Define ABI policy before 1.0 |
 
 This table is reviewed at each milestone. Architecture documentation must

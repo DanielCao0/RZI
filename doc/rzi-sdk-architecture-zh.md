@@ -434,6 +434,10 @@ C++ 层负责 Arduino 对象、重载、callback 和 sketch 兼容，不包含�
 也不 include RZI 私有头文件。这样 Zephyr C 应用、AT 固件和 Arduino 应用能够
 共享同一个 RZI C 实现。
 
+状态：ArduinoCore-zephyr `cores/arduino/RUI.*` 已提供 `api.lorawan` OTAA
+子集（join / send / band / njm / callback）。ADR、P2P 和完整 RUI3 系统 API
+仍未接。Sketch 禁止 include USP。
+
 ## 14. Diagnostics
 
 状态：规划中。
@@ -532,7 +536,7 @@ rzi/
 | Zephyr LBM | 上游 PR 尚未合并 | 只验证，不作为 release 依赖 |
 | 功耗 | 没有 RZI policy | 定义 blocker、wake contract 和指标 |
 | FUOTA | 协调 API 与 USP/LBM 协议包 | 可选 MCUboot apply 路径 |
-| C++ RUI | 外部未来层 | 只依赖公共 C API |
+| C++ RUI | Arduino Core 已有 OTAA facade | ADR / P2P / 完整 system API 仍待导出 |
 | API/ABI 版本 | 没有正式规则 | 发布预编译库之前定义 |
 
 每个 milestone 都要重新检查这张表。架构文档必须明确区分已经实现和规划中的
