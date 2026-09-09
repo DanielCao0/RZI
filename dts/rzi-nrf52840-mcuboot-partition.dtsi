@@ -1,0 +1,55 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Shared nRF52840 flash map for native RZI and ArduinoCore-zephyr.
+ * MCUboot boots slot0. Slot1 is the FUOTA / swap image. user_sketch
+ * holds the Arduino LLEXT; native Zephyr apps ignore that node.
+ *
+ * 1 MB total: 48K boot + 304K slot0 + 304K slot1 + 336K sketch + 32K storage.
+ */
+
+/ {
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+	};
+};
+
+&flash0 {
+	partitions {
+		compatible = "fixed-partitions";
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "mcuboot";
+			reg = <0x00000000 0x0000c000>;
+		};
+
+		slot0_partition: partition@c000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x0000c000 0x0004c000>;
+		};
+
+		slot1_partition: partition@58000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <0x00058000 0x0004c000>;
+		};
+
+		user_sketch: partition@a4000 {
+			compatible = "zephyr,mapped-partition";
+			label = "user";
+			reg = <0x000a4000 0x00054000>;
+		};
+
+		storage_partition: partition@f8000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <0x000f8000 0x00008000>;
+		};
+	};
+};

@@ -39,14 +39,14 @@ CONFIG_LORAWAN=n
 `BACKEND_USP` 是 choice 默认值，不写也可以。`CONFIG_LORA=n` 必须保留，
 否则 USP 选项会被 Kconfig 关掉。
 
-板级 overlay 必须带 USP 的 SX1262 兼容层，例如 sample 里的
-`boards/rak4631_usp_compat.dtsi`（`compatible = "semtech,sx1262-new"`）。
+硬件和 USP 的 SX1262 兼容层（`semtech,sx1262-new`）在产品板 `rzi_rak4631`
+上，例程不再各放一份 overlay。启动见 [boot.md](./boot.md)。
 
 在 west 工作区根目录：
 
 ```bash
-west build -p always \
-  -b rak4631/nrf52840 \
+west build -p always --sysbuild \
+  -b rzi_rak4631/nrf52840 \
   -d build/rzi-fuota-usp \
   rzi/samples/lorawan/fuota
 ```
@@ -58,17 +58,17 @@ Class A、AT 把最后的路径换成 `rzi/samples/lorawan/class_a` 或
 
 ```bash
 cd app
-./scripts/container.sh build -p always \
-  -b rak4631/nrf52840 \
+./scripts/container.sh build -p always --sysbuild \
+  -b rzi_rak4631/nrf52840 \
   -d /workdir/build/rzi-fuota-usp \
   /workdir/rzi/samples/lorawan/fuota
 ```
 
-烧录：
+烧录合并镜像：
 
 ```bash
 cd app
-./scripts/flash-rak4631.sh ../build/rzi-fuota-usp/zephyr/zephyr.hex
+./scripts/flash-rak4631.sh ../build/rzi-fuota-usp/merged.hex
 ```
 
 确认选中的是 USP：
@@ -100,16 +100,10 @@ CONFIG_LORAWAN_REGION_EU868=y
 
 板级要求：
 
-- DTS 有 `lora0`，节点保持官方 `compatible = "semtech,sx1262"`
-- **不要** `#include` `rak4631_usp_compat.dtsi`
-- 需要保留的 USB 控制台、`zephyr,user` 密钥可以单独放在一份 overlay 里
-
-当前 `samples/lorawan/fuota/boards/rak4631_nrf52840.overlay` 会拉进 USP
-兼容层。自动搜索到的 board overlay 必须换掉，不能只 `EXTRA_DTC_OVERLAY_FILE`
-往上叠。
-
-把下面两份文件放到 sample 目录（文件名可自定），然后用
-`DTC_OVERLAY_FILE` **替换**默认 overlay。
+- 产品板 `rzi_rak4631` 默认是 USP 的 `semtech,sx1262-new`
+- Zephyr backend 需要 overlay 把 `&lora` 改回官方 `semtech,sx1262`，并补回
+  该 compatible 要求的属性
+- USB 控制台和 `zephyr,user` 密钥仍放在应用 overlay
 
 `zephyr.conf`：
 
@@ -119,29 +113,21 @@ CONFIG_LORA_MODULE_BACKEND_LORAMAC_NODE=y
 CONFIG_LORAWAN_REGION_EU868=y
 ```
 
-`boards/rak4631_nrf52840_zephyr.overlay`：复制现有
-`rak4631_nrf52840.overlay` 的 USB 和 `zephyr,user` 段，**删掉**
-`#include "rak4631_usp_compat.dtsi"`。官方 `rak4631/nrf52840` 已经提供
-`lora0`。
-
-`--` 后面的参数交给 CMake。`EXTRA_CONF_FILE` 叠在默认 `prj.conf` 上面；
-`DTC_OVERLAY_FILE` 指定唯一的 overlay 列表。
-
 ```bash
-west build -p always \
-  -b rak4631/nrf52840 \
+west build -p always --sysbuild \
+  -b rzi_rak4631/nrf52840 \
   -d build/rzi-fuota-zephyr \
   rzi/samples/lorawan/fuota \
   -- \
   -DEXTRA_CONF_FILE=zephyr.conf \
-  -DDTC_OVERLAY_FILE=boards/rak4631_nrf52840_zephyr.overlay
+  -DDTC_OVERLAY_FILE=<your-zephyr-radio.overlay>
 ```
 
 确认：
 
 ```bash
 grep -E 'CONFIG_RZI_LORAWAN_BACKEND|CONFIG_LORA_MODULE_BACKEND' \
-  build/rzi-fuota-zephyr/zephyr/.config
+  build/rzi-fuota-zephyr/rzi_lorawan_fuota/zephyr/.config
 ```
 
 应看到：
@@ -190,8 +176,9 @@ GenAppKey 必须等于 AppKey，并额外打开 `CONFIG_LORAWAN_SERVICES`、
 
 - 在 USP 的 `prj.conf` 里只加 `CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR=y`，却留下
   `CONFIG_LORA=n`：choice 冲突或配置被丢掉。
-- 不换 overlay，继续 include `rak4631_usp_compat.dtsi`：同一颗 SX1262 被
-  USP 驱动和 Zephyr loramac-node 抢。
+- 在 `rzi_rak4631` 上开 Zephyr backend 却不改 `&lora` compatible：USP 驱动和
+  loramac-node 会抢同一颗 SX1262。
 - 两个 backend 共用一个 `-d` 且不加 `-p always`：CMake 缓存里仍是旧栈。
-- 只设 `EXTRA_DTC_OVERLAY_FILE`：默认 board overlay 仍会拉进 USP 兼容层。
+- 开了 `CONFIG_RZI_MCUBOOT` 却不带 `--sysbuild`：配置阶段失败。
+- 把 `zephyr.hex` 当整机镜像烧：0x0 没有 MCUBoot。
 - 编进的 `CONFIG_LORAWAN_REGION_*` 和 `rzi_lorawan_set_region()` 不一致。

@@ -1,17 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-
-#include "rak4631_usp_compat.dtsi"
+/*
+ * Replace these placeholder credentials. Hardware is on rzi_rak4631.
+ */
 
 / {
-	aliases {
-		/* Keep the AT UART adapter independent from the system console. */
-		rzi-at-uart = &cdc_acm_uart0;
-	};
-
 	zephyr,user {
-		/* Default credentials; change them at runtime with
-		 * AT+DEVEUI, AT+APPEUI and AT+APPKEY before AT+JOIN.
-		 */
 		user-lorawan-device-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
 		user-lorawan-join-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
 		user-lorawan-gen_app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
@@ -19,12 +12,5 @@
 		user-lorawan-app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 					0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
 		user-lorawan-region = "EU_868";
-	};
-};
-
-/* Standard Zephyr USB CDC serial port. */
-&zephyr_udc0 {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
 	};
 };

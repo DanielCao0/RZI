@@ -65,8 +65,9 @@ LBM 把重组后的镜像写到 context 分区的 `CONTEXT_FUOTA`（默认从 of
 nRF52840 应用。要升级整包固件需要：
 
 1. 调大 `CONFIG_LORA_BASICS_MODEM_FUOTA_MAX_NB_OF_FRAGMENTS`
-2. 提供更大的 `lora-basics-modem-context-partition`，或启用 MCUboot 双槽
-   后由 `rzi_fuota_apply()` 把镜像拷到 secondary slot
+2.    提供更大的 `lora-basics-modem-context-partition`，或打开
+   `CONFIG_RZI_MCUBOOT` 后由 `rzi_fuota_apply()` 把镜像拷到 slot1
+   （见 [boot.md](./boot.md)）
 
 没有 `CONFIG_IMG_MANAGER` 时，`rzi_fuota_apply()` 返回 `-ENOTSUP`。
 应用仍可用 `rzi_fuota_read_image()` 取出镜像。

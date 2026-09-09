@@ -128,6 +128,7 @@ must never control the same radio instance at runtime.
 - RAK-compatible AT behavior;
 - RZI configuration schema and migrations;
 - product-level power coordination and FUOTA state;
+- the device boot contract (`CONFIG_RZI_MCUBOOT`, product boards, merged image);
 - compatibility and hardware validation matrices.
 
 ### A backend owns
@@ -138,24 +139,27 @@ must never control the same radio instance at runtime.
 - LoRaWAN session context and frame-counter persistence;
 - conversion of backend errors and metadata into RZI types.
 
-### Zephyr and upstream board support own
+### Zephyr, upstream BSP, and MCUBoot own
 
-- board and SoC Devicetree descriptions;
+- SoC descriptions and upstream `rak4631` / `rak3172` hardware references;
 - GPIO, SPI, flash, UART, entropy, timer, and PM drivers;
-- settings, NVS, flash map, DFU, and MCUboot integration;
+- settings, NVS, and the flash map;
+- MCUBoot **source** (west module): verify, select a slot, jump to the app;
 - upstream protocol APIs when they are available and stable.
 
-RZI does not export a `dts_root` while the required board, radio, and bindings
-are upstream. Temporary compatibility overlays belong in a sample or
-application and need a documented removal condition.
+RZI exports a product `board_root` (`rzi_rak4631`, `rzi_rak3372`) and a `dts_root`
+for partition dtsi files. It does not fork SoC bindings. Customers target RZI
+product boards, not the upstream board names. The boot contract is
+`CONFIG_RZI_MCUBOOT`, sysbuild, and a merged image; see [boot.md](./boot.md).
 
 ### The application owns
 
 - product policy and business behavior;
 - credential provisioning and access control;
-- board, RZI version, Zephyr version, and backend selection;
-- storage partition and bootloader image layout;
-- when to join, send, sleep, update, or reboot.
+- which RZI product board and backend to use, and when to join, send, sleep,
+  update, or reboot;
+- not Zephyr partition tables or `SB_CONFIG_*` (official samples already set
+  them).
 
 ## 5. Public API rules
 

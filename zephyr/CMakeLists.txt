@@ -1,4 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
+
+if(CONFIG_RZI AND CONFIG_RZI_MCUBOOT AND NOT SYSBUILD)
+  message(FATAL_ERROR
+    "CONFIG_RZI_MCUBOOT requires sysbuild so MCUboot is built and merged. "
+    "Use: west build -b <rzi-board> --sysbuild <app>. "
+    "Flash the merged image from the build directory, not zephyr.hex.")
+endif()
+
+if(CONFIG_RZI_LORAWAN_BACKEND_USP AND (CONFIG_LORA OR CONFIG_LORAWAN))
+  message(FATAL_ERROR
+    "CONFIG_RZI_LORAWAN_BACKEND_USP cannot share the radio with "
+    "CONFIG_LORA or CONFIG_LORAWAN. Keep both off in prj.conf.")
+endif()
+
 if(CONFIG_RZI)
   zephyr_library()
 

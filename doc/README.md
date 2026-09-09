@@ -4,6 +4,7 @@
 - [RZI LoRaWAN 公共 API 规范](./lorawan-api.md)：融合 Zephyr 操作形态与 RUI3 异步 callback 体验的生命周期、并发、错误和 backend contract。
 - [编译两种 LoRaWAN backend](./lorawan-backends.md)：USP/LBM 与 Zephyr `lorawan_*` + loramac-node 的 Kconfig、overlay 和 west 命令。
 - [Zephyr LoRaWAN API backend](./lorawan-backend-zephyr.md)：第二套真实栈对 RZI 合同的验证结论。
+- [RZI 设备启动](./boot.md)：产品板、`CONFIG_RZI_MCUBOOT`、sysbuild 与合并镜像。
 - [RZI FUOTA 与 ChirpStack](./fuota.md)：协议归属、设备流程、ChirpStack 配置和镜像容量限制。
 - [RZI Storage API](./storage-api.md)：命名空间、错误语义、AT settings 迁移与后续安全存储边界。
 - [RZI 公共 API 注解与文档规范](./api-documentation-guidelines.md)：Doxygen、版本、线程与生命周期说明，以及 must-check、printf-like 和 deprecated 编译器检查要求。
@@ -18,5 +19,4 @@
 - [RAK4631 板级设备树](./rak4631-dts.md)：上游 SX1262 节点和 sample 兼容配置的历史分析。
 
 `rzi-sdk-architecture.md` 是当前架构的权威文档。其余文档记录早期调研和
-USP 后端实现背景；涉及 RZI 自带 DTS、板级源码或 Zephyr 尚未集成 LBM 的
-描述可能已经过时，应以总体架构和当前代码为准。
+USP 后端实现背景。产品板和启动以 [boot.md](./boot.md) 和总体架构为准。

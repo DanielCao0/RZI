@@ -1,0 +1,6 @@
+board:
+  name: rzi_rak4631
+  full_name: RZI RAK4631
+  vendor: rzi
+  socs:
+  - name: nrf52840

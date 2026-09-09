@@ -123,6 +123,7 @@ AT 组件和 Arduino C++ 层都是 RZI 公共 API 的客户，不允许直接调
 - RZI 配置数据格式、版本和迁移；
 - 产品级功耗协调；
 - FUOTA 状态和产品接口；
+- 设备启动契约（`CONFIG_RZI_MCUBOOT`、产品板、合并镜像）；
 - 支持版本、模组、区域和功能矩阵。
 
 ### 4.2 Backend 负责
@@ -133,23 +134,24 @@ AT 组件和 Arduino C++ 层都是 RZI 公共 API 的客户，不允许直接调
 - LoRaWAN session、frame counter、DevNonce 和 ADR context；
 - 把底层错误、RSSI/SNR 等信息转换为 RZI 类型。
 
-### 4.3 Zephyr 和上游 BSP 负责
+### 4.3 Zephyr、上游 BSP 和 MCUBoot 负责
 
-- board、SoC 和 radio 的 Devicetree 描述；
+- SoC、驱动和上游 `rak4631` / `rak3172` 硬件参考描述；
 - GPIO、SPI、Flash、UART、entropy、timer 和 PM 驱动；
-- settings、NVS、flash map、DFU 和 MCUboot 集成；
+- settings、NVS、flash map；
+- MCUBoot **源码**（west 模块）以及验签、选槽、跳应用；
 - 已经合并并稳定的上游协议 API。
 
-当所需 RAK board、radio 和 binding 已经存在于上游 Zephyr 时，RZI 不导出
-`dts_root`。临时兼容 overlay 应放在 sample 或客户应用中，并写清删除条件。
+RZI 导出产品 `board_root`（`rzi_rak4631`、`rzi_rak3372`）和用于分区 dtsi 的
+`dts_root`。不 fork SoC 描述。客户入口是 RZI 产品板，不是上游板名。
+MCUBoot 契约见 [boot.md](./boot.md)：`CONFIG_RZI_MCUBOOT`、sysbuild、合并镜像。
 
 ### 4.4 客户应用负责
 
 - 产品策略和业务逻辑；
 - 凭据写入、安全和访问控制；
-- board、RZI、Zephyr 和 backend 版本选择；
-- Flash partition 和 bootloader image layout；
-- 何时 join、send、sleep、update 和 reboot。
+- 选哪块 RZI 产品板、哪个 backend、何时 join / send / sleep / update / reboot；
+- 不要自己配 Zephyr 分区或 `SB_CONFIG_*`（官方例程已经带好）。
 
 ## 5. 公共 API 设计原则
 

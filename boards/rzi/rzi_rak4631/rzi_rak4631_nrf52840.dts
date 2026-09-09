@@ -1,0 +1,170 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/dts-v1/;
+#include <nordic/nrf52840_qiaa.dtsi>
+#include <rzi-nrf52840-mcuboot-partition.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/lora/sx126x.h>
+#include <zephyr/dt-bindings/usp/sx126x.h>
+#include "rzi_rak4631-pinctrl.dtsi"
+
+/ {
+	model = "RZI RAK4631 (nRF52840 + SX1262)";
+	compatible = "rzi,rzi-rak4631-nrf52840";
+
+	chosen {
+		zephyr,console = &uart1;
+		zephyr,shell-uart = &uart1;
+		zephyr,uart-mcumgr = &uart1;
+		zephyr,lorawan-transceiver = &lora;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		blue_led: led_2 {
+			gpios = <&gpio1 4 GPIO_ACTIVE_LOW>;
+			label = "Blue LED";
+		};
+
+		green_led: led_1 {
+			gpios = <&gpio1 3 GPIO_ACTIVE_LOW>;
+			label = "Green LED";
+		};
+	};
+
+	aliases {
+		led0 = &blue_led;
+		led1 = &green_led;
+		lora0 = &lora;
+		watchdog0 = &wdt0;
+		rzi-at-uart = &cdc_acm_uart0;
+	};
+
+	/*
+	 * Placeholder OTAA values. Applications override zephyr,user in an
+	 * overlay; samples that omit an overlay use these zeros.
+	 */
+	zephyr,user {
+		user-lorawan-device-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-join-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-gen_app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+					    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+					0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+		user-lorawan-region = "EU_868";
+	};
+};
+
+&reg0 {
+	status = "okay";
+};
+
+&reg1 {
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&adc {
+	status = "okay";
+};
+
+&uicr {
+	gpio-as-nreset;
+	nfct-pins-as-gpios;
+};
+
+&gpiote {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+
+	rf_power: rf-power {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+
+	rf_control: rf-control {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		input;
+	};
+};
+
+&uart0 {
+	compatible = "nordic,nrf-uart";
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-1 = <&uart0_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&uart1 {
+	compatible = "nordic,nrf-uarte";
+	current-speed = <115200>;
+	status = "okay";
+	pinctrl-0 = <&uart1_default>;
+	pinctrl-1 = <&uart1_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c0 {
+	compatible = "nordic,nrf-twi";
+	status = "okay";
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-1 = <&i2c0_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c1 {
+	compatible = "nordic,nrf-twi";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-1 = <&i2c1_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&spi1 {
+	compatible = "nordic,nrf-spi";
+	status = "okay";
+	cs-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-1 = <&spi1_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	lora: lora@0 {
+		compatible = "semtech,sx1262-new";
+		reg = <0>;
+		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+		busy-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		dio1-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+		dio2-as-rf-switch;
+		dio3-as-tcxo-control;
+		tcxo-voltage = <SX126X_TCXO_SUPPLY_3_3V>;
+		tcxo-wakeup-time = <5>;
+		reg-mode = <SX126X_REG_MODE_DCDC>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&qspi {
+	status = "okay";
+	pinctrl-0 = <&qspi_default>;
+	pinctrl-1 = <&qspi_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+zephyr_udc0: &usbd {
+	compatible = "nordic,nrf-usbd";
+	status = "okay";
+
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};

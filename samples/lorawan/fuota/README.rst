@@ -7,7 +7,9 @@
 Overview
 ********
 
-This sample is the Class A join-and-uplink loop with a 5 second interval.
+This sample starts the stack, waits until it is ready, joins, then sends an
+uplink every 5 seconds. Callbacks only update flags and print logs. The
+application loop does not use a message queue.
 ``rzi_lorawan_start()`` starts FUOTA coordination when
 ``CONFIG_RZI_LORAWAN_FUOTA`` is enabled. The application registers FUOTA
 callbacks to observe session state and completion. RZI and the USP backend
@@ -22,7 +24,7 @@ Fragmentation (FPort 201) remain inside LoRa Basics Modem.
 Requirements
 ************
 
-* A RAK4631 board with its LoRa antenna connected
+* An RZI RAK4631 (``rzi_rak4631``) with its LoRa antenna connected
 * A LoRaWAN gateway and ChirpStack v4
 * Device-profile application-layer packages enabled: Clock Sync v1,
   Remote Multicast Setup v1 and Fragmentation v1
@@ -39,9 +41,9 @@ Build from a west workspace that contains RZI:
 
 .. code-block:: console
 
-   west build -b rak4631/nrf52840 samples/lorawan/fuota
+   west build -b rzi_rak4631/nrf52840 --sysbuild samples/lorawan/fuota
 
-Replace the zero-valued credentials in the board overlay before flashing.
+Credentials are in ``app.overlay``. Flash ``merged.hex``. See ``doc/boot.md``.
 
 Test payload
 ************

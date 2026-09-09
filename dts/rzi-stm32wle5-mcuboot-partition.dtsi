@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * RZI product-board flash map for STM32WLE5 (256 KiB). Skeleton for
+ * rzi_rak3372; LoRaWAN and programming are not delivered on this board yet.
+ */
+
+/ {
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+	};
+};
+
+&flash0 {
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "mcuboot";
+			reg = <0x00000000 DT_SIZE_K(32)>;
+			read-only;
+		};
+
+		slot0_partition: partition@8000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x00008000 DT_SIZE_K(108)>;
+		};
+
+		slot1_partition: partition@23000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <0x00023000 DT_SIZE_K(108)>;
+		};
+
+		storage_partition: partition@3e000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <0x0003e000 DT_SIZE_K(8)>;
+		};
+	};
+};

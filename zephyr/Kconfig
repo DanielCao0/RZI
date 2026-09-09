@@ -15,6 +15,17 @@ config RZI_STORAGE
 	  Enable the backend-neutral RZI key-value storage API. The current
 	  Zephyr integration uses the settings subsystem.
 
+config RZI_MCUBOOT
+	bool "RZI MCUboot device boot"
+	imply BOOTLOADER_MCUBOOT
+	help
+	  Official RZI hardware images boot through MCUboot. Build with
+	  sysbuild; the RZI samples and product app already do. Flash the
+	  merged image, not zephyr.hex. Partition tables stay on the RZI
+	  product board (rzi_rak4631, rzi_rak3372, ...). Enable
+	  CONFIG_IMG_MANAGER in the application when FUOTA should install
+	  a reconstructed image.
+
 rsource "Kconfig.lorawan"
 rsource "Kconfig.lora"
 rsource "Kconfig.at"

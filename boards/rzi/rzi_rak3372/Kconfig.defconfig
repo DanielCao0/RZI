@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_RZI_RAK3372
+
+endif # BOARD_RZI_RAK3372

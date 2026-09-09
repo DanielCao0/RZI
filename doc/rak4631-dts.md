@@ -1,8 +1,8 @@
 # `rak4631_nrf52840.dts` 逐行说明
 
-> 历史说明：RZI 当前不导出 `dts_root`，也不复制已经进入上游 Zephyr 的
-> RAK4631 板级描述。本文仅保留早期射频问题分析；当前所有权规则以
-> [RZI SDK Architecture](./rzi-sdk-architecture.md) 为准。
+> 历史说明：客户入口已改为产品板 `rzi_rak4631`（见 [boot.md](./boot.md)）。
+> 本文分析的是上游 `rak4631_nrf52840.dts`，不是 RZI 产品板。当前所有权
+> 规则以 [RZI SDK Architecture](./rzi-sdk-architecture.md) 为准。
 
 ## RZI 与 DTS 的边界
 

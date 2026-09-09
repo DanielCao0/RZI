@@ -1,0 +1,20 @@
+identifier: rzi_rak4631/nrf52840
+name: RZI RAK4631
+type: mcu
+arch: arm
+flash: 1024
+ram: 256
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - adc
+  - ble
+  - counter
+  - gpio
+  - i2c
+  - pwm
+  - usb_device
+  - watchdog
+  - lora
+vendor: rzi

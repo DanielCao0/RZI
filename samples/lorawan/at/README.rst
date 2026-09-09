@@ -41,9 +41,8 @@ reboots. ``ATR`` erases them and reboots, restoring the devicetree defaults.
 RZI does not hardcode any flash address. The storage area is board-defined
 through devicetree, following the standard Zephyr convention:
 
-* a partition labeled ``storage_partition`` in the board's fixed partition
-  table (RAK4631 provides the last 32 KiB of internal flash at ``0xf8000``
-  via ``nrf52840_partition.dtsi``), or
+* a partition labeled ``storage_partition`` in the RZI product-board
+  partition table (``rzi_rak4631`` places 32 KiB at the end of internal flash), or
 * a ``zephyr,settings-partition`` chosen node pointing at any partition,
   including one on external SPI flash.
 
@@ -57,21 +56,20 @@ the precise compatibility limits compared with RUI3.
 Requirements
 ************
 
-* A RAK4631 board with its LoRa antenna connected
+* An RZI RAK4631 (``rzi_rak4631``) with its LoRa antenna connected
 * A LoRaWAN gateway and network server
 * Valid OTAA identifiers and keys
 
-The RAK4631 overlay carries sample-only compatibility for the currently
-pinned BSP and USP driver; it is not exported as part of the RZI module
-interface.
+Set keys at runtime with ``AT+DEVEUI``, ``AT+APPEUI`` and ``AT+APPKEY``.
+Hardware and the AT UART alias live on the product board.
 
 AT UART selection
 *****************
 
 The sample selects its exclusive AT UART adapter with the ``rzi-at-uart``
 devicetree alias. It does not reuse ``zephyr,console`` because console and AT
-adapter ownership are separate concerns. The RAK4631 overlay points the
-alias to a USB CDC ACM UART:
+adapter ownership are separate concerns. ``rzi_rak4631`` points the alias to
+USB CDC ACM:
 
 .. code-block:: devicetree
 
@@ -90,8 +88,9 @@ Build from a west workspace that contains RZI:
 
 .. code-block:: console
 
-   west build -b rak4631/nrf52840 samples/lorawan/at
+   west build -b rzi_rak4631/nrf52840 --sysbuild samples/lorawan/at
 
+Flash ``merged.hex``. See ``doc/boot.md``.
 Zephyr discovers RZI from this repository's ``zephyr/module.yml`` metadata.
 
 Example session
