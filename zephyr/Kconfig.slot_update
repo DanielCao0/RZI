@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_SLOT_UPDATE
+	bool "UART slot update (RZI1)"
+	depends on RZI_MCUBOOT && SERIAL && FLASH && FLASH_MAP
+	select REBOOT
+	select CRC
+	select IMG_MANAGER
+	select STREAM_FLASH
+	help
+	  Accept the RZI1 byte protocol on a Zephyr UART and install a
+	  signed MCUboot image into slot1. The UART can be USB CDC or a
+	  hardware serial port; set chosen rzi,slot-update-uart.
+	  Type 0 (Arduino sketch) is not handled here.
+
+config RZI_USB_UPDATE
+	bool
+	select RZI_SLOT_UPDATE
+	help
+	  Deprecated alias for CONFIG_RZI_SLOT_UPDATE.
+
+if RZI_SLOT_UPDATE
+
+config RZI_SLOT_UPDATE_1200BPS
+	bool "Enter update when the selected UART baud is 1200"
+	depends on UART_LINE_CTRL
+	default y
+	help
+	  Poll the bound UART. 1200 baud arms GPREGRET and resets. Works
+	  on CDC and on hardware UARTs that implement line control.
+
+config RZI_SLOT_UPDATE_HEADER_TIMEOUT_MS
+	int "Milliseconds to wait for an RZI1 header after the port is ready"
+	range 1000 300000
+	default 120000
+
+endif

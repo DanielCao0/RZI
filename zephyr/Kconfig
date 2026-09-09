@@ -29,5 +29,6 @@ config RZI_MCUBOOT
 rsource "Kconfig.lorawan"
 rsource "Kconfig.lora"
 rsource "Kconfig.at"
+rsource "Kconfig.slot_update"
 
 endif

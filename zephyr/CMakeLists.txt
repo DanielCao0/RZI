@@ -50,4 +50,11 @@ if(CONFIG_RZI)
       ${CMAKE_CURRENT_BINARY_DIR}/rzi-at
     )
   endif()
+
+  if(CONFIG_RZI_SLOT_UPDATE)
+    add_subdirectory(
+      ${ZEPHYR_CURRENT_MODULE_DIR}/src/slot_update
+      ${CMAKE_CURRENT_BINARY_DIR}/rzi-slot-update
+    )
+  endif()
 endif()

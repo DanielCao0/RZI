@@ -10,7 +10,12 @@ RZI 不实现 bootloader。MCUBoot 源码仍是 west 拉下来的模块。RZI �
 3. 用 **sysbuild** 编。没有 sysbuild 时配置会失败，避免只烧应用、0x0 没有 boot。
 4. 首次和恢复：烧构建目录里的 **合并镜像**（`merged.hex`），不要烧 `zephyr.hex`。
 5. 之后升级：signed MCUBoot 镜像写入 **slot1**（`image-1`），再走
-   `rzi_fuota_apply()`。RZI 认分区名，不认某一块板的绝对地址。
+   `rzi_fuota_apply()`（LoRaWAN FUOTA）或 `rzi_slot_update_run()`（RZI1）。
+   RZI 认分区名，不认某一块板的绝对地址。
+6. 日常串口升级（`CONFIG_RZI_SLOT_UPDATE`）：和 Arduino loader 同一套 RZI1
+   type 1。口由 `chosen rzi,slot-update-uart` 指定，可以是 USB CDC 或
+   硬件 UART。1200bps → GPREGRET `0xA5` → 写 slot1 → MCUboot 换槽。
+   不改 MCUboot 源码。首次 / 变砖仍烧 merged.hex。
 
 分区表在产品板上，不在 RZI 核心 Kconfig 里。换板只补该板的 DTS 和烧录说明。
 

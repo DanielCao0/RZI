@@ -21,5 +21,8 @@ uint32_t rzi_get_capabilities(void)
 	if (IS_ENABLED(CONFIG_RZI_STORAGE)) {
 		capabilities |= RZI_CAP_STORAGE;
 	}
+	if (IS_ENABLED(CONFIG_RZI_SLOT_UPDATE)) {
+		capabilities |= RZI_CAP_SLOT_UPDATE;
+	}
 	return capabilities;
 }
