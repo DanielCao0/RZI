@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <rzi/at.h>
+#include <rzi/at/at.h>
 
 /**
  * @brief Lifecycle hooks implemented by an internal AT extension.

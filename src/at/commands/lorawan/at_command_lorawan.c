@@ -13,11 +13,11 @@
 #include <zephyr/sys/util.h>
 
 #if defined(CONFIG_RZI_AT_NVM)
-#include <rzi/storage.h>
+#include <rzi/storage/storage.h>
 #endif
 
-#include <rzi/at.h>
-#include <rzi/lorawan.h>
+#include <rzi/at/at.h>
+#include <rzi/lorawan/lorawan.h>
 
 #include "../../at_priv.h"
 #include "at_command_lorawan_priv.h"

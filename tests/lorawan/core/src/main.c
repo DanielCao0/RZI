@@ -8,10 +8,10 @@
 #include <zephyr/ztest.h>
 
 #include <rzi/capabilities.h>
-#include <rzi/lorawan.h>
+#include <rzi/lorawan/lorawan.h>
 #include <rzi/version.h>
 
-#include "lorawan_backend.h"
+#include "backend/lorawan_backend.h"
 
 K_SEM_DEFINE(callback_sem, 0, 8);
 

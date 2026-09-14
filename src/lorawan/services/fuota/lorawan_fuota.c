@@ -13,11 +13,15 @@
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
-#include <rzi/fuota.h>
-#include <rzi/lorawan.h>
+#include <rzi/lorawan/fuota.h>
+#include <rzi/lorawan/lorawan.h>
+
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
+#include <rzi/power/power.h>
+#endif
 
 #include "lorawan_fuota.h"
-#include "../../lorawan_feature.h"
+#include "../../backend/lorawan_feature.h"
 
 #ifdef CONFIG_IMG_MANAGER
 #include <zephyr/dfu/flash_img.h>
@@ -36,6 +40,9 @@ static K_MUTEX_DEFINE(lock);
 static atomic_t started;
 static enum rzi_fuota_state state = RZI_FUOTA_STATE_IDLE;
 static bool image_ready;
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
+static bool power_flash_held;
+#endif
 static size_t image_size;
 static size_t expected_size;
 static int last_error;
@@ -78,6 +85,19 @@ static void set_state_locked(enum rzi_fuota_state next)
 		return;
 	}
 	state = next;
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
+	{
+		bool want =
+			next == RZI_FUOTA_STATE_TRANSFERRING || next == RZI_FUOTA_STATE_APPLYING;
+
+		if (want && !power_flash_held && rzi_power_block(RZI_POWER_BLOCK_FLASH) == 0) {
+			power_flash_held = true;
+		} else if (!want && power_flash_held) {
+			(void)rzi_power_unblock(RZI_POWER_BLOCK_FLASH);
+			power_flash_held = false;
+		}
+	}
+#endif
 	k_mutex_unlock(&lock);
 	if (table.state_changed != NULL) {
 		table.state_changed(next, table.user_data);

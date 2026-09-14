@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../../lorawan_backend.h"
+#include "../../backend/lorawan_backend.h"
 
 #define RZI_LORAWAN_FUOTA_OPS_VERSION 1U
 

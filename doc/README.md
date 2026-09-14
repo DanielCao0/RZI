@@ -1,22 +1,64 @@
-# RZI 文档
+# Documentation
 
-- [RZI SDK 总体架构](./rzi-sdk-architecture.md)：正式的分层、职责边界、后端策略、依赖策略以及 AT、NVM、功耗、FUOTA 和 Arduino/RUI 路线图。
-- [RZI LoRaWAN 公共 API 规范](./lorawan-api.md)：融合 Zephyr 操作形态与 RUI3 异步 callback 体验的生命周期、并发、错误和 backend contract。
-- [编译两种 LoRaWAN backend](./lorawan-backends.md)：USP/LBM 与 Zephyr `lorawan_*` + loramac-node 的 Kconfig、overlay 和 west 命令。
-- [Zephyr LoRaWAN API backend](./lorawan-backend-zephyr.md)：第二套真实栈对 RZI 合同的验证结论。
-- [RZI 设备启动](./boot.md)：产品板、`CONFIG_RZI_MCUBOOT`、sysbuild 与合并镜像。
-- [RZI FUOTA 与 ChirpStack](./fuota.md)：协议归属、设备流程、ChirpStack 配置和镜像容量限制。
-- [RZI Storage API](./storage-api.md)：命名空间、错误语义、AT settings 迁移与后续安全存储边界。
-- [RZI 公共 API 注解与文档规范](./api-documentation-guidelines.md)：Doxygen、版本、线程与生命周期说明，以及 must-check、printf-like 和 deprecated 编译器检查要求。
-- [RZI 文件与函数命名规范](./naming-conventions.md)：所有新增和修改代码必须遵循的文件、公共 API、私有函数、AT 命令与构建符号命名规则。
-- [RZI AT 框架](./at-framework.md)：AT core、命令注册、可选命令包和 I/O adapter 的边界。
-- [RZI AT 指令与 RUI3 兼容性](./at-command-compatibility.md)：已实现指令、参数语义、异步事件、持久化及完整 RUI3 指令集的差异。
-- [RUI3 C service 框架映射](./rui3-c-service-framework.md)：RUI3 LoRa C service、标准 packages、P2P 与 AT command domains 在 RZI 中的完整占位边界。
-- [RZI 与 Zephyr 集成重构](./rzi-zephyr-refactoring-guide.md)：目录、公共 API、后端边界和验证结果。
-- [usp_zephyr 框架](./usp_zephyr-framework.md)：Semtech USP 分层和两个 Git 仓库。
-- [三者关系](./usp-lbm-zephyr.md)：Zephyr、usp_zephyr、LBM 各自负责什么。
-- [LBM 分层](./lbm-layers.md)：应用、应用层包、MAC 与 RAC 的关系。
-- [RAK4631 板级设备树](./rak4631-dts.md)：上游 SX1262 节点和 sample 兼容配置的历史分析。
+Status: index
 
-`rzi-sdk-architecture.md` 是当前架构的权威文档。其余文档记录早期调研和
-USP 后端实现背景。产品板和启动以 [boot.md](./boot.md) 和总体架构为准。
+In-tree copies are English. Chinese reading copies live outside the repository
+at `~/doc/rzi/`. File names are lowercase kebab-case and do not repeat `rzi`.
+
+Every page uses the same front matter: a short title, a `Status:` line, a
+purpose paragraph, and `See also:` links to peer documents. Status values:
+
+| Status | Meaning |
+|---|---|
+| index | This catalog |
+| normative | Rules new code must follow |
+| implemented | Describes current source |
+| evaluation | Findings from a second implementation |
+| superseded | Kept only so old links resolve |
+
+`include/rzi/` is the ABI. These Markdown files explain ownership, build
+switches, and limits that do not belong in a header comment.
+
+## Architecture and boot
+
+| Document | Status | Contents |
+|---|---|---|
+| [architecture.md](./architecture.md) | implemented | Layers, ownership, backend policy |
+| [boot.md](./boot.md) | implemented | Product boards, MCUBoot, slots, merged image |
+| [power.md](./power.md) | implemented | Policy, blockers, both boards |
+| [west-patch.md](./west-patch.md) | implemented | Upstream compatibility patches |
+
+## Service APIs
+
+| Document | Status | Contents |
+|---|---|---|
+| [lorawan-api.md](./lorawan-api.md) | normative | LoRaWAN public C contract |
+| [lorawan-backends.md](./lorawan-backends.md) | implemented | USP vs Zephyr build switch |
+| [lorawan-backend-zephyr.md](./lorawan-backend-zephyr.md) | evaluation | Zephyr `lorawan_*` adapter |
+| [fuota.md](./fuota.md) | implemented | ChirpStack FUOTA (dual-slot) |
+| [storage-api.md](./storage-api.md) | implemented | Namespaced key-value storage |
+| [power-api.md](./power-api.md) | implemented | `rzi_power_*` C contract |
+| [rsup-api.md](./rsup-api.md) | implemented | Slot-update protocol |
+| [at-framework.md](./at-framework.md) | implemented | AT core, registry, adapters |
+| [at-command-compatibility.md](./at-command-compatibility.md) | implemented | Registered commands vs RUI3 |
+| [rui3-mapping.md](./rui3-mapping.md) | implemented | RUI3 C service boundaries |
+
+## Standards
+
+| Document | Status | Contents |
+|---|---|---|
+| [coding-standards.md](./coding-standards.md) | normative | Layout, naming, errors, commits |
+| [api-docs.md](./api-docs.md) | normative | Doxygen and compiler annotations |
+| [naming-conventions.md](./naming-conventions.md) | superseded | Redirect to coding standards §3 |
+
+Product and Arduino operator notes live outside the repository:
+`~/doc/rzi-arduino-*.md`.
+
+## Doxygen
+
+```bash
+scripts/generate-doxygen.sh
+```
+
+Opens `doc/doxygen/html/index.html`. Generated HTML is not committed.
+Rules are in [api-docs.md](./api-docs.md).

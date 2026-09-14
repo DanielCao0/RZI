@@ -9,7 +9,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 
-#include <rzi/at.h>
+#include <rzi/at/at.h>
 #include <rzi/at/uart.h>
 
 static const struct device *active_uart;

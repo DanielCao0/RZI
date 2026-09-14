@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: RZI LoRaWAN Class A low power
+  description: >
+    Event-driven Class A periodical uplink (Semtech USP / RUI3 shape)
+tests:
+  sample.rzi.lorawan.low_power:
+    sysbuild: true
+    build_only: true
+    tags:
+      - rzi
+      - lorawan
+      - power
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx

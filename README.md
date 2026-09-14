@@ -7,7 +7,7 @@ LoRa Basics Modem.
 
 The target architecture, ownership boundaries, backend migration policy, and
 service roadmap are defined in
-[`doc/rzi-sdk-architecture.md`](doc/rzi-sdk-architecture.md).
+[`doc/architecture.md`](doc/architecture.md).
 
 ## Repository layout
 
@@ -20,25 +20,26 @@ rzi/
 │   ├── patches.yml      Backend compatibility patch manifest
 │   └── patches/         Backend compatibility patches
 ├── include/rzi/
-│   ├── version.h        Canonical SDK version
-│   ├── capabilities.h   Compiled service discovery
-│   ├── storage.h        Namespaced key-value storage
-│   ├── lorawan.h        LoRaWAN core public API
-│   ├── fuota.h          FUOTA coordination API
-│   └── at/uart.h        Implemented UART adapter API
+│   ├── version.h              Canonical SDK version
+│   ├── capabilities.h         Compiled service discovery
+│   ├── lorawan/lorawan.h      LoRaWAN core public API
+│   ├── lorawan/fuota.h        FUOTA coordination API
+│   ├── power/power.h          Sleep policy and blockers
+│   ├── storage/storage.h      Namespaced key-value storage
+│   ├── rsup/rsup.h            Slot update protocol
+│   ├── at/at.h                AT service
+│   └── at/uart.h              UART adapter API
 ├── src/
 │   ├── core/            Version and service capability implementation
 │   ├── storage/         Zephyr settings storage adapter
+│   ├── power/           Sleep policy coordinator
+│   ├── rsup/            Slot update protocol
 │   ├── lora/            Raw LoRa private .c/.h scaffold
 │   ├── lorawan/
-│   │   ├── lorawan.c          Backend-independent service
-│   │   ├── lorawan_backend.h  Private backend contract
-│   │   ├── lorawan_feature.h  Versioned backend feature extensions
-│   │   ├── backends/
-│   │   │   └── usp/lorawan_backend_usp.c
-│   │   │                          Semtech USP implementation
-│   │   ├── mac_commands/         DeviceTimeReq and LinkCheckReq boundary
-│   │   ├── services/fuota/       ChirpStack-compatible FUOTA coordinator
+│   │   ├── core/lorawan.c     Backend-independent service
+│   │   ├── backend/           Contract, feature extensions, USP / Zephyr
+│   │   ├── mac_commands/      DeviceTimeReq and LinkCheckReq boundary
+│   │   ├── services/fuota/    ChirpStack-compatible FUOTA coordinator
 │   └── at/
 │       ├── at_core.c          Lifecycle, RX queue and output
 │       ├── at_parser.c        RUI3 command grammar
@@ -103,7 +104,7 @@ target_sources(app PRIVATE src/main.c)
 Applications include only the public API:
 
 ```c
-#include <rzi/lorawan.h>
+#include <rzi/lorawan/lorawan.h>
 ```
 
 RZI owns USP initialization, modem serialization, callback translation, and
@@ -113,7 +114,7 @@ product behavior, and its uplink schedule.
 
 The public API is implemented by a backend-independent service layer. Backend
 selection is a Kconfig choice, so another implementation can be added under
-`src/lorawan/backends/` without changing applications or the public headers.
+`src/lorawan/backend/` without changing applications or the public headers.
 
 ## Configuration
 
@@ -133,7 +134,9 @@ support must carry that compatibility in their workspace or application until
 the corresponding upstream changes are available.
 
 See [`samples/lorawan/class_a`](samples/lorawan/class_a/README.rst) for a
-minimal API example and [`samples/lorawan/at`](samples/lorawan/at/README.rst)
+minimal API example, [`samples/lorawan/low_power`](samples/lorawan/low_power/README.rst)
+for the official event-driven Class A low-power shape, and
+[`samples/lorawan/at`](samples/lorawan/at/README.rst)
 for a RAK RUI3-compatible AT command interface. Their overlays contain
 zero-valued credentials and the sample-only compatibility required by the
 currently pinned dependencies.
@@ -151,10 +154,11 @@ Implemented now:
   RECV);
 - flash persistence of AT parameters through Zephyr settings/NVS, using the
   board-defined `storage_partition` convention (no hardcoded addresses);
+- a product power coordinator (`include/rzi/power/power.h`) with board-specific
+  idle/STOP/shutdown policy and automatic service blockers;
 - standard Zephyr samples with Twister metadata.
 
-ABP, power policy, diagnostics, FUOTA, and the Arduino/RUI C++ wrapper
-remain planned services.
+ABP, diagnostics, and the Arduino/RUI C++ wrapper remain planned services.
 
 See [`doc/at-command-compatibility.md`](doc/at-command-compatibility.md) for the
 exact command behavior and the differences from the complete RUI3 command set.
@@ -164,11 +168,22 @@ RZI follows the
 and the layout conventions demonstrated by the
 [Zephyr example application](https://github.com/zephyrproject-rtos/example-application).
 
+## API documentation
+
+Public headers in `include/rzi/` use Zephyr-style Doxygen. Generate the HTML
+manual (headers plus `doc/*.md`) with:
+
+```bash
+scripts/generate-doxygen.sh
+```
+
+Open `doc/doxygen/html/index.html`. See [`doc/api-docs.md`](doc/api-docs.md).
+
 ## Style checks
 
 All new and modified RZI code must follow the normative
-[file and function naming conventions](doc/naming-conventions.md) in addition
-to the Zephyr coding style. The repository carries a copy of Zephyr's
+[coding standards](doc/coding-standards.md) (layout, naming, errors, and
+review) in addition to the Zephyr coding style. The repository carries a copy of Zephyr's
 `.clang-format` (picked up automatically by editors and plain `clang-format`),
 and `scripts/check-style.sh` runs clang-format plus Zephyr's `checkpatch.pl`
 with Zephyr's own `.checkpatch.conf` rules.

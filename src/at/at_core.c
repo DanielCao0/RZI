@@ -12,7 +12,7 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/ring_buffer.h>
 
-#include <rzi/at.h>
+#include <rzi/at/at.h>
 
 #include "at_priv.h"
 

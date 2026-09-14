@@ -27,10 +27,14 @@ enum rzi_capability {
 	RZI_CAP_AT = (1U << 1),
 	/** RZI key-value storage service is compiled in. */
 	RZI_CAP_STORAGE = (1U << 2),
-	/** RZI1 UART/USB slot update is compiled in. */
-	RZI_CAP_SLOT_UPDATE = (1U << 3),
-	/** @deprecated Use @ref RZI_CAP_SLOT_UPDATE. */
-	RZI_CAP_USB_UPDATE = RZI_CAP_SLOT_UPDATE,
+	/** RSUP (RZI Slot Update Protocol) is compiled in. */
+	RZI_CAP_RSUP = (1U << 3),
+	/** Product power-policy coordinator is compiled in. */
+	RZI_CAP_POWER = (1U << 4),
+	/** @deprecated Use @ref RZI_CAP_RSUP. */
+	RZI_CAP_SLOT_UPDATE = RZI_CAP_RSUP,
+	/** @deprecated Use @ref RZI_CAP_RSUP. */
+	RZI_CAP_USB_UPDATE = RZI_CAP_RSUP,
 };
 
 /**

@@ -133,12 +133,16 @@ run_checkpatch() {
 	fi
 
 	local patch scope
+	# Unified diffs encode empty context as a single space. checkpatch
+	# reports those as TRAILING_WHITESPACE, so skip patch payloads.
+	local exclude=(-- . ':(exclude)*.patch' ':(exclude)*.diff')
+
 	if [[ "${staged}" == "yes" ]]; then
 		scope="staged changes"
-		patch="$(git -C "${REPO}" diff --cached)"
+		patch="$(git -C "${REPO}" diff --cached "${exclude[@]}")"
 	elif ! git -C "${REPO}" diff --quiet HEAD --; then
 		scope="working tree vs HEAD"
-		patch="$(git -C "${REPO}" diff HEAD)"
+		patch="$(git -C "${REPO}" diff HEAD "${exclude[@]}")"
 	else
 		scope="HEAD commit"
 		patch="$(git -C "${REPO}" show HEAD)"

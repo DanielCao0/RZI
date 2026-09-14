@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_POWER
+	bool "RZI power coordinator"
+	select PM if SOC_SERIES_STM32WLX
+	select POWEROFF if HAS_POWEROFF
+	imply HWINFO
+	help
+	  Product sleep policy and service blockers. Zephyr performs the
+	  actual idle, STOP, or power-off transition. STM32WLE5 selects
+	  CONFIG_PM so STOP0/1/2 from the SoC device tree are available.
+	  nRF52840 keeps CONFIG_PM off: System ON idle is arch WFE, and
+	  System OFF is rzi_power_shutdown().
+
+if RZI_POWER
+
+choice RZI_POWER_POLICY_DEFAULT
+	prompt "Default sleep policy"
+	default RZI_POWER_POLICY_DEFAULT_SUSPEND if SOC_SERIES_STM32WLX
+	default RZI_POWER_POLICY_DEFAULT_IDLE
+	help
+	  3372 (STM32WLE5) defaults to suspend so the idle thread may
+	  enter STOP2. 4631 (nRF52840, often USB CDC) defaults to idle
+	  System ON. The application may change this at runtime.
+
+config RZI_POWER_POLICY_DEFAULT_RUN
+	bool "Run (no sleep)"
+
+config RZI_POWER_POLICY_DEFAULT_IDLE
+	bool "Idle (CPU wait, no STOP)"
+
+config RZI_POWER_POLICY_DEFAULT_SUSPEND
+	bool "Suspend (STOP2 on STM32WLE5)"
+
+config RZI_POWER_POLICY_DEFAULT_SHUTDOWN
+	bool "Shutdown (explicit rzi_power_shutdown only)"
+
+endchoice
+
+config RZI_POWER_AUTO_SERVICE_BLOCK
+	bool "Services report blockers automatically"
+	default y
+	help
+	  Class C, storage writes, RSUP, and FUOTA transfer/apply take and
+	  release blockers. Class A join/send do not: the backend must be
+	  allowed to STOP between TX and RX1/RX2. Disable only when the
+	  application owns every blocker itself.
+
+endif # RZI_POWER

@@ -56,3 +56,16 @@ patches:
       previously visible only to the USP library, so the separate BSP library
       compiled sx126x_ral_bsp.c as SX1261 (device_sel=1, hp_max=0) and selected
       the 60 mA over-current limit.
+
+  - path: usp_zephyr/0005-stm32wl-subghz-radio.patch
+    sha256sum: 77dcc2af705baac4b55b7de935e5e45527a0a48a1ee5cfa8985fd6ec49e81fa6
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-10
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Enumerate st,stm32wl-subghz-radio in the USP SX126x driver (RAK3372
+      on-chip SUBGHZ). Reset/busy use RCC/PWR, IRQ is EXTI 44, PA follows
+      rfo-hp, and tx/rx-enable GPIOs track SetTx/SetRx.

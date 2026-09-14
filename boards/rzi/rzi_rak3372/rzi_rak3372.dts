@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * Skeleton product board for the RAK3372 WisBlock Core (RAK3172 stamp
- * module). Pinout follows upstream rak3172. LoRaWAN, USP and
- * programming scripts are not delivered for this board yet.
+ * Product board for the RAK3372 WisBlock Core (RAK3172 stamp module).
+ * Pinout follows upstream rak3172. Radio is the STM32WLE5 on-chip
+ * SUBGHZ (st,stm32wl-subghz-radio), not an SPI SX1262 shield. USP
+ * support is the RAK3372 west patch in zephyr/patches/usp_zephyr.
+ * Single-slot flash: no FUOTA and no RSUP type-1 update.
  */
 
 /dts-v1/;
@@ -19,6 +21,7 @@
 		zephyr,console = &usart1;
 		zephyr,shell-uart = &usart1;
 		zephyr,system-timer = &lptim1;
+		zephyr,lorawan-transceiver = &lora;
 	};
 
 	leds {

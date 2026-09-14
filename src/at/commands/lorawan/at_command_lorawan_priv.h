@@ -13,8 +13,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
 
-#include <rzi/at.h>
-#include <rzi/lorawan.h>
+#include <rzi/at/at.h>
+#include <rzi/lorawan/lorawan.h>
 
 /** Default delay between join attempts in seconds. */
 #define RZI_AT_LORAWAN_JOIN_INTERVAL_DEFAULT 8U

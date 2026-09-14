@@ -26,9 +26,19 @@ config RZI_MCUBOOT
 	  CONFIG_IMG_MANAGER in the application when FUOTA should install
 	  a reconstructed image.
 
+config RZI_MCUBOOT_DUAL_SLOT
+	bool "MCUboot secondary slot (image-1)"
+	depends on RZI_MCUBOOT
+	default y if BOARD_RZI_RAK4631
+	help
+	  The product board has slot1_partition. LoRaWAN FUOTA and RSUP
+	  type-1 UART update write a signed image there. Single-slot
+	  boards such as rzi_rak3372 (256 KiB) leave this off.
+
 rsource "Kconfig.lorawan"
 rsource "Kconfig.lora"
 rsource "Kconfig.at"
-rsource "Kconfig.slot_update"
+rsource "Kconfig.rsup"
+rsource "Kconfig.power"
 
 endif

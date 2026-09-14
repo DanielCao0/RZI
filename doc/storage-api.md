@@ -1,47 +1,58 @@
-# RZI Storage API
+# Storage API
 
-## 1. Purpose
+Status: implemented
 
-`include/rzi/storage.h` is the only persistent key-value interface used by RZI
-services. Service and AT code must not call Zephyr settings, NVS, or flash APIs
-directly. This keeps persistence policy independent of the selected physical
-backend.
+`include/rzi/storage/storage.h` is the only persistent key-value interface
+used by RZI services. Service and AT code must not call Zephyr settings,
+NVS, or flash APIs directly.
 
-The current Zephyr adapter is implemented in
-`src/storage/storage_settings.c`. `CONFIG_RZI_STORAGE` enables the service;
-applications still select and configure the Zephyr settings backend.
+See also: [at-command-compatibility.md](./at-command-compatibility.md),
+[architecture.md](./architecture.md) §10.
 
-## 2. Contract
+The Zephyr adapter is `src/storage/storage_settings.c`.
+`CONFIG_RZI_STORAGE` enables the service; the application still selects
+the Zephyr settings backend. Write and delete take `RZI_POWER_BLOCK_FLASH`
+when auto-block is on.
+
+## Contract
 
 - `rzi_storage_init()` is idempotent and thread-context only.
 - Keys are composed as `<namespace>/<key>`.
-- read requires an exact stored-size match and returns `-EMSGSIZE` otherwise.
-- write replaces one complete value through the backend operation.
-- delete returns `-ENOENT` when no value exists.
-- all backend operations are serialized by the service.
-- empty, absolute, trailing-slash, and double-slash paths are rejected.
+- Read requires an exact stored-size match and returns `-EMSGSIZE`
+  otherwise.
+- Write replaces one complete value.
+- Delete returns `-ENOENT` when no value exists.
+- Backend operations are serialized by the service.
+- Empty, absolute, trailing-slash, and double-slash paths are rejected.
+- Composed names longer than 63 characters return `-ENAMETOOLONG`.
 
 Namespaces belong to services. A service must not read, rewrite, or delete
 another service's namespace.
 
-## 3. AT migration
+The header does not return `-EWOULDBLOCK`; callers must stay in thread
+context.
 
-The LoRaWAN AT package continues using the existing `rzi/<key>` paths, so
-firmware containing previously stored DEVEUI, APPEUI, APPKEY, BAND, CFM, and
-JOIN settings remains compatible. Only the code owner changed: AT now consumes
-the RZI Storage API rather than Zephyr settings directly.
+## AT keys
 
-## 4. Security and future evolution
+The LoRaWAN AT package uses namespace `rzi` and these keys, so firmware
+that already stored credentials stays compatible:
 
-The current API stores opaque bytes; it does not claim encryption, secure-key
-storage, transactions, or schema migration. Production root keys should
-eventually use a provisioning or secure-storage backend appropriate to the
-target.
+| Key | Content |
+|---|---|
+| `deveui` | 8-byte DevEUI |
+| `joineui` | 8-byte JoinEUI |
+| `appkey` | 16-byte AppKey |
+| `band` | RUI3 band number |
+| `cfm` | Confirmed-uplink flag |
+| `autojoin` | Auto-join after boot |
+| `join_interval` | Retry interval in seconds |
+| `join_attempts` | Retry count after the first attempt |
 
-Before a stable 1.0 release, storage evolution must add:
+## Security and future work
 
-1. schema version metadata;
-2. transactional multi-key updates where required;
-3. migration and rollback tests;
-4. coordinated factory-reset policy;
-5. a secure credential-storage profile.
+The API stores opaque bytes. It does not claim encryption, secure-key
+storage, transactions, or schema migration.
+
+Before a stable 1.0 release, storage must add schema version metadata,
+transactional multi-key updates where required, migration tests, a
+coordinated factory-reset policy, and a secure credential profile.

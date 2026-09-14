@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library_sources(
-  lorawan.c
-  lorawan_feature.c
+  core/lorawan.c
+  backend/lorawan_feature.c
 )
 
 zephyr_library_sources_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_USP
-  backends/usp/lorawan_backend_usp.c
+  backend/usp/lorawan_backend_usp.c
 )
 zephyr_library_link_libraries_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_USP
@@ -15,7 +15,7 @@ zephyr_library_link_libraries_ifdef(
 )
 zephyr_library_sources_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR
-  backends/zephyr/lorawan_backend_zephyr.c
+  backend/zephyr/lorawan_backend_zephyr.c
 )
 
 zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_MULTICAST

@@ -4,14 +4,15 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <rzi/lorawan.h>
+#include <rzi/lorawan/lorawan.h>
+#include <rzi/power/power.h>
 
 LOG_MODULE_REGISTER(rzi_lorawan_sample, LOG_LEVEL_INF);
 
-#define USER_NODE         DT_PATH(zephyr_user)
-#define REGION_ENUM(name) DT_CAT(RZI_LORAWAN_REGION_, name)
-#define RETRY_DELAY       K_SECONDS(5)
-#define UPLINK_INTERVAL   K_SECONDS(60)
+#define USER_NODE          DT_PATH(zephyr_user)
+#define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
+#define RETRY_DELAY_MS     5000
+#define UPLINK_INTERVAL_MS 60000
 
 static volatile bool stack_ready;
 static volatile bool joined;
@@ -98,6 +99,11 @@ int main(void)
 	int rc;
 
 	LOG_INF("RZI LoRaWAN Class A sample");
+	rc = rzi_power_init();
+	if (rc != 0) {
+		LOG_ERR("Power init failed: %d", rc);
+		return rc;
+	}
 	rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
 	if (rc != 0) {
 		LOG_ERR("Callback registration failed: %d", rc);
@@ -117,7 +123,7 @@ int main(void)
 
 	while (request_join() != 0) {
 		(void)rzi_lorawan_leave();
-		k_sleep(RETRY_DELAY);
+		(void)rzi_power_sleep(RETRY_DELAY_MS);
 	}
 	LOG_INF("Joined");
 
@@ -126,6 +132,6 @@ int main(void)
 		if (rc != 0 && rc != -EBUSY) {
 			LOG_WRN("Uplink rejected: %d", rc);
 		}
-		k_sleep(UPLINK_INTERVAL);
+		(void)rzi_power_sleep(UPLINK_INTERVAL_MS);
 	}
 }

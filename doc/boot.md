@@ -1,47 +1,79 @@
-# RZI 设备启动
+# Device boot
 
-RZI 不实现 bootloader。MCUBoot 源码仍是 west 拉下来的模块。RZI 负责的是
-**客户怎么启用、哪块板怎么分区、怎么烧、FUOTA 怎么装到槽里**。
+Status: implemented
 
-## 契约（所有产品板）
+RZI does not implement a bootloader. MCUBoot source remains a west-fetched
+module. RZI owns how customers enable it, how each board is partitioned,
+how to flash, and how FUOTA or RSUP lands in a slot.
 
-1. 选 RZI 产品板，不要用上游 `rak4631` / `rak3172` 当客户入口。
-2. 打开 `CONFIG_RZI_MCUBOOT=y`。官方例程和产品 app 已经打开。
-3. 用 **sysbuild** 编。没有 sysbuild 时配置会失败，避免只烧应用、0x0 没有 boot。
-4. 首次和恢复：烧构建目录里的 **合并镜像**（`merged.hex`），不要烧 `zephyr.hex`。
-5. 之后升级：signed MCUBoot 镜像写入 **slot1**（`image-1`），再走
-   `rzi_fuota_apply()`（LoRaWAN FUOTA）或 `rzi_slot_update_run()`（RZI1）。
-   RZI 认分区名，不认某一块板的绝对地址。
-6. 日常串口升级（`CONFIG_RZI_SLOT_UPDATE`）：和 Arduino loader 同一套 RZI1
-   type 1。口由 `chosen rzi,slot-update-uart` 指定，可以是 USB CDC 或
-   硬件 UART。1200bps → GPREGRET `0xA5` → 写 slot1 → MCUboot 换槽。
-   不改 MCUboot 源码。首次 / 变砖仍烧 merged.hex。
+See also: [fuota.md](./fuota.md), [rsup-api.md](./rsup-api.md).
 
-分区表在产品板上，不在 RZI 核心 Kconfig 里。换板只补该板的 DTS 和烧录说明。
+## Contract (every product board)
 
-| 板名 | 全名 | west 目标 | 本轮状态 |
+1. Target an RZI product board. Do not use upstream `rak4631` / `rak3172`
+   as the customer entry.
+2. Enable `CONFIG_RZI_MCUBOOT=y`. Official samples and the product app
+   already do.
+3. Build with **sysbuild**. Configuration fails without it, so an
+   application-only image is not flashed with no bootloader at 0x0.
+4. First flash and recovery: flash the **merged image** (`merged.hex`) from
+   the build directory, not `zephyr.hex`.
+5. Later upgrades on dual-slot boards: write a signed MCUBoot image into
+   **slot1** (`image-1`), then use `rzi_fuota_apply()` (LoRaWAN FUOTA) or
+   `rzi_rsup_run()` (RSUP). RZI uses partition names, not a board-specific
+   absolute address. Single-slot boards (3372) have no `image-1`, so they
+   do not support FUOTA or RSUP type 1. Reflash the merged image.
+6. Everyday serial upgrade (`CONFIG_RZI_RSUP`, depends on
+   `CONFIG_RZI_MCUBOOT_DUAL_SLOT`): the same RSUP (RZI Slot Update
+   Protocol) type 1 as the Arduino loader. The port comes from
+   `chosen rzi,rsup-uart` and may be USB CDC or a hardware UART.
+   1200 bps → GPREGRET `0xA5` → write slot1 → MCUBoot swaps slots. MCUBoot
+   source is not modified. First flash / brick recovery still uses
+   `merged.hex`.
+
+Partition tables live on the product board, not in RZI core Kconfig.
+Adding a board only adds that board's DTS and flash notes.
+
+| Board | Full name | west target | Status |
 |---|---|---|---|
-| `rzi_rak4631` | RZI RAK4631 | `rzi_rak4631/nrf52840` | 已接 MCUBoot 和 LoRaWAN 例程 |
-| `rzi_rak3372` | RZI RAK3372 | `rzi_rak3372/stm32wle5xx` | 只占板名；LoRaWAN / 烧录未交付 |
+| `rzi_rak4631` | RZI RAK4631 | `rzi_rak4631/nrf52840` | MCUBoot and LoRaWAN samples wired |
+| `rzi_rak3372` | RZI RAK3372 | `rzi_rak3372/stm32wle5xx` | Single-slot MCUBoot; on-chip SUBGHZ (USP patch); no FUOTA |
 
-nRF52840（RAK4631）分区同时给原生 Zephyr 和 ArduinoCore-zephyr 用：
+nRF52840 (RAK4631) partitions are shared by native Zephyr and
+ArduinoCore-zephyr:
 
-| 分区 | 地址 | 大小 | 用途 |
+| Partition | Address | Size | Use |
 |---|---|---|---|
-| `mcuboot` | `0x00000` | 48 KB | 唯一 bootloader |
-| `image-0` | `0x0c000` | 304 KB | RZI app 或 Arduino loader |
-| `image-1` | `0x58000` | 304 KB | FUOTA / 换槽 |
+| `mcuboot` | `0x00000` | 48 KB | Sole bootloader |
+| `image-0` | `0x0c000` | 304 KB | RZI app or Arduino loader |
+| `image-1` | `0x58000` | 304 KB | FUOTA / slot swap |
 | `user` | `0xa4000` | 336 KB | Arduino LLEXT sketch |
 | `storage` | `0xf8000` | 32 KB | settings |
 
-换模式只换 slot0 里签过名的镜像，不换 MCUboot。原生应用忽略 `user` 分区。
+Changing mode only replaces the signed image in slot0. MCUBoot stays.
+Native applications ignore the `user` partition.
 
-这和 RUI3 / 厂 Arduino boot **不兼容**：没有 `AT+BOOT`、`nrfutil`、UF2。
-换到 RZI 是一次性 SWD 换皮，和 RAK 自己在 4631 与 4631-R 之间换 boot 同类。
+STM32WLE5 (RAK3372, 256 KB) is single-slot and has no `image-1` / `user`:
 
-开发构建使用 MCUBoot 默认密钥。量产请换成自己的签名密钥（本仓库尚未接 CI 签包）。
+| Partition | Address | Size | Use |
+|---|---|---|---|
+| `mcuboot` | `0x00000` | 32 KB | Sole bootloader |
+| `image-0` | `0x08000` | 216 KB | RZI application |
+| `storage` | `0x3e000` | 8 KB | settings |
 
-## 本轮实例：RZI RAK4631
+Sysbuild mode comes from the board `Kconfig.sysbuild`: 4631 is
+overwrite-only; 3372 is `MCUBOOT_MODE_SINGLE_APP`. The radio is the
+STM32WLE5 on-chip SUBGHZ (`st,stm32wl-subghz-radio`). The USP driver
+needs `zephyr/patches/usp_zephyr/0005-stm32wl-subghz-radio.patch`.
+
+This is **not** compatible with RUI3 / factory Arduino boot: no `AT+BOOT`,
+`nrfutil`, or UF2. Moving to RZI is a one-time SWD boot change, the same
+class as RAK swapping 4631 versus 4631-R boot.
+
+Development builds use the MCUBoot default key. Production must switch to
+your own signing key (this repository does not yet wire CI signing).
+
+## This round: RZI RAK4631
 
 ```bash
 west build -p always --sysbuild \
@@ -50,16 +82,29 @@ west build -p always --sysbuild \
   rzi/samples/lorawan/class_a
 ```
 
-产物：`build/rzi-class-a/merged.hex`（boot + 签名应用）。
+Artifact: `build/rzi-class-a/merged.hex` (boot + signed application).
 
-产品 app（在 `app/` 里）：
+Product app (in `app/`):
 
 ```bash
 ./scripts/container.sh build
 ./scripts/flash-rak4631.sh
 ```
 
-默认烧 `build/app/merged.hex`。
+Default flash is `build/app/merged.hex`.
 
-密钥写在应用 overlay（`app.overlay` 或 `boards/rzi_rak4631_nrf52840.overlay`），
-不要改板级 DTS。射频、分区、USP SX1262 兼容已经在 `rzi_rak4631` 上。
+Keys go in the application overlay (`app.overlay` or
+`boards/rzi_rak4631_nrf52840.overlay`). Do not edit board DTS. Radio,
+partitions, and USP SX1262 compatibility are already on `rzi_rak4631`.
+
+## RZI RAK3372 (single slot)
+
+```bash
+west build -p always --sysbuild \
+  -b rzi_rak3372/stm32wle5xx \
+  -d build/rzi-class-a-3372 \
+  rzi/samples/lorawan/class_a
+```
+
+The artifact is again `merged.hex`. There is no slot1, so FUOTA / RSUP
+type 1 are not available.

@@ -6,7 +6,7 @@
 
 #include <zephyr/kernel.h>
 
-#include <rzi/at.h>
+#include <rzi/at/at.h>
 #include <rzi/version.h>
 
 #include "../at_priv.h"

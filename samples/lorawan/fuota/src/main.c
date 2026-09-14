@@ -4,8 +4,8 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <rzi/fuota.h>
-#include <rzi/lorawan.h>
+#include <rzi/lorawan/fuota.h>
+#include <rzi/lorawan/lorawan.h>
 
 LOG_MODULE_REGISTER(rzi_fuota_sample, LOG_LEVEL_INF);
 

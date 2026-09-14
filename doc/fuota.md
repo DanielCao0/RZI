@@ -1,86 +1,111 @@
-# RZI FUOTA 与 ChirpStack
+# FUOTA
 
-RZI 负责升级状态、镜像读取和可选的 MCUboot 安装。Clock Synchronization、
-Remote Multicast Setup、Fragmentation 由选中的 backend 实现（USP / LBM，
-或 Zephyr LoRaWAN services），不在 RZI 里复制。独立 GenAppKey 组播目前
-只有 USP/LBM 路径完整。两种 backend 怎么编见
-`doc/lorawan-backends.md`；Zephyr 合同限制见
-`doc/lorawan-backend-zephyr.md`。
+Status: implemented
 
-## 设备侧流程
+RZI owns update state, image read, and optional MCUboot installation. Clock
+Synchronization, Remote Multicast Setup, and Fragmentation stay in the
+selected backend. Independent GenAppKey multicast is complete only on
+USP/LBM.
 
-应用负责 OTAA 入网、周期 uplink，并用 `rzi_fuota_register_callbacks()`
-观察进度。协议与重组由 RZI 在 `CONFIG_RZI_LORAWAN_FUOTA=y` 时自动完成：
+See also: [lorawan-backends.md](./lorawan-backends.md),
+[lorawan-backend-zephyr.md](./lorawan-backend-zephyr.md),
+[boot.md](./boot.md).
+
+`CONFIG_RZI_LORAWAN_FUOTA` depends on `CONFIG_RZI_MCUBOOT_DUAL_SLOT` when
+MCUBoot is enabled, so `rzi_rak3372` cannot select it.
+
+## Device-side flow
+
+The application owns OTAA join and periodic uplinks, and observes progress
+with `rzi_fuota_register_callbacks()`. Protocol and reassembly run
+automatically when `CONFIG_RZI_LORAWAN_FUOTA=y`:
 
 ```text
 OTAA join
-  -> rzi_fuota_start()（lorawan_start 自动调用）
-  -> 启动 ALCSync，并请求 MAC DeviceTime
-  -> 周期 uplink（ChirpStack 靠它推进单播步骤）
-  -> FPort 202 / 200 / 201 由 backend 透明处理
-  -> Class C 组播收分片
-  -> 记录镜像头，状态变为 COMPLETE
-  -> 可选 rzi_fuota_apply() 写入 MCUboot secondary slot 并重启
+  -> rzi_fuota_start() (called automatically from lorawan_start)
+  -> start ALCSync and request MAC DeviceTime
+  -> periodic uplink (ChirpStack advances unicast steps from this)
+  -> FPort 202 / 200 / 201 handled transparently by the backend
+  -> Class C multicast receives fragments
+  -> record the image header; state becomes COMPLETE
+  -> optional rzi_fuota_apply() writes the MCUboot secondary slot and reboots
 ```
 
-OTAA 的 `application_key` 是 LoRaWAN 1.0.x **GenAppKey**，必须与 ChirpStack
-设备上的 Gen App Key 一致。`network_key` 是 1.0.x AppKey。
+OTAA `application_key` is the LoRaWAN 1.0.x **GenAppKey** and must match
+the device Gen App Key in ChirpStack. `network_key` is the 1.0.x AppKey.
 
-## ChirpStack 配置
+## ChirpStack configuration
 
-1. Device profile → Application layer 打开：
+1. Device profile → Application layer, enable:
    - Application Layer Clock Synchronization **v1**
    - Remote Multicast Setup **v1**
    - Fragmented Data Block Transport **v1**
-2. Expected uplink interval 设为 5–10 秒。ChirpStack 会按这个间隔检查
-   单播步骤是否完成；间隔过长会表现为卡在 Multicast Setup。
-3. 设备 OTAA 密钥填写 AppKey 和 Gen App Key。
-4. 创建 FUOTA deployment：
+2. Set Expected uplink interval to 5–10 seconds. ChirpStack checks unicast
+   step completion on that interval; a longer interval looks like a stall
+   in Multicast Setup.
+3. Fill the device OTAA keys: AppKey and Gen App Key.
+4. Create a FUOTA deployment:
    - Multicast group type: **Class C**
-   - 让 ChirpStack 计算 fragment size 与 multicast timeout
-   - 建议配置 fragmentation redundancy（例如 10–20%）
-5. 上传要下发的文件。协议联调请用
-   `samples/lorawan/fuota/test-payload/rzi-fuota-test.bin`（4096 字节，
-   开头为 ASCII `RZI1`）。这不是可启动固件。若目标是 MCUboot 安装，
-   再换成 signed image。
+   - Let ChirpStack compute fragment size and multicast timeout
+   - Configure fragmentation redundancy (for example 10–20%)
+5. Upload the file to send. For protocol bring-up use
+   `samples/lorawan/fuota/test-payload/rzi-fuota-test.bin` (4096 bytes,
+   ASCII `RZI1` at the start). That is not bootable firmware. For MCUboot
+   installation, switch to a signed image.
 
-设备固件需选择同一套包版本：
+Device firmware must select the same package versions:
 
 ```
 CONFIG_RZI_LORAWAN_FUOTA=y
 CONFIG_LORA_BASICS_MODEM_FUOTA_V1=y
 ```
 
-若 ChirpStack 设备 profile 使用 v2，改为 `CONFIG_LORA_BASICS_MODEM_FUOTA_V2=y`。
+Optional RZI knobs (see `zephyr/Kconfig.lorawan`):
 
-ChirpStack 核心 FUOTA **不使用** Firmware Management Protocol（TS006）。
-LBM 默认仍会编译 FMP；它只在网络服务器发送 FPort 203 时生效。
+- `CONFIG_RZI_FUOTA_KEEPALIVE_INTERVAL_S` — automatic one-byte unicast
+  keepalive. Default `0` (off); the application should send its own
+  periodic uplinks.
+- `CONFIG_RZI_FUOTA_AUTO_APPLY` — copy a completed image to slot1 and
+  reboot. Requires `CONFIG_IMG_MANAGER`.
 
-## 镜像容量
+If the ChirpStack device profile uses v2, switch to
+`CONFIG_LORA_BASICS_MODEM_FUOTA_V2=y`.
 
-LBM 把重组后的镜像写到 context 分区的 `CONTEXT_FUOTA`（默认从 offset 4096
-开始）。可用容量受该分区大小和 `FRAG_MAX_NB * FRAG_MAX_SIZE` 限制。
+ChirpStack core FUOTA does **not** use the Firmware Management Protocol
+(TS006). LBM still builds FMP by default; it only runs when the network
+server sends FPort 203.
 
-默认 sample 配置约为 200 × 100 = 20 KB，适合验证协议，不能放下完整
-nRF52840 应用。要升级整包固件需要：
+## Image capacity
 
-1. 调大 `CONFIG_LORA_BASICS_MODEM_FUOTA_MAX_NB_OF_FRAGMENTS`
-2.    提供更大的 `lora-basics-modem-context-partition`，或打开
-   `CONFIG_RZI_MCUBOOT` 后由 `rzi_fuota_apply()` 把镜像拷到 slot1
-   （见 [boot.md](./boot.md)）
+LBM writes the reassembled image into the context partition
+`CONTEXT_FUOTA` (default offset 4096). Usable size is limited by that
+partition and by `FRAG_MAX_NB * FRAG_MAX_SIZE`.
 
-没有 `CONFIG_IMG_MANAGER` 时，`rzi_fuota_apply()` 返回 `-ENOTSUP`。
-应用仍可用 `rzi_fuota_read_image()` 取出镜像。
+The default sample configuration is about 200 × 100 = 20 KB. That is
+enough to verify the protocol and cannot hold a full nRF52840 application.
+A whole-firmware upgrade needs:
 
-## 公共 API
+1. A larger `CONFIG_LORA_BASICS_MODEM_FUOTA_MAX_NB_OF_FRAGMENTS`
+2. A larger `lora-basics-modem-context-partition`, or
+   `CONFIG_RZI_MCUBOOT` so `rzi_fuota_apply()` copies the image to slot1
+   (see [boot.md](./boot.md))
 
-见 `include/rzi/fuota.h`：
+Without `CONFIG_IMG_MANAGER`, `rzi_fuota_apply()` returns `-ENOTSUP`.
+Applications can still extract the image with `rzi_fuota_read_image()`.
+
+`rzi_rak3372` is single-slot (no `image-1`), so
+`CONFIG_RZI_LORAWAN_FUOTA` cannot be selected.
+
+## Public API
+
+See `include/rzi/lorawan/fuota.h`:
 
 - `rzi_fuota_register_callbacks()`
 - `rzi_fuota_start()`
 - `rzi_fuota_get_status()`
-- `rzi_fuota_set_expected_size()`（可选覆盖；backend 会报重组长度，MCUboot 镜像也会自动测量）
+- `rzi_fuota_set_expected_size()` (optional override; the backend reports
+  reassembly length, and MCUboot images are measured automatically)
 - `rzi_fuota_read_image()`
 - `rzi_fuota_apply()`
 
-参考示例：`samples/lorawan/fuota`。
+Reference sample: `samples/lorawan/fuota`.

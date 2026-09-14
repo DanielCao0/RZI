@@ -1,8 +1,12 @@
-# RZI west patches
+# West patches
+
+Status: implemented
 
 RZI owns the temporary compatibility patches required by its pinned backend
-dependencies. Applications import RZI and its dependencies through `west.yml`;
-they do not need to copy or maintain these patch files.
+dependencies. Applications import RZI through `west.yml` and do not copy
+these files.
+
+See also: [boot.md](./boot.md).
 
 The patch definition is stored in:
 
@@ -15,13 +19,15 @@ rzi/
             ├── 0001-zephyr-4.4-warning-fixes.patch
             ├── 0002-fix-lr-fhss-src-path.patch
             ├── 0003-disable-duplicate-xiao-board-root.patch
-            └── 0004-sx1262-pa-compile-definitions.patch
+            ├── 0004-sx1262-pa-compile-definitions.patch
+            └── 0005-stm32wl-subghz-radio.patch
 ```
 
 The third patch stops `usp_zephyr` from exporting its historical
 `xiao_nrf54l15` board root because the pinned Zephyr 4.4 revision already owns
 that board. USP devicetree bindings, shields, and module extensions remain
-exported.
+exported. The fifth patch teaches the USP SX126x driver the STM32WL on-chip
+SUBGHZ radio used by RAK3372.
 
 ## Applying the patches
 

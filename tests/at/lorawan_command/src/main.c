@@ -7,10 +7,10 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/ztest.h>
 
-#include <rzi/at.h>
-#include <rzi/lorawan.h>
+#include <rzi/at/at.h>
+#include <rzi/lorawan/lorawan.h>
 
-#include "lorawan_backend.h"
+#include "backend/lorawan_backend.h"
 
 K_SEM_DEFINE(output_ready, 0, 16);
 K_MUTEX_DEFINE(output_lock);

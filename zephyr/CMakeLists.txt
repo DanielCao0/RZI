@@ -51,10 +51,17 @@ if(CONFIG_RZI)
     )
   endif()
 
-  if(CONFIG_RZI_SLOT_UPDATE)
+  if(CONFIG_RZI_RSUP)
     add_subdirectory(
-      ${ZEPHYR_CURRENT_MODULE_DIR}/src/slot_update
-      ${CMAKE_CURRENT_BINARY_DIR}/rzi-slot-update
+      ${ZEPHYR_CURRENT_MODULE_DIR}/src/rsup
+      ${CMAKE_CURRENT_BINARY_DIR}/rzi-rsup
+    )
+  endif()
+
+  if(CONFIG_RZI_POWER)
+    add_subdirectory(
+      ${ZEPHYR_CURRENT_MODULE_DIR}/src/power
+      ${CMAKE_CURRENT_BINARY_DIR}/rzi-power
     )
   endif()
 endif()

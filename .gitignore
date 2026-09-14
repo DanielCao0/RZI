@@ -8,3 +8,5 @@
 
 # External documentation checkout retained locally
 /doc/reqmgmt/
+# Generated Doxygen HTML (scripts/generate-doxygen.sh)
+/doc/doxygen/

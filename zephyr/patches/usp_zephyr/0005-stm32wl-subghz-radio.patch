@@ -1,0 +1,472 @@
+diff --git a/drivers/usp/sx126x/sx126x_hal_context.h b/drivers/usp/sx126x/sx126x_hal_context.h
+index 228f883..71774f3 100644
+--- a/drivers/usp/sx126x/sx126x_hal_context.h
++++ b/drivers/usp/sx126x/sx126x_hal_context.h
+@@ -71,6 +71,13 @@ struct sx126x_hal_context_cfg_t
+     struct gpio_dt_spec dio2; /* DIO2 pin */
+     struct gpio_dt_spec dio3; /* DIO3 pin */
+ 
++    struct gpio_dt_spec tx_enable; /* optional board RF switch TX */
++    struct gpio_dt_spec rx_enable; /* optional board RF switch RX */
++
++    bool stm32wl; /* on-chip STM32WL SUBGHZ, no reset/busy GPIO */
++    bool pa_hp;   /* STM32WL RFO_HP (SX1262-class PA) */
++    uint32_t irqn; /* STM32WL radio IRQ (EXTI line 44 / IRQ 50) */
++
+     bool                                 dio2_as_rf_switch;
+     struct sx126x_hal_context_tcxo_cfg_t tcxo_cfg; /* TCXO config, says if dio3-tcxo */
+     uint8_t                              capa_xta; /* set to 0xFF if not configured*/
+diff --git a/drivers/usp/sx126x/sx126x_hal.c b/drivers/usp/sx126x/sx126x_hal.c
+index a3215cc..be9cb13 100644
+--- a/drivers/usp/sx126x/sx126x_hal.c
++++ b/drivers/usp/sx126x/sx126x_hal.c
+@@ -33,6 +33,7 @@
+  */
+ 
+ #include <zephyr/kernel.h>
++#include <zephyr/devicetree.h>
+ #include <zephyr/drivers/gpio.h>
+ #include <zephyr/drivers/spi.h>
+ #include <zephyr/logging/log.h>
+@@ -41,8 +42,88 @@
+ #include <sx126x_hal.h>
+ #include "sx126x_hal_context.h"
+ 
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++#include <stm32_ll_pwr.h>
++#include <stm32_ll_rcc.h>
++#endif
++
+ LOG_MODULE_DECLARE( lora_sx126x, CONFIG_LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL );
+ 
++#define SX126X_CMD_SET_SLEEP              0x84
++#define SX126X_CMD_SET_STANDBY            0x80
++#define SX126X_CMD_SET_FS                 0xC1
++#define SX126X_CMD_SET_TX                 0x83
++#define SX126X_CMD_SET_RX                 0x82
++#define SX126X_CMD_SET_RX_DUTY_CYCLE      0x94
++#define SX126X_CMD_SET_CAD                0xC5
++#define SX126X_CMD_SET_TX_CONTINUOUS_WAVE 0xD1
++#define SX126X_CMD_SET_TX_INFINITE_PREAMBLE 0xD2
++#define SX126X_CMD_GET_STATUS             0xC0
++
++static void sx126x_hal_set_rf_path( const struct sx126x_hal_context_cfg_t* config, uint8_t opcode )
++{
++    bool tx;
++    bool rx;
++    bool idle;
++
++    if( !config->tx_enable.port && !config->rx_enable.port )
++    {
++        return;
++    }
++
++    tx   = ( opcode == SX126X_CMD_SET_TX ) || ( opcode == SX126X_CMD_SET_TX_CONTINUOUS_WAVE ) ||
++         ( opcode == SX126X_CMD_SET_TX_INFINITE_PREAMBLE );
++    rx   = ( opcode == SX126X_CMD_SET_RX ) || ( opcode == SX126X_CMD_SET_RX_DUTY_CYCLE ) ||
++         ( opcode == SX126X_CMD_SET_CAD );
++    idle = ( opcode == SX126X_CMD_SET_STANDBY ) || ( opcode == SX126X_CMD_SET_SLEEP ) ||
++           ( opcode == SX126X_CMD_SET_FS );
++
++    if( tx )
++    {
++        if( config->rx_enable.port )
++        {
++            gpio_pin_set_dt( &config->rx_enable, 0 );
++        }
++        if( config->tx_enable.port )
++        {
++            gpio_pin_set_dt( &config->tx_enable, 1 );
++        }
++    }
++    else if( rx )
++    {
++        if( config->tx_enable.port )
++        {
++            gpio_pin_set_dt( &config->tx_enable, 0 );
++        }
++        if( config->rx_enable.port )
++        {
++            gpio_pin_set_dt( &config->rx_enable, 1 );
++        }
++    }
++    else if( idle )
++    {
++        if( config->tx_enable.port )
++        {
++            gpio_pin_set_dt( &config->tx_enable, 0 );
++        }
++        if( config->rx_enable.port )
++        {
++            gpio_pin_set_dt( &config->rx_enable, 0 );
++        }
++    }
++}
++
++static bool sx126x_hal_radio_is_ready( const struct sx126x_hal_context_cfg_t* config )
++{
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++    if( config->stm32wl )
++    {
++        return LL_PWR_IsActiveFlag_RFBUSYS( ) == 0;
++    }
++#endif
++    return gpio_pin_get_dt( &config->busy ) == 0;
++}
++
+ /**
+  * @brief Wait until radio busy pin returns to inactive state or
+  * until CONFIG_LORA_BASICS_MODEM_DRIVERS_HAL_WAIT_ON_BUSY_TIMEOUT_MSEC passes.
+@@ -59,7 +140,7 @@ static void sx126x_hal_wait_on_busy( const void* context )
+ 
+     while( k_uptime_get_32( ) <= end )
+     {
+-        timed_out = ( gpio_pin_get_dt( &config->busy ) == 0 ) ? true : false;
++        timed_out = sx126x_hal_radio_is_ready( config );
+         if( timed_out == true )
+         {
+             break;
+@@ -95,12 +176,27 @@ static void sx126x_hal_check_device_ready( const void* context )
+     }
+     else
+     {
+-        /* Busy is HIGH in sleep mode, wake-up the device with a small glitch on NSS */
+-        const struct gpio_dt_spec* cs = &( config->spi.config.cs.gpio );
++        /* Busy is HIGH in sleep mode. Wake with NSS (external SX126x) or a
++         * TX-only GET_STATUS on STM32WL SUBGHZ SPI, whose CS is not a GPIO.
++         */
++        if( config->stm32wl || !config->spi.config.cs.gpio.port )
++        {
++            uint8_t              wakeup_cmd[] = { SX126X_CMD_GET_STATUS, 0x00 };
++            const struct spi_buf tx_bufs[]    = {
++                { .buf = wakeup_cmd, .len = sizeof( wakeup_cmd ) },
++            };
++            const struct spi_buf_set tx_buf_set = { .buffers = tx_bufs, .count = ARRAY_SIZE( tx_bufs ) };
++
++            ( void ) spi_write_dt( &config->spi, &tx_buf_set );
++        }
++        else
++        {
++            const struct gpio_dt_spec* cs = &( config->spi.config.cs.gpio );
+ 
+-        gpio_pin_set_dt( cs, 1 );
+-        k_usleep( 100 );
+-        gpio_pin_set_dt( cs, 0 );
++            gpio_pin_set_dt( cs, 1 );
++            k_usleep( 100 );
++            gpio_pin_set_dt( cs, 0 );
++        }
+         sx126x_hal_wait_on_busy( context );
+         data->radio_status = RADIO_AWAKE;
+     }
+@@ -136,7 +232,7 @@ sx126x_hal_status_t sx126x_hal_write( const void* context, const uint8_t* comman
+     /* 0x84 - SX126x_SET_SLEEP opcode. In sleep mode the radio dio is struck to 1
+      * => do not test it
+      */
+-    if( command[0] == 0x84 )
++    if( command[0] == SX126X_CMD_SET_SLEEP )
+     {
+         dev_data->radio_status = RADIO_SLEEP;
+         k_usleep( 500 );
+@@ -146,6 +242,8 @@ sx126x_hal_status_t sx126x_hal_write( const void* context, const uint8_t* comman
+         sx126x_hal_check_device_ready( context );
+     }
+ 
++    sx126x_hal_set_rf_path( config, command[0] );
++
+     return SX126X_HAL_STATUS_OK;
+ }
+ 
+@@ -179,11 +277,22 @@ sx126x_hal_status_t sx126x_hal_reset( const void* context )
+     const struct sx126x_hal_context_cfg_t* config = dev->config;
+     struct sx126x_hal_context_data_t*      data   = dev->data;
+ 
+-    const struct gpio_dt_spec* nrst = &( config->reset );
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++    if( config->stm32wl )
++    {
++        LL_RCC_RF_EnableReset( );
++        k_msleep( 20 );
++        LL_RCC_RF_DisableReset( );
++        k_msleep( 10 );
++        data->radio_status = RADIO_SLEEP;
++        sx126x_hal_check_device_ready( context );
++        return SX126X_HAL_STATUS_OK;
++    }
++#endif
+ 
+-    gpio_pin_set_dt( nrst, 1 );
++    gpio_pin_set_dt( &( config->reset ), 1 );
+     k_msleep( 5 );
+-    gpio_pin_set_dt( nrst, 0 );
++    gpio_pin_set_dt( &( config->reset ), 0 );
+     k_msleep( 5 );
+ 
+     data->radio_status = RADIO_AWAKE;
+diff --git a/drivers/usp/sx126x/sx126x_board.c b/drivers/usp/sx126x/sx126x_board.c
+index 73d0b87..847e0a9 100644
+--- a/drivers/usp/sx126x/sx126x_board.c
++++ b/drivers/usp/sx126x/sx126x_board.c
+@@ -33,6 +33,7 @@
+  */
+ 
+ #include <zephyr/kernel.h>
++#include <zephyr/devicetree.h>
+ #include <zephyr/drivers/gpio.h>
+ #include <zephyr/drivers/spi.h>
+ #include <zephyr/logging/log.h>
+@@ -41,6 +42,12 @@
+ #include <zephyr/usp/lora_lbm_transceiver.h>
+ #include "sx126x_hal_context.h"
+ 
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++#include <zephyr/dt-bindings/usp/sx126x.h>
++#include <zephyr/irq.h>
++#include <stm32_ll_exti.h>
++#endif
++
+ LOG_MODULE_REGISTER( lora_sx126x, CONFIG_LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL );
+ 
+ #define SX126X_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB )
+@@ -72,6 +79,17 @@ static void sx126x_board_event_callback( const struct device* dev, struct gpio_c
+ #endif
+ }
+ 
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++static void sx126x_wl_isr( const struct device* dev )
++{
++    const struct sx126x_hal_context_cfg_t* config = dev->config;
++    struct sx126x_hal_context_data_t*      data   = dev->data;
++
++    irq_disable( config->irqn );
++    sx126x_board_event_callback( dev, NULL, 0, data );
++}
++#endif
++
+ #ifdef CONFIG_LORA_BASICS_MODEM_DRIVERS_EVENT_TRIGGER
+ static void sx126x_board_dio1_callback( const struct device* dev, struct gpio_callback* cb, uint32_t pins )
+ {
+@@ -134,17 +152,27 @@ void lora_transceiver_board_enable_interrupt( const struct device* dev )
+ #ifdef CONFIG_LORA_BASICS_MODEM_DRIVERS_EVENT_TRIGGER
+     const struct sx126x_hal_context_cfg_t* config = dev->config;
+ 
+-    if( config->dio1.port )
++    if( config->stm32wl )
+     {
+-        gpio_pin_interrupt_configure_dt( &config->dio1, GPIO_INT_EDGE_TO_ACTIVE );
+-    }
+-    if( config->dio2.port )
+-    {
+-        gpio_pin_interrupt_configure_dt( &config->dio2, GPIO_INT_EDGE_TO_ACTIVE );
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++        NVIC_ClearPendingIRQ( config->irqn );
++        irq_enable( config->irqn );
++#endif
+     }
+-    if( config->dio3.port )
++    else
+     {
+-        gpio_pin_interrupt_configure_dt( &config->dio3, GPIO_INT_EDGE_TO_ACTIVE );
++        if( config->dio1.port )
++        {
++            gpio_pin_interrupt_configure_dt( &config->dio1, GPIO_INT_EDGE_TO_ACTIVE );
++        }
++        if( config->dio2.port )
++        {
++            gpio_pin_interrupt_configure_dt( &config->dio2, GPIO_INT_EDGE_TO_ACTIVE );
++        }
++        if( config->dio3.port )
++        {
++            gpio_pin_interrupt_configure_dt( &config->dio3, GPIO_INT_EDGE_TO_ACTIVE );
++        }
+     }
+ #else
+     LOG_ERR( "Event trigger not supported!" );
+@@ -156,17 +184,26 @@ void lora_transceiver_board_disable_interrupt( const struct device* dev )
+ #ifdef CONFIG_LORA_BASICS_MODEM_DRIVERS_EVENT_TRIGGER
+     const struct sx126x_hal_context_cfg_t* config = dev->config;
+ 
+-    if( config->dio1.port )
+-    {
+-        gpio_pin_interrupt_configure_dt( &config->dio1, GPIO_INT_DISABLE );
+-    }
+-    if( config->dio2.port )
++    if( config->stm32wl )
+     {
+-        gpio_pin_interrupt_configure_dt( &config->dio2, GPIO_INT_DISABLE );
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++        irq_disable( config->irqn );
++#endif
+     }
+-    if( config->dio3.port )
++    else
+     {
+-        gpio_pin_interrupt_configure_dt( &config->dio3, GPIO_INT_DISABLE );
++        if( config->dio1.port )
++        {
++            gpio_pin_interrupt_configure_dt( &config->dio1, GPIO_INT_DISABLE );
++        }
++        if( config->dio2.port )
++        {
++            gpio_pin_interrupt_configure_dt( &config->dio2, GPIO_INT_DISABLE );
++        }
++        if( config->dio3.port )
++        {
++            gpio_pin_interrupt_configure_dt( &config->dio3, GPIO_INT_DISABLE );
++        }
+     }
+ #else
+     LOG_ERR( "Event trigger not supported!" );
+@@ -184,7 +221,7 @@ static int sx126x_init( const struct device* dev )
+ {
+     const struct sx126x_hal_context_cfg_t* config = dev->config;
+     struct sx126x_hal_context_data_t*      data   = dev->data;
+-    int                                    ret;
++    int                                    ret    = 0;
+ 
+     if( !device_is_ready( config->spi.bus ) )
+     {
+@@ -192,20 +229,42 @@ static int sx126x_init( const struct device* dev )
+         return -EINVAL;
+     }
+ 
+-    /* Reset pin */
+-    ret = gpio_pin_configure_dt( &config->reset, GPIO_OUTPUT_INACTIVE );
+-    if( ret < 0 )
++    if( !config->stm32wl )
+     {
+-        LOG_ERR( "Could not configure reset gpio" );
+-        return ret;
++        /* Reset pin */
++        ret = gpio_pin_configure_dt( &config->reset, GPIO_OUTPUT_INACTIVE );
++        if( ret < 0 )
++        {
++            LOG_ERR( "Could not configure reset gpio" );
++            return ret;
++        }
++
++        /* Busy pin */
++        ret = gpio_pin_configure_dt( &config->busy, GPIO_INPUT );
++        if( ret < 0 )
++        {
++            LOG_ERR( "Could not configure busy gpio" );
++            return ret;
++        }
+     }
+ 
+-    /* Busy pin */
+-    ret = gpio_pin_configure_dt( &config->busy, GPIO_INPUT );
+-    if( ret < 0 )
++    if( config->tx_enable.port )
+     {
+-        LOG_ERR( "Could not configure busy gpio" );
+-        return ret;
++        ret = gpio_pin_configure_dt( &config->tx_enable, GPIO_OUTPUT_INACTIVE );
++        if( ret < 0 )
++        {
++            LOG_ERR( "Could not configure TX enable gpio" );
++            return ret;
++        }
++    }
++    if( config->rx_enable.port )
++    {
++        ret = gpio_pin_configure_dt( &config->rx_enable, GPIO_OUTPUT_INACTIVE );
++        if( ret < 0 )
++        {
++            LOG_ERR( "Could not configure RX enable gpio" );
++            return ret;
++        }
+     }
+ 
+     /* DIO1 event pin */
+@@ -386,3 +445,47 @@ static int sx126x_pm_action( const struct device* dev, enum pm_device_action act
+ DT_FOREACH_STATUS_OKAY( semtech_sx1261_new, SX126X_DEFINE )
+ DT_FOREACH_STATUS_OKAY( semtech_sx1262_new, SX126X_DEFINE )
+ DT_FOREACH_STATUS_OKAY( semtech_sx1268_new, SX126X_DEFINE )
++
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++
++#define SX126X_WL_CONFIG( node_id )                                                                        \
++    {                                                                                                      \
++        .spi     = SPI_DT_SPEC_GET( node_id, SX126X_SPI_OPERATION ),                                       \
++        .stm32wl = true,                                                                                   \
++        .irqn    = DT_IRQN( node_id ),                                                                     \
++        .pa_hp   = DT_ENUM_HAS_VALUE( node_id, power_amplifier_output, rfo_hp ),                            \
++        CONFIGURE_GPIO_IF_IN_DT( node_id, tx_enable, tx_enable_gpios )                                     \
++            CONFIGURE_GPIO_IF_IN_DT( node_id, rx_enable, rx_enable_gpios ).dio2_as_rf_switch = false,      \
++        .tcxo_cfg =                                                                                        \
++            {                                                                                              \
++                .xosc_cfg       = RAL_XOSC_CFG_XTAL,                                                       \
++                .voltage        = 0,                                                                       \
++                .wakeup_time_ms = 0,                                                                       \
++            },                                                                                             \
++        .capa_xta = 0xFF, .capa_xtb = 0xFF, .reg_mode = SX126X_REG_MODE_DCDC,                              \
++        .tx_power_offset_db = DT_PROP_OR( node_id, tx_power_offset, 0 ),                                   \
++        .rx_boosted         = DT_PROP_OR( node_id, rx_boosted, false ),                                    \
++        .pa_ramp_time       = DT_PROP_OR( node_id, pa_ramp_time, 0x02 ),                                   \
++    }
++
++#define SX126X_WL_DEVICE_INIT( node_id )                                                            \
++    static int sx126x_init_##node_id( const struct device* dev )                                    \
++    {                                                                                               \
++        IRQ_CONNECT( DT_IRQN( node_id ), DT_IRQ( node_id, priority ), sx126x_wl_isr,                 \
++                     DEVICE_DT_GET( node_id ), 0 );                                                 \
++        LL_EXTI_EnableIT_32_63( LL_EXTI_LINE_44 );                                                  \
++        return sx126x_init( dev );                                                                  \
++    }                                                                                               \
++    DEVICE_DT_DEFINE( node_id, sx126x_init_##node_id, PM_DEVICE_DT_GET( node_id ),                   \
++                      &sx126x_data_##node_id, &sx126x_config_##node_id, POST_KERNEL,                \
++                      CONFIG_LORA_BASICS_MODEM_DRIVERS_INIT_PRIORITY, NULL );
++
++#define SX126X_WL_DEFINE( node_id )                                                                        \
++    static struct sx126x_hal_context_data_t      sx126x_data_##node_id;                                    \
++    static const struct sx126x_hal_context_cfg_t sx126x_config_##node_id = SX126X_WL_CONFIG( node_id );    \
++    PM_DEVICE_DT_DEFINE( node_id, sx126x_pm_action );                                                      \
++    SX126X_WL_DEVICE_INIT( node_id )
++
++DT_FOREACH_STATUS_OKAY( st_stm32wl_subghz_radio, SX126X_WL_DEFINE )
++
++#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32wl_subghz_radio) */
+diff --git a/drivers/usp/sx126x/sx126x_ral_bsp.c b/drivers/usp/sx126x/sx126x_ral_bsp.c
+index 6ba8a90..7353c78 100644
+--- a/drivers/usp/sx126x/sx126x_ral_bsp.c
++++ b/drivers/usp/sx126x/sx126x_ral_bsp.c
+@@ -69,7 +69,18 @@ void ral_sx126x_bsp_get_tx_cfg( const void* context, const ral_sx126x_bsp_tx_cfg
+     /* reserved value, same for sx1261 sx1262 and sx1268 */
+     output_params->pa_cfg.pa_lut = 0x01;
+ 
++    bool use_hp = false;
++
+ #if defined( SX1262 ) || defined( SX1268 )
++    use_hp = true;
++#endif
++    if( config->stm32wl )
++    {
++        use_hp = config->pa_hp;
++    }
++
++    if( use_hp )
++    {
+     /* Clamp power if needed */
+     power = CLAMP( power, -9, 22 );
+ 
+@@ -78,7 +89,9 @@ void ral_sx126x_bsp_get_tx_cfg( const void* context, const ral_sx126x_bsp_tx_cfg
+     output_params->pa_cfg.pa_duty_cycle              = 0x04;
+     output_params->chip_output_pwr_in_dbm_configured = ( int8_t ) power;
+     output_params->chip_output_pwr_in_dbm_expected   = ( int8_t ) power;
+-#else
++    }
++    else
++    {
+     /* Clamp power if needed */
+     power = CLAMP( power, -17, 15 );
+ 
+@@ -108,7 +121,7 @@ void ral_sx126x_bsp_get_tx_cfg( const void* context, const ral_sx126x_bsp_tx_cfg
+         output_params->chip_output_pwr_in_dbm_expected   = ( int8_t ) power;
+     }
+ 
+-#endif
++    }
+ }
+ 
+ void ral_sx126x_bsp_get_xosc_cfg( const void* context, ral_xosc_cfg_t* xosc_cfg,

@@ -2,4 +2,7 @@
 
 if BOARD_RZI_RAK3372
 
+# 256 KiB single-slot map: CONFIG_RZI_MCUBOOT_DUAL_SLOT stays n, so
+# CONFIG_RZI_LORAWAN_FUOTA and CONFIG_RZI_RSUP cannot be selected.
+
 endif # BOARD_RZI_RAK3372

@@ -6,7 +6,7 @@
 #include <zephyr/ztest.h>
 
 #include <rzi/capabilities.h>
-#include <rzi/storage.h>
+#include <rzi/storage/storage.h>
 
 ZTEST(rzi_storage_api, test_initialization_and_capability)
 {

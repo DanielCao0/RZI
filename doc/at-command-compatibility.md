@@ -1,4 +1,12 @@
-# RZI AT Command Reference and RUI3 Compatibility
+# AT command compatibility
+
+Status: implemented
+
+Normative list of AT commands this tree actually registers, and how they
+differ from RUI3.
+
+See also: [at-framework.md](./at-framework.md),
+[storage-api.md](./storage-api.md).
 
 ## Scope
 
@@ -17,8 +25,9 @@ Compatibility is classified as follows:
   for the implemented LoRaWAN feature set.
 - **Compatible with limits**: the grammar is compatible, but RZI or the selected
   backend supports fewer values.
-- **Not implemented**: RUI3 defines the command, but RZI does not register it.
-  An application receives `AT_COMMAND_NOT_FOUND`.
+- **Not implemented**: RUI3 defines the command, but RZI does not register
+  it. The parser returns `AT_ERROR` (`-ENOENT` from the registry). There is
+  no `AT_COMMAND_NOT_FOUND` status in this tree.
 
 [rui3-manual]: https://docs.rakwireless.com/product-categories/software-apis-and-libraries/rui3/at-command-manual/
 
@@ -41,7 +50,7 @@ CRLF framing and one of the RUI3 status names:
 - `AT_PARAM_ERROR`
 - `AT_BUSY_ERROR`
 - `AT_NO_NETWORK_JOINED`
-- `AT_COMMAND_NOT_FOUND`
+- `AT_TEST_PARAM_OVERFLOW` (input line longer than `CONFIG_RZI_AT_LINE_MAX`)
 
 An `OK` response from an asynchronous operation means that the request was
 accepted, not that the radio operation has completed.
@@ -66,9 +75,9 @@ These commands are compatible with RUI3. Values are hexadecimal, MSB first.
 - `AT+DEVEUI`: read or write the 8-byte DevEUI.
 - `AT+APPEUI`: read or write the 8-byte JoinEUI. The `APPEUI` name is retained
   for RUI3 compatibility.
-- `AT+APPKEY`: read or write the 16-byte AppKey. RZI supplies this value as both
-  the network key and application key when constructing its LoRaWAN 1.0.x/1.1
-  neutral OTAA join configuration.
+- `AT+APPKEY`: read or write the 16-byte AppKey. Join copies that value into
+  both `network_key` (1.0.x AppKey) and `application_key` (also AppKey, so
+  there is no separate GenAppKey on the AT path).
 
 Example:
 
@@ -94,9 +103,9 @@ AT+APPKEY=00112233445566778899AABBCCDDEEFF
 - `AT+NJM` is compatible with limits. OTAA (`1`) is supported. ABP (`0`) returns
   `AT_PARAM_ERROR`.
 - `AT+NJS=?` is compatible and returns `AT+NJS=0` or `AT+NJS=1`.
-- `AT+CLASS` is compatible with limits. Class A is supported. Class B and Class
-  C return `AT_PARAM_ERROR` until the RZI service and selected backend expose
-  those capabilities.
+- `AT+CLASS` is compatible with limits. The AT package accepts Class A only
+  and returns `AT_PARAM_ERROR` for B or C, even when the C API backend
+  advertises those classes.
 
 ### Join
 

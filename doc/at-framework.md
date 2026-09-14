@@ -1,7 +1,12 @@
-# RZI AT Framework
+# AT framework
 
-The RZI AT framework provides RUI3-compatible command behavior without tying
-commands to a serial driver or a protocol backend.
+Status: implemented
+
+RUI3-compatible command behavior without tying commands to a serial driver
+or a protocol backend.
+
+See also: [at-command-compatibility.md](./at-command-compatibility.md),
+[rui3-mapping.md](./rui3-mapping.md).
 
 ## Boundaries
 

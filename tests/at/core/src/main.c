@@ -6,7 +6,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
 
-#include <rzi/at.h>
+#include <rzi/at/at.h>
 
 K_SEM_DEFINE(response_ready, 0, 1);
 K_MUTEX_DEFINE(output_lock);
