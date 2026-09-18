@@ -84,13 +84,19 @@ config RZI_LORAWAN_DISPATCHER_PRIORITY
 	range 0 15
 	default 10
 
-menu "Reserved LoRaWAN features"
+menu "Optional LoRaWAN backend capabilities"
 
 config RZI_LORAWAN_MULTICAST
-	bool "Multicast service scaffold"
+	bool "Advertise historical multicast Kconfig (no compile gate)"
+	help
+	  The multicast C API is always compiled. Unsupported backends return
+	  -ENOTSUP. This option is retained for existing extra_configs.
 
 config RZI_LORAWAN_LINK_CHECK
-	bool "LinkCheckReq MAC command scaffold"
+	bool "Advertise historical LinkCheckReq Kconfig (no compile gate)"
+	help
+	  The LinkCheckReq C API is always compiled. Unsupported backends
+	  return -ENOTSUP.
 
 config RZI_LORAWAN_FUOTA
 	bool "LoRaWAN FUOTA coordination"
@@ -142,13 +148,22 @@ config RZI_FUOTA_HW_VERSION
 endif # RZI_LORAWAN_FUOTA
 
 config RZI_LORAWAN_DEVICE_TIME
-	bool "DeviceTimeReq MAC command scaffold"
+	bool "Advertise historical DeviceTimeReq Kconfig (no compile gate)"
+	help
+	  The DeviceTimeReq C API is always compiled. Unsupported backends
+	  return -ENOTSUP.
 
 config RZI_LORAWAN_CHANNEL_SCAN
-	bool "Channel-scan service scaffold"
+	bool "Advertise historical channel-scan Kconfig (no compile gate)"
+	help
+	  The channel-scan C API is always compiled. Unsupported backends
+	  return -ENOTSUP.
 
 config RZI_LORAWAN_CERTIFICATION
-	bool "Certification service scaffold"
+	bool "Advertise historical certification Kconfig (no compile gate)"
+	help
+	  The certification C API is always compiled. Unsupported backends
+	  return -ENOTSUP.
 
 endmenu
 

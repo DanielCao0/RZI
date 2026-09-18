@@ -19,9 +19,12 @@ config RZI_AT_COMMAND_LORAWAN
 	  a client of the public RZI LoRaWAN API.
 
 config RZI_AT_COMMAND_LORA
-	bool "Raw LoRa and FSK AT command package scaffold"
+	bool "Raw LoRa and FSK AT command package"
 	depends on RZI_LORA
 	default n
+	help
+	  Enable the RUI3-compatible P2P LoRa/FSK command package. This
+	  package is a client of the public RZI raw LoRa API.
 
 config RZI_AT_ADAPTER_UART
 	bool "UART AT I/O adapter"
@@ -34,7 +37,7 @@ config RZI_AT_ADAPTER_UART
 config RZI_AT_MAX_COMMANDS
 	int "Maximum registered AT commands"
 	range 8 256
-	default 32
+	default 160
 
 config RZI_AT_MAX_EXTENSIONS
 	int "Maximum AT command extensions"

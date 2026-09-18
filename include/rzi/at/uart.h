@@ -6,6 +6,7 @@
 #ifndef RZI_AT_UART_H
 #define RZI_AT_UART_H
 
+#include <stdint.h>
 #include <zephyr/device.h>
 #include <zephyr/toolchain.h>
 
@@ -38,6 +39,30 @@ extern "C" {
  * @since 0.2
  */
 __must_check int rzi_at_uart_start(const struct device *uart);
+
+/**
+ * @brief Read the current AT UART baud rate.
+ *
+ * @param[out] baud_rate Destination.
+ *
+ * @retval 0 Baud rate stored.
+ * @retval -ENODEV The UART adapter is not started.
+ * @retval -EINVAL baud_rate is NULL.
+ * @since 0.3
+ */
+__must_check int rzi_at_uart_get_baud(uint32_t *baud_rate);
+
+/**
+ * @brief Set the AT UART baud rate.
+ *
+ * @param baud_rate Requested baud rate.
+ *
+ * @retval 0 Baud rate applied.
+ * @retval -ENODEV The UART adapter is not started.
+ * @retval -EINVAL baud_rate is zero.
+ * @since 0.3
+ */
+__must_check int rzi_at_uart_set_baud(uint32_t baud_rate);
 
 /** @} */
 

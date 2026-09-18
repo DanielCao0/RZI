@@ -2,12 +2,18 @@
 
 zephyr_library_sources(
   core/lorawan.c
+  core/lorawan_config.c
   backend/lorawan_feature.c
+  mac_commands/lorawan_mac_commands.c
+  services/multicast/lorawan_multicast.c
+  services/channel_scan/lorawan_channel_scan.c
+  services/certification/lorawan_certification.c
 )
 
 zephyr_library_sources_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_USP
   backend/usp/lorawan_backend_usp.c
+  backend/usp/lorawan_backend_usp_features.c
 )
 zephyr_library_link_libraries_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_USP
@@ -16,16 +22,8 @@ zephyr_library_link_libraries_ifdef(
 zephyr_library_sources_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR
   backend/zephyr/lorawan_backend_zephyr.c
+  backend/zephyr/lorawan_backend_zephyr_features.c
 )
 
-zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_MULTICAST
-  services/multicast/lorawan_multicast.c)
 zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_FUOTA
   services/fuota/lorawan_fuota.c)
-if(CONFIG_RZI_LORAWAN_LINK_CHECK OR CONFIG_RZI_LORAWAN_DEVICE_TIME)
-  zephyr_library_sources(mac_commands/lorawan_mac_commands.c)
-endif()
-zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_CHANNEL_SCAN
-  services/channel_scan/lorawan_channel_scan.c)
-zephyr_library_sources_ifdef(CONFIG_RZI_LORAWAN_CERTIFICATION
-  services/certification/lorawan_certification.c)

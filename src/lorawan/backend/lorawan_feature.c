@@ -21,3 +21,15 @@ rzi_lorawan_feature_get(enum rzi_lorawan_feature_id feature)
 	}
 	return extension;
 }
+
+const void *rzi_lorawan_feature_ops(enum rzi_lorawan_feature_id feature, uint16_t version,
+				    size_t size)
+{
+	const struct rzi_lorawan_backend_extension *extension;
+
+	extension = rzi_lorawan_feature_get(feature);
+	if (extension == NULL || extension->version != version || extension->size < size) {
+		return NULL;
+	}
+	return extension->api;
+}

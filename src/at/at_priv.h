@@ -6,6 +6,7 @@
 #ifndef RZI_AT_PRIV_H
 #define RZI_AT_PRIV_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -31,62 +32,39 @@ struct rzi_at_extension {
  * @param extension Static-lifetime extension descriptor.
  * @return Zero on success, otherwise a negative errno value.
  */
-int rzi_at_registry_add_extension(const struct rzi_at_extension *extension);
-
-/** @brief Prevent subsequent command and extension registration. */
 void rzi_at_registry_seal(void);
-
-/**
- * @brief Start all registered extensions.
- *
- * @return Zero on success, otherwise the first extension error.
- */
+int rzi_at_registry_add_extension(const struct rzi_at_extension *extension);
 int rzi_at_registry_start_extensions(void);
-
-/** @brief Run periodic hooks for all registered extensions. */
 void rzi_at_registry_process_extensions(void);
-
-/**
- * @brief Request factory reset from all registered extensions.
- *
- * @return Zero on success, otherwise the first extension error.
- */
 int rzi_at_registry_factory_reset(void);
-
-/**
- * @brief Dispatch a parsed operation to a registered command.
- *
- * @param name Uppercase command name without the `AT+` prefix.
- * @param operation Parsed operation.
- * @param argument Mutable, parser-owned argument valid for the handler call.
- * @return Zero on success, otherwise a negative errno value.
- */
 int rzi_at_dispatch(const char *name, enum rzi_at_operation operation, const char *argument);
-
-/**
- * @brief Feed one byte into the line parser.
- *
- * @param byte Received byte.
- * @return Zero on success, otherwise a negative errno value.
- */
 int rzi_at_parser_feed(uint8_t byte);
-
-/** @brief Discard the current partial parser input. */
 void rzi_at_parser_reset(void);
-
-/**
- * @brief Register built-in system and configured service commands.
- *
- * @return Zero on success, otherwise a negative errno value.
- */
 int rzi_at_builtin_register(void);
-
-/**
- * @brief Write preformatted text through the active serialized I/O binding.
- *
- * @param text NUL-terminated text to write synchronously.
- * @return Zero on success, otherwise a negative errno value.
- */
 int rzi_at_write_raw(const char *text);
+
+/** Write help for every registered command, then OK. */
+int rzi_at_registry_write_all_help(void);
+
+/** True when AT+LOCK is active. */
+bool rzi_at_is_locked(void);
+
+/** Lock or unlock the AT port. */
+void rzi_at_set_locked(bool locked);
+
+/** True when input echo is enabled. */
+bool rzi_at_echo_enabled(void);
+
+/** Enable or disable input echo. */
+void rzi_at_set_echo(bool enabled);
+
+/** Compare the serial-port password. */
+bool rzi_at_password_matches(const char *password);
+
+/** Store the serial-port password, max 8 characters. */
+int rzi_at_set_password(const char *password);
+
+/** Current serial-port password, never NULL. */
+const char *rzi_at_password(void);
 
 #endif /* RZI_AT_PRIV_H */

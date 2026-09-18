@@ -8,7 +8,7 @@ tests:
       - native_sim/native/64
     integration_platforms:
       - native_sim/native/64
-  rzi.at.core.raw_lora_scaffold:
+  rzi.at.core.raw_lora:
     tags:
       - rzi
       - at

@@ -32,6 +32,7 @@
 #endif
 
 #include "../lorawan_backend.h"
+#include "lorawan_backend_zephyr_priv.h"
 
 BUILD_ASSERT(IS_ENABLED(CONFIG_LORA_MODULE_BACKEND_LORAMAC_NODE),
 	     "RZI Zephyr LoRaWAN backend requires loramac-node");
@@ -42,11 +43,14 @@ LOG_MODULE_REGISTER(rzi_lw_zephyr, CONFIG_LORAWAN_LOG_LEVEL);
 #define ZEPHYR_CAPABILITIES                                                                        \
 	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_ABP | RZI_LORAWAN_CAP_CLASS_A |                    \
 	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_FUOTA | RZI_LORAWAN_CAP_DEVICE_TIME |           \
-	 RZI_LORAWAN_CAP_MULTICAST)
+	 RZI_LORAWAN_CAP_LINK_CHECK | RZI_LORAWAN_CAP_INFORMATION |                                \
+	 RZI_LORAWAN_CAP_NETWORK_MANAGEMENT | RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT)
 #else
 #define ZEPHYR_CAPABILITIES                                                                        \
 	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_ABP | RZI_LORAWAN_CAP_CLASS_A |                    \
-	 RZI_LORAWAN_CAP_CLASS_C)
+	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_DEVICE_TIME | RZI_LORAWAN_CAP_LINK_CHECK |      \
+	 RZI_LORAWAN_CAP_INFORMATION | RZI_LORAWAN_CAP_NETWORK_MANAGEMENT |                        \
+	 RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT)
 #endif
 
 #define WORKER_STACK_SIZE CONFIG_RZI_LORAWAN_ZEPHYR_WORKER_STACK_SIZE
@@ -75,6 +79,7 @@ static bool joined;
 static bool join_pending;
 static bool tx_pending;
 static uint16_t next_dev_nonce = 1U;
+static enum rzi_lorawan_region current_region = RZI_LORAWAN_REGION_EU_868;
 static rzi_lorawan_event_sink_t event_sink;
 static struct rzi_lorawan_join_config join_settings;
 static uint8_t tx_port;
@@ -111,6 +116,46 @@ static void publish(const struct rzi_lorawan_backend_event *event)
 	event_sink(event);
 }
 
+void rzi_lorawan_zephyr_publish(const struct rzi_lorawan_backend_event *event)
+{
+	publish(event);
+}
+
+int rzi_lorawan_zephyr_lock_started(void)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	if (!started) {
+		k_mutex_unlock(&lock);
+		return -EAGAIN;
+	}
+	return 0;
+}
+
+void rzi_lorawan_zephyr_unlock(void)
+{
+	k_mutex_unlock(&lock);
+}
+
+bool rzi_lorawan_zephyr_busy(void)
+{
+	return join_pending || tx_pending;
+}
+
+enum rzi_lorawan_region rzi_lorawan_zephyr_region(void)
+{
+	return current_region;
+}
+
+uint16_t rzi_lorawan_zephyr_dev_nonce(void)
+{
+	return next_dev_nonce;
+}
+
+void rzi_lorawan_zephyr_set_dev_nonce(uint16_t dev_nonce)
+{
+	next_dev_nonce = dev_nonce == 0U ? 1U : dev_nonce;
+}
+
 static int8_t snr_to_quarter_db(int8_t snr_db)
 {
 	const int scaled = (int)snr_db * 4;
@@ -144,6 +189,15 @@ static void on_downlink(uint8_t port, uint8_t flags, int16_t rssi, int8_t snr, u
 	}
 	publish(&event);
 
+	if ((flags & LORAWAN_TIME_UPDATED) != 0U) {
+		struct rzi_lorawan_backend_event time_event = {
+			.type = RZI_LORAWAN_BACKEND_DEVICE_TIME,
+			.error = 0,
+		};
+
+		publish(&time_event);
+	}
+
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 	if ((flags & LORAWAN_TIME_UPDATED) != 0U) {
 		struct rzi_lorawan_backend_event fuota = {
@@ -156,6 +210,19 @@ static void on_downlink(uint8_t port, uint8_t flags, int16_t rssi, int8_t snr, u
 	}
 #endif
 }
+
+#ifndef CONFIG_LORAWAN_EMUL
+static void on_link_check(uint8_t demod_margin, uint8_t nb_gateways)
+{
+	struct rzi_lorawan_backend_event event = {
+		.type = RZI_LORAWAN_BACKEND_LINK_CHECK,
+		.link_check.demod_margin = demod_margin,
+		.link_check.gateway_count = nb_gateways,
+	};
+
+	publish(&event);
+}
+#endif
 
 static struct lorawan_downlink_cb downlink_cb = {
 	.port = LW_RECV_PORT_ANY,
@@ -404,20 +471,11 @@ static const struct rzi_lorawan_fuota_ops zephyr_fuota_ops = {
 	.reboot = zephyr_fuota_reboot,
 };
 
-static const struct rzi_lorawan_backend_extension zephyr_fuota_extension = {
+const struct rzi_lorawan_backend_extension rzi_lorawan_zephyr_fuota_extension = {
 	.size = sizeof(zephyr_fuota_ops),
 	.version = RZI_LORAWAN_FUOTA_OPS_VERSION,
 	.api = &zephyr_fuota_ops,
 };
-
-static const struct rzi_lorawan_backend_extension *
-zephyr_get_extension(enum rzi_lorawan_feature_id feature)
-{
-	if (feature == RZI_LORAWAN_FEATURE_FUOTA) {
-		return &zephyr_fuota_extension;
-	}
-	return NULL;
-}
 #endif
 
 static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backoff_bypass,
@@ -443,6 +501,7 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 #endif
 
 	event_sink = sink;
+	current_region = selected_region;
 	rc = apply_region(selected);
 	if (rc != 0) {
 		return rc;
@@ -452,6 +511,9 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 		return rc;
 	}
 	lorawan_register_downlink_callback(&downlink_cb);
+#ifndef CONFIG_LORAWAN_EMUL
+	lorawan_register_link_check_ans_callback(on_link_check);
+#endif
 
 	k_work_queue_init(&worker_q);
 	k_work_queue_start(&worker_q, worker_stack, K_THREAD_STACK_SIZEOF(worker_stack),
@@ -535,6 +597,7 @@ static int zephyr_send(uint8_t port, const uint8_t *data, size_t size,
 static int zephyr_set_class(enum rzi_lorawan_class device_class)
 {
 	enum lorawan_class mapped;
+	int rc;
 
 	switch (device_class) {
 	case RZI_LORAWAN_CLASS_A:
@@ -549,7 +612,11 @@ static int zephyr_set_class(enum rzi_lorawan_class device_class)
 		return -EINVAL;
 	}
 
-	return lorawan_set_class(mapped);
+	rc = lorawan_set_class(mapped);
+	if (rc == 0) {
+		rzi_lorawan_zephyr_set_class(device_class);
+	}
+	return rc;
 }
 
 static int zephyr_is_joined(bool *is_joined)
@@ -576,7 +643,5 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.send = zephyr_send,
 	.set_class = zephyr_set_class,
 	.is_joined = zephyr_is_joined,
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-	.get_extension = zephyr_get_extension,
-#endif
+	.get_extension = rzi_lorawan_zephyr_get_extension,
 };

@@ -33,6 +33,7 @@ switches, and limits that do not belong in a header comment.
 | Document | Status | Contents |
 |---|---|---|
 | [lorawan-api.md](./lorawan-api.md) | normative | LoRaWAN public C contract |
+| [lora-api.md](./lora-api.md) | implemented | Raw LoRa / FSK P2P C contract |
 | [lorawan-backends.md](./lorawan-backends.md) | implemented | USP vs Zephyr build switch |
 | [lorawan-backend-zephyr.md](./lorawan-backend-zephyr.md) | evaluation | Zephyr `lorawan_*` adapter |
 | [fuota.md](./fuota.md) | implemented | ChirpStack FUOTA (dual-slot) |
@@ -41,7 +42,8 @@ switches, and limits that do not belong in a header comment.
 | [rsup-api.md](./rsup-api.md) | implemented | Slot-update protocol |
 | [at-framework.md](./at-framework.md) | implemented | AT core, registry, adapters |
 | [at-command-compatibility.md](./at-command-compatibility.md) | implemented | Registered commands vs RUI3 |
-| [rui3-mapping.md](./rui3-mapping.md) | implemented | RUI3 C service boundaries |
+| [rui3-mapping.md](./rui3-mapping.md) | implemented | Public `rzi_lorawan_*` ABI mapped from RUI3 |
+| [rui3-gap.md](./rui3-gap.md) | implemented | RUI3 C API and AT vs RZI coverage |
 
 ## Standards
 
@@ -49,6 +51,7 @@ switches, and limits that do not belong in a header comment.
 |---|---|---|
 | [coding-standards.md](./coding-standards.md) | normative | Layout, naming, errors, commits |
 | [api-docs.md](./api-docs.md) | normative | Doxygen and compiler annotations |
+| [sbom.md](./sbom.md) | implemented | Module SPDX / CycloneDX SBOM |
 | [naming-conventions.md](./naming-conventions.md) | superseded | Redirect to coding standards §3 |
 
 Product and Arduino operator notes live outside the repository:

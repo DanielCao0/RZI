@@ -69,6 +69,7 @@ INPUT                  = ../include/rzi \
                          rsup-api.md \
                          west-patch.md \
                          lorawan-api.md \
+                         lora-api.md \
                          lorawan-backends.md \
                          lorawan-backend-zephyr.md \
                          fuota.md \

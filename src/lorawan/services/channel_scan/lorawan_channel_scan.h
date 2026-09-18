@@ -1,13 +1,19 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief Reserved internal boundary for LoRaWAN channel scanning.
- * @since 0.2
- * @version 0.0.0
+ * @brief Internal backend operations for LoRaWAN channel scanning.
  */
-#ifndef RZI_LORAWAN_CHANNEL_SCAN_H
-#define RZI_LORAWAN_CHANNEL_SCAN_H
+#ifndef RZI_LORAWAN_CHANNEL_SCAN_INTERNAL_H
+#define RZI_LORAWAN_CHANNEL_SCAN_INTERNAL_H
 
-/* No callable API is defined by this internal scaffold. */
+#include <rzi/lorawan/channel_scan.h>
 
-#endif /* RZI_LORAWAN_CHANNEL_SCAN_H */
+#define RZI_LORAWAN_CHANNEL_SCAN_OPS_VERSION 1U
+
+/** Optional channel-scan operations. */
+struct rzi_lorawan_channel_scan_ops {
+	int (*get_count)(size_t *count);
+	int (*get)(size_t index, struct rzi_lorawan_channel_rssi *rssi);
+};
+
+#endif /* RZI_LORAWAN_CHANNEL_SCAN_INTERNAL_H */

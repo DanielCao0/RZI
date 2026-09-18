@@ -179,6 +179,18 @@ scripts/generate-doxygen.sh
 
 Open `doc/doxygen/html/index.html`. See [`doc/api-docs.md`](doc/api-docs.md).
 
+## SBOM
+
+A source-level bill of materials for this module and the backends it pins:
+
+```bash
+scripts/generate-sbom.sh
+```
+
+Writes SPDX 2.3 (`doc/sbom/rzi.spdx.json`) and CycloneDX 1.6
+(`doc/sbom/rzi.cdx.json`). Firmware image SBOMs are produced with `west spdx`
+after a product build. See [`doc/sbom.md`](doc/sbom.md).
+
 ## Style checks
 
 All new and modified RZI code must follow the normative

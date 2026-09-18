@@ -161,7 +161,7 @@ ZTEST(rzi_at_lorawan_command, test_rui3_compatible_otaa_workflow)
 	};
 
 	send_command_until("AT+NWM=?\r", "AT+NWM=1");
-	send_command_until("AT+NWM=0\r", "AT_PARAM_ERROR");
+	send_command_until("AT+NWM=0\r", "AT_ERROR");
 	send_command_until("AT+DEVEUI?\r", "AT+DEVEUI: get or set the device EUI (8 bytes in hex)");
 	send_command_until("AT+DEVEUI\r", "AT_ERROR");
 	send_command_until("AT+NJS\r", "AT_ERROR");

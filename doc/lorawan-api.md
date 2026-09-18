@@ -3,10 +3,13 @@
 Status: normative
 
 Public C contract between applications and the selected protocol backend.
-The precise ABI is `include/rzi/lorawan/lorawan.h` (SDK 0.2.0).
+The precise ABI is `include/rzi/lorawan/lorawan.h` (group 0.3.0) plus
+`mac_commands.h`, `multicast.h`, `channel_scan.h`, `certification.h`, and
+`fuota.h`.
 
 See also: [lorawan-backends.md](./lorawan-backends.md),
 [fuota.md](./fuota.md), [rui3-mapping.md](./rui3-mapping.md).
+The header-to-RUI3 mapping is in [rui3-mapping.md](./rui3-mapping.md).
 
 ## 1. Purpose
 
@@ -25,21 +28,18 @@ concrete protocol stack. Public interfaces follow these rules:
   arrive through callbacks.
 
 Class B, network/channel management, and information stay in LoRaWAN Core.
-They do not get empty standalone service directories. DeviceTimeReq and
-LinkCheckReq stay together under `src/lorawan/mac_commands/`. Channel scan,
-multicast, certification, and FUOTA — the features RUI3 implemented as
-separate services — live under `src/lorawan/services/`. Clock
-Synchronization, Remote Multicast Setup, Fragmentation, and the Firmware
-Management Package required by FUOTA come from the selected backend. RZI
-does not copy those package implementations.
+DeviceTimeReq and LinkCheckReq stay together under
+`src/lorawan/mac_commands/`. Channel scan, multicast, certification, and
+FUOTA live under `src/lorawan/services/`. Clock Synchronization, Remote
+Multicast Setup, Fragmentation, and the Firmware Management Package
+required by FUOTA come from the selected backend. RZI does not copy those
+package implementations.
 
-Those internal headers are version `0.0.0`. They do not enter the public
-include path and do not advertise a backend capability. A new
-`include/rzi/lorawan/<feature>.h` facade is added only after the public API,
-backend contract, Kconfig, tests, and documentation are all complete.
-
-RUI3 LoRa P2P/FSK is not LoRaWAN. RZI keeps it behind the separate private
-`src/lora/` boundary. The full mapping is in [rui3-mapping.md](./rui3-mapping.md).
+Public facades live in `include/rzi/lorawan/`. Private backend operation
+tables stay out of the public include path. A backend advertises runtime
+support with capability bits; a missing or NULL operation returns
+`-ENOTSUP`. FUOTA remains Kconfig-gated. Raw LoRa P2P and FSK use the
+separate `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
 ## 2. Relationship to Zephyr and RUI3
 
@@ -111,8 +111,8 @@ Applications should check `rzi_lorawan_get_capabilities()`.
 
 | Backend | Default capabilities | With `CONFIG_RZI_LORAWAN_FUOTA` |
 |---|---|---|
-| USP | OTAA, Class A. ABP returns `-ENOTSUP` | Adds Class B/C, multicast, FUOTA, device time |
-| Zephyr | OTAA, ABP, Class A/C | Adds FUOTA, device time, multicast |
+| USP | OTAA, Class A/B/C, multicast, link check, information, network management, device time, certification | Adds FUOTA |
+| Zephyr | OTAA, ABP, Class A/C, link check, information, network/channel management, device time | Adds FUOTA |
 
 AT `AT+APPKEY` copies the same 16 bytes into both `network_key` and
 `application_key`. Native C callers that need a separate ChirpStack
@@ -204,11 +204,12 @@ and the internal event envelope. A backend:
   headers.
 
 `src/lorawan/backend/lorawan_feature.h` defines versioned extension
-descriptors for optional capabilities. Each real feature defines a typed
+descriptors for optional capabilities. Each feature defines a typed
 operations table in its own private header and obtains it from the backend
 by feature ID. `size` and `version` are used for compatibility checks. A
-public capability bit means runtime support. Kconfig only means that
-feature facade is compiled. Neither replaces the other.
+public capability bit means runtime support. Core public APIs are always
+compiled except FUOTA, which remains Kconfig-gated. Neither replaces the
+other.
 
 A new backend only needs to implement the core contract and provide
 extensions for the capabilities it actually has. Applications should not

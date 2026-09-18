@@ -53,8 +53,26 @@ struct rzi_at_lorawan_context {
 	uint8_t join_eui[8];
 	/** OTAA application key. */
 	uint8_t app_key[16];
+	/** ABP device address, host byte order. */
+	uint32_t dev_addr;
+	/** ABP network session key. */
+	uint8_t nwk_skey[16];
+	/** ABP application session key. */
+	uint8_t app_skey[16];
+	/** Stored NetID, 24-bit value. */
+	uint32_t net_id;
+	/** True when AT+NETID has been written. */
+	bool net_id_valid;
+	/** Network join mode: 1 = OTAA, 0 = ABP. */
+	uint8_t join_mode;
+	/** Working mode: 0 = P2P LoRa, 1 = LoRaWAN, 2 = P2P FSK. */
+	uint8_t network_mode;
+	/** Confirmed-uplink retransmission count for AT+RETY. */
+	uint8_t retries;
 	/** Region selected by AT+BAND. */
 	enum rzi_lorawan_region region;
+	/** Device class selected by AT+CLASS. */
+	enum rzi_lorawan_class device_class;
 	/** Join configuration retained until backend readiness. */
 	struct rzi_lorawan_join_config pending_join_config;
 	/** Delayed work used for join retries. */
@@ -93,12 +111,31 @@ extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_key_id_group;
 extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_join_send_group;
 /** Network management command descriptors. */
 extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_network_management_group;
+/** Supplementary channel-plan command descriptors. */
+extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_supplementary_group;
+/** Runtime information command descriptors. */
+extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_information_group;
+/** Class B command descriptors. */
+extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_class_b_group;
+/** Multicast command descriptors. */
+extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_multicast_group;
+/** Certification command descriptors. */
+extern const struct rzi_at_lorawan_command_group rzi_at_lorawan_certification_group;
 
 /** Convert an exact-length hexadecimal string into bytes. */
 int rzi_at_lorawan_hex_to_bin(const char *hex, uint8_t *out, size_t out_len);
 
 /** Convert bytes into an uppercase, NUL-terminated hexadecimal string. */
 void rzi_at_lorawan_bin_to_hex(const uint8_t *in, size_t len, char *out);
+
+/** Parse a base-10 integer command argument. */
+int rzi_at_lorawan_parse_long(const char *argument, long *value);
+
+/** Parse a 0/1 boolean command argument. */
+int rzi_at_lorawan_parse_bool(const char *argument, bool *value);
+
+/** Apply AT+CLASS after the LoRaWAN service has started. */
+int rzi_at_lorawan_apply_class(void);
 
 /** Map one RUI3 AT+BAND number to an RZI region. */
 int rzi_at_lorawan_band_to_region(int band, enum rzi_lorawan_region *region);

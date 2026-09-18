@@ -230,14 +230,12 @@ contract.
 
 FUOTA coordination is implemented under `src/lorawan/services/fuota/` and
 `include/rzi/lorawan/fuota.h`. Channel scan, multicast, certification, and
-the DeviceTime / LinkCheck MAC-command files are version `0.0.0` scaffolds.
+DeviceTime / LinkCheck have public facades under `include/rzi/lorawan/`.
 Backend libraries own the LoRaWAN application-package implementations
-required by those services; RZI does not duplicate them. Core concerns such as class and network/channel management
-remain in the core service. Version `0.0.0` marks an internal scaffold; it does
-not enter the public include tree or advertise runtime capability. Scaffolds
-are excluded from production builds until selected. A public facade is added
-only when the feature contract is implemented. Raw LoRa P2P and FSK use the
-separate `CONFIG_RZI_LORA` and `src/lora/` private boundary.
+required by those services; RZI does not duplicate them. Core concerns such
+as class and network/channel management remain in the core service.
+Unsupported backend operations return `-ENOTSUP`. Raw LoRa P2P and FSK use
+`CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
 ### Target capability model
 
@@ -252,7 +250,8 @@ ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY
 
 An unsupported operation returns `-ENOTSUP`. C API clients should query
 `rzi_lorawan_get_capabilities()` instead of inferring support from the
-backend name. The current AT package still accepts Class A only.
+backend name. The AT package forwards class, ADR, data rate, channels,
+link-check, Class B, multicast, and certification to the same C API.
 
 ### Concurrency and events
 
@@ -524,7 +523,7 @@ rzi/
 │   │   │   ├── zephyr/lorawan_backend_zephyr.c
 │   │   │   └── zephyr_lbm.c                       planned
 │   │   ├── mac_commands/
-│   │   └── services/        fuota (implemented); multicast / scan / certification scaffolds
+│   │   └── services/        fuota, multicast, channel scan, certification
 │   ├── at/
 │   ├── storage/             Namespaced settings adapter
 │   ├── power/
@@ -581,7 +580,7 @@ pass does not replace RF and power measurements.
 
 | Area | Current state | Required work |
 |---|---|---|
-| Capabilities | SDK and LoRaWAN queries implemented | Add feature tests as APIs land |
+| Capabilities | SDK 0.3 LoRaWAN feature queries implemented | Stack-level `-ENOTSUP` where LBM/Zephyr expose no API |
 | Events | Multi-subscriber dispatcher implemented | Add overflow stress coverage |
 | AT | Core, commands, and adapters separated | Add command-package matrix |
 | Configuration | AT consumes RZI storage API | Add schema version and migrations |

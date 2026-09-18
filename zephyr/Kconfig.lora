@@ -1,7 +1,40 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config RZI_LORA
-	bool "RZI raw LoRa and FSK service scaffold"
+	bool "RZI raw LoRa and FSK service"
 	help
-	  Enable the reserved raw LoRa and FSK service boundary. No callable
-	  public API is implemented yet.
+	  Enable the backend-independent RZI raw LoRa and FSK service used by
+	  P2P AT commands and radio certification tests.
+
+if RZI_LORA
+
+choice RZI_LORA_BACKEND
+	prompt "Raw LoRa backend"
+	default RZI_LORA_BACKEND_TEST if ZTEST
+	default RZI_LORA_BACKEND_USP if RZI_LORAWAN_BACKEND_USP
+	default RZI_LORA_BACKEND_ZEPHYR if LORA
+	default RZI_LORA_BACKEND_TEST
+
+config RZI_LORA_BACKEND_TEST
+	bool "In-process test backend"
+	help
+	  Software loopback used by host tests and as a fallback when no radio
+	  backend is available. Do not use this option in production firmware.
+
+config RZI_LORA_BACKEND_USP
+	bool "Semtech USP LoRa Basics Modem test API"
+	depends on RZI_LORAWAN_BACKEND_USP
+	help
+	  Drive P2P and radio tests through the LoRa Basics Modem test API.
+	  The radio cannot be used for LoRaWAN at the same time.
+
+config RZI_LORA_BACKEND_ZEPHYR
+	bool "Zephyr LoRa driver"
+	depends on LORA
+	help
+	  Use Zephyr's public <zephyr/drivers/lora.h> driver. This cannot be
+	  combined with CONFIG_RZI_LORAWAN_BACKEND_USP.
+
+endchoice
+
+endif # RZI_LORA

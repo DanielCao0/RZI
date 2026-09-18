@@ -1,26 +1,125 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief LoRaWAN network mode, region, and class AT commands.
+ * @brief LoRaWAN network mode, region, class, and MAC-parameter AT commands.
  */
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <zephyr/sys/reboot.h>
 #include <zephyr/sys/util.h>
+
+#include <rzi/lorawan/mac_commands.h>
 
 #include "at_command_lorawan_priv.h"
 
-static int handle_nwm(const struct rzi_at_request *request, void *user_data)
+#if defined(CONFIG_RZI_AT_COMMAND_LORA)
+#include "../lora/at_command_lora_priv.h"
+#endif
+
+static int class_supported(enum rzi_lorawan_class device_class)
 {
-	ARG_UNUSED(user_data);
+	uint32_t capabilities = rzi_lorawan_get_capabilities();
+
+	switch (device_class) {
+	case RZI_LORAWAN_CLASS_A:
+		return (capabilities & RZI_LORAWAN_CAP_CLASS_A) != 0U ? 0 : -ENOTSUP;
+	case RZI_LORAWAN_CLASS_B:
+		return (capabilities & RZI_LORAWAN_CAP_CLASS_B) != 0U ? 0 : -ENOTSUP;
+	case RZI_LORAWAN_CLASS_C:
+		return (capabilities & RZI_LORAWAN_CAP_CLASS_C) != 0U ? 0 : -ENOTSUP;
+	default:
+		return -EINVAL;
+	}
+}
+
+static char class_letter(enum rzi_lorawan_class device_class)
+{
+	switch (device_class) {
+	case RZI_LORAWAN_CLASS_B:
+		return 'B';
+	case RZI_LORAWAN_CLASS_C:
+		return 'C';
+	default:
+		return 'A';
+	}
+}
+
+static int handle_bool(const struct rzi_at_request *request, const char *name, int (*get)(bool *),
+		       int (*set)(bool))
+{
+	bool enabled;
+	int rc;
 
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+NWM=1");
+		rc = get(&enabled);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+%s=%d", name, enabled ? 1 : 0);
 	}
-	return strcmp(request->argument, "1") == 0 ? rzi_at_respond_status(RZI_AT_STATUS_OK)
-						   : -EINVAL;
+	rc = rzi_at_lorawan_parse_bool(request->argument, &enabled);
+	if (rc != 0) {
+		return rc;
+	}
+	rc = set(enabled);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_u32(const struct rzi_at_request *request, const char *name,
+		      int (*get)(uint32_t *), int (*set)(uint32_t), uint32_t scale)
+{
+	uint32_t value;
+	long parsed;
+	int rc;
+
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = get(&value);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+%s=%u", name, value / scale);
+	}
+	if (set == NULL) {
+		return -ENOTSUP;
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed <= 0) {
+		return -EINVAL;
+	}
+	rc = set((uint32_t)parsed * scale);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_nwm(const struct rzi_at_request *request, void *user_data)
+{
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		return rzi_at_respond_value("AT+NWM=%u", context->network_mode);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 2) {
+		return -EINVAL;
+	}
+	if (parsed != 1 && !IS_ENABLED(CONFIG_RZI_AT_COMMAND_LORA)) {
+		return -ENOTSUP;
+	}
+	if ((uint8_t)parsed == context->network_mode) {
+		return rzi_at_respond_status(RZI_AT_STATUS_OK);
+	}
+	context->network_mode = (uint8_t)parsed;
+	rc = rzi_at_lorawan_nvm_save("nwm", &context->network_mode, sizeof(context->network_mode));
+	if (rc != 0) {
+		return rc;
+	}
+#if defined(CONFIG_RZI_AT_COMMAND_LORA)
+	rzi_at_lora_on_network_mode(context->network_mode);
+#endif
+	rc = rzi_at_respond_status(RZI_AT_STATUS_OK);
+	if (!IS_ENABLED(CONFIG_ZTEST)) {
+		sys_reboot(SYS_REBOOT_COLD);
+	}
+	return rc;
 }
 
 static int handle_band(const struct rzi_at_request *request, void *user_data)
@@ -61,20 +160,229 @@ static int handle_band(const struct rzi_at_request *request, void *user_data)
 
 static int handle_class(const struct rzi_at_request *request, void *user_data)
 {
-	ARG_UNUSED(user_data);
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	enum rzi_lorawan_class device_class;
+	int rc;
 
+	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+CLASS=A");
+		if (context->service_started) {
+			rc = rzi_lorawan_get_class(&device_class);
+			if (rc != 0) {
+				return rc;
+			}
+			context->device_class = device_class;
+		}
+		return rzi_at_respond_value("AT+CLASS=%c", class_letter(context->device_class));
 	}
-	/* The current RZI backend contract exposes Class A only. */
-	return strcmp(request->argument, "A") == 0 ? rzi_at_respond_status(RZI_AT_STATUS_OK)
-						   : -EINVAL;
+	if (strcmp(request->argument, "A") == 0) {
+		device_class = RZI_LORAWAN_CLASS_A;
+	} else if (strcmp(request->argument, "B") == 0) {
+		device_class = RZI_LORAWAN_CLASS_B;
+	} else if (strcmp(request->argument, "C") == 0) {
+		device_class = RZI_LORAWAN_CLASS_C;
+	} else {
+		return -EINVAL;
+	}
+	rc = class_supported(device_class);
+	if (rc != 0) {
+		return rc;
+	}
+	if (context->service_started) {
+		rc = rzi_lorawan_set_class(device_class);
+		if (rc != 0) {
+			return rc;
+		}
+	}
+	context->device_class = device_class;
+	return rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_adr(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_bool(request, "ADR", rzi_lorawan_get_adr, rzi_lorawan_set_adr);
+}
+
+static int handle_dcs(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_bool(request, "DCS", rzi_lorawan_get_duty_cycle, rzi_lorawan_set_duty_cycle);
+}
+
+static int handle_pnm(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_bool(request, "PNM", rzi_lorawan_get_public_network,
+			   rzi_lorawan_set_public_network);
+}
+
+static int handle_lbt(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_bool(request, "LBT", rzi_lorawan_get_lbt, rzi_lorawan_set_lbt);
+}
+
+static int handle_dr(const struct rzi_at_request *request, void *user_data)
+{
+	enum rzi_lorawan_data_rate data_rate;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = rzi_lorawan_get_data_rate(&data_rate);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+DR=%u", (unsigned int)data_rate);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 15) {
+		return -EINVAL;
+	}
+	rc = rzi_lorawan_set_data_rate((enum rzi_lorawan_data_rate)parsed);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_txp(const struct rzi_at_request *request, void *user_data)
+{
+	uint8_t tx_power;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = rzi_lorawan_get_tx_power(&tx_power);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+TXP=%u", tx_power);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 15) {
+		return -EINVAL;
+	}
+	rc = rzi_lorawan_set_tx_power((uint8_t)parsed);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_rx1dl(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_u32(request, "RX1DL", rzi_lorawan_get_rx1_delay, rzi_lorawan_set_rx1_delay,
+			  1000U);
+}
+
+static int handle_rx2dl(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_u32(request, "RX2DL", rzi_lorawan_get_rx2_delay, rzi_lorawan_set_rx2_delay,
+			  1000U);
+}
+
+static int handle_jn1dl(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_u32(request, "JN1DL", rzi_lorawan_get_join_accept_delay1,
+			  rzi_lorawan_set_join_accept_delay1, 1000U);
+}
+
+static int handle_jn2dl(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_u32(request, "JN2DL", rzi_lorawan_get_join_accept_delay2,
+			  rzi_lorawan_set_join_accept_delay2, 1000U);
+}
+
+static int handle_rx2dr(const struct rzi_at_request *request, void *user_data)
+{
+	enum rzi_lorawan_data_rate data_rate;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = rzi_lorawan_get_rx2_data_rate(&data_rate);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+RX2DR=%u", (unsigned int)data_rate);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 15) {
+		return -EINVAL;
+	}
+	rc = rzi_lorawan_set_rx2_data_rate((enum rzi_lorawan_data_rate)parsed);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_rx2fq(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_u32(request, "RX2FQ", rzi_lorawan_get_rx2_frequency,
+			  rzi_lorawan_set_rx2_frequency, 1U);
+}
+
+static int handle_lbt_rssi(const struct rzi_at_request *request, void *user_data)
+{
+	int16_t rssi;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = rzi_lorawan_get_lbt_rssi(&rssi);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+LBTRSSI=%d", rssi);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_lorawan_set_lbt_rssi((int16_t)parsed);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_lbt_scan(const struct rzi_at_request *request, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	return handle_u32(request, "LBTSCANTIME", rzi_lorawan_get_lbt_scan_time,
+			  rzi_lorawan_set_lbt_scan_time, 1U);
+}
+
+static int handle_timereq(const struct rzi_at_request *request, void *user_data)
+{
+	bool enabled;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = rzi_lorawan_get_device_time_enabled(&enabled);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+TIMEREQ=%d", enabled ? 1 : 0);
+	}
+	rc = rzi_at_lorawan_parse_bool(request->argument, &enabled);
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_lorawan_request_device_time(enabled);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_linkcheck(const struct rzi_at_request *request, void *user_data)
+{
+	enum rzi_lorawan_link_check_mode mode;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		rc = rzi_lorawan_get_link_check_mode(&mode);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+LINKCHECK=%u", (unsigned int)mode);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 2) {
+		return -EINVAL;
+	}
+	rc = rzi_lorawan_request_link_check((enum rzi_lorawan_link_check_mode)parsed);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
 static const struct rzi_at_command commands[] = {
 	{
 		.name = "NWM",
-		.help = "get or set the network work mode (0 = P2P, 1 = LoRaWAN)",
+		.help = "get or set the network working mode (0 = P2P_LORA, 1 = LoRaWAN, 2 = "
+			"P2P_FSK)",
 		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
 		.handler = handle_nwm,
 	},
@@ -92,6 +400,102 @@ static const struct rzi_at_command commands[] = {
 		.help = "get or set the device class (A = class A, B = class B, C = class C)",
 		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
 		.handler = handle_class,
+	},
+	{
+		.name = "ADR",
+		.help = "get or set the adaptive data rate setting (0 = off, 1 = on)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_adr,
+	},
+	{
+		.name = "DCS",
+		.help = "get or set the ETSI duty cycle setting (0 = disabled, 1 = enabled)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_dcs,
+	},
+	{
+		.name = "DR",
+		.help = "get or set the data rate",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_dr,
+	},
+	{
+		.name = "TXP",
+		.help = "get or set the transmitting power",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_txp,
+	},
+	{
+		.name = "PNM",
+		.help = "get or set the public network mode (0 = off, 1 = on)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_pnm,
+	},
+	{
+		.name = "RX1DL",
+		.help = "get or set the delay between the end of TX and RX window 1 in seconds",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_rx1dl,
+	},
+	{
+		.name = "RX2DL",
+		.help = "get or set the delay between the end of TX and RX window 2 in seconds",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_rx2dl,
+	},
+	{
+		.name = "RX2DR",
+		.help = "get or set the RX2 window data rate",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_rx2dr,
+	},
+	{
+		.name = "RX2FQ",
+		.help = "get or set the RX2 window frequency (Hz)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_rx2fq,
+	},
+	{
+		.name = "JN1DL",
+		.help = "get or set the join accept delay for Rx window 1 in seconds",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_jn1dl,
+	},
+	{
+		.name = "JN2DL",
+		.help = "get or set the join accept delay for Rx window 2 in seconds",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_jn2dl,
+	},
+	{
+		.name = "LBT",
+		.help = "get or set LoRaWAN LBT (0 = disabled, 1 = enabled)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_lbt,
+	},
+	{
+		.name = "LBTRSSI",
+		.help = "get or set the LoRaWAN LBT RSSI threshold",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_lbt_rssi,
+	},
+	{
+		.name = "LBTSCANTIME",
+		.help = "get or set the LoRaWAN LBT scan time in milliseconds",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_lbt_scan,
+	},
+	{
+		.name = "LINKCHECK",
+		.help = "get or set the link check setting (0 = disabled, 1 = once, 2 = everytime)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_linkcheck,
+	},
+	{
+		.name = "TIMEREQ",
+		.help = "request the current date and time (0 = disabled, 1 = enabled)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_timereq,
 	},
 };
 

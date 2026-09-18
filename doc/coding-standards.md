@@ -33,6 +33,7 @@ Local checks:
 scripts/check-style.sh
 scripts/check-style.sh --fix
 scripts/generate-doxygen.sh
+scripts/generate-sbom.sh
 ```
 
 ## 2. Repository layering
@@ -54,6 +55,7 @@ include/rzi/
 ├── capabilities.h
 ├── lorawan/lorawan.h
 ├── lorawan/fuota.h
+├── lora/lora.h
 ├── power/power.h
 ├── storage/storage.h
 ├── rsup/rsup.h
@@ -106,11 +108,13 @@ Private headers must sit next to the implementation. They must not enter
 
 ```text
 include/rzi/lorawan/lorawan.h
+include/rzi/lora/lora.h
 include/rzi/at/uart.h
 src/lorawan/core/lorawan.c
 src/lorawan/backend/lorawan_backend.h
 src/lorawan/backend/usp/lorawan_backend_usp.c
-src/lorawan/services/fuota/lorawan_fuota.c
+src/lora/lora.c
+src/lora/backend/lora_backend.h
 src/at/at_core.c
 src/at/at_priv.h
 src/at/commands/lorawan/at_command_lorawan.c

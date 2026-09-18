@@ -27,5 +27,8 @@ uint32_t rzi_get_capabilities(void)
 	if (IS_ENABLED(CONFIG_RZI_POWER)) {
 		capabilities |= RZI_CAP_POWER;
 	}
+	if (IS_ENABLED(CONFIG_RZI_LORA)) {
+		capabilities |= RZI_CAP_LORA;
+	}
 	return capabilities;
 }

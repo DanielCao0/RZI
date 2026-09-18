@@ -27,10 +27,10 @@ UART / future RUI3 BLE UART adapter
                     |
           +---------+----------+
           |                    |
-     system commands     LoRaWAN commands
+     system commands     LoRaWAN / P2P commands
                                |
                                v
-                    public RZI LoRaWAN API
+                    public RZI LoRaWAN / LoRa API
 ```
 
 ## Configuration
@@ -40,7 +40,7 @@ UART. The current optional pieces are:
 
 - `CONFIG_RZI_AT_ADAPTER_UART`: interrupt-driven UART I/O adapter;
 - `CONFIG_RZI_AT_COMMAND_LORAWAN`: RUI3 LoRaWAN command package;
-- `CONFIG_RZI_AT_COMMAND_LORA`: reserved raw LoRa and FSK command package;
+- `CONFIG_RZI_AT_COMMAND_LORA`: RUI3 P2P LoRa/FSK and radio-test package;
 - `CONFIG_RZI_AT_NVM`: persistence through the public RZI storage service;
 - `CONFIG_RZI_AT_ECHO`: terminal input echo.
 

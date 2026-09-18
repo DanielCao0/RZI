@@ -80,6 +80,19 @@ static void execute(char *input)
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
 		return;
 	}
+	if (equals_ignore_case(input, "AT?")) {
+		ignore_result(rzi_at_registry_write_all_help());
+		return;
+	}
+	if (equals_ignore_case(input, "ATE")) {
+		rzi_at_set_echo(!rzi_at_echo_enabled());
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
+		return;
+	}
+	if (equals_ignore_case(input, "ATE?")) {
+		ignore_result(rzi_at_respond_value("ATE: show or hide the AT command input"));
+		return;
+	}
 	if (equals_ignore_case(input, "ATZ")) {
 		sys_reboot(SYS_REBOOT_COLD);
 		return;
@@ -130,6 +143,10 @@ static void execute(char *input)
 		return;
 	}
 	uppercase_name(body);
+	if (rzi_at_is_locked() && strcmp(body, "PWORD") != 0 && strcmp(body, "LOCK") != 0) {
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
+		return;
+	}
 	respond_for_error(rzi_at_dispatch(body, operation, argument));
 }
 
@@ -144,7 +161,9 @@ int rzi_at_parser_feed(uint8_t byte)
 		if (line_length != 0U) {
 			--line_length;
 #if defined(CONFIG_RZI_AT_ECHO)
-			(void)rzi_at_write_raw("\b \b");
+			if (rzi_at_echo_enabled()) {
+				(void)rzi_at_write_raw("\b \b");
+			}
 #endif
 		}
 		return 0;
@@ -152,7 +171,7 @@ int rzi_at_parser_feed(uint8_t byte)
 	if (byte == '\r' || byte == '\n') {
 		ignore_lf = byte == '\r';
 #if defined(CONFIG_RZI_AT_ECHO)
-		if (byte == '\r') {
+		if (byte == '\r' && rzi_at_echo_enabled()) {
 			(void)rzi_at_write_raw("\r\n");
 		}
 #endif
@@ -177,9 +196,11 @@ int rzi_at_parser_feed(uint8_t byte)
 	}
 	line[line_length++] = (char)byte;
 #if defined(CONFIG_RZI_AT_ECHO)
-	char echo[2] = {(char)byte, '\0'};
+	if (rzi_at_echo_enabled()) {
+		char echo[2] = {(char)byte, '\0'};
 
-	(void)rzi_at_write_raw(echo);
+		(void)rzi_at_write_raw(echo);
+	}
 #endif
 	return 0;
 }

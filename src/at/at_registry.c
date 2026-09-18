@@ -138,3 +138,33 @@ int rzi_at_dispatch(const char *name, enum rzi_at_operation operation, const cha
 	}
 	return -ENOENT;
 }
+
+int rzi_at_registry_write_all_help(void)
+{
+	int rc;
+
+	rc = rzi_at_write_raw(
+		"\r\nAT+<CMD>?: help on <CMD>\r\nAT+<CMD>: run <CMD>\r\nAT+<CMD>=<value>: set the "
+		"value\r\nAT+<CMD>=?: get the value\r\n");
+	if (rc != 0) {
+		return rc;
+	}
+	for (size_t i = 0; i < command_count; ++i) {
+		const struct rzi_at_command *command = registered[i];
+		char line[160];
+		int n;
+
+		if (command->help == NULL) {
+			continue;
+		}
+		n = snprintk(line, sizeof(line), "AT+%s: %s\r\n", command->name, command->help);
+		if (n < 0 || n >= (int)sizeof(line)) {
+			return -ENOSPC;
+		}
+		rc = rzi_at_write_raw(line);
+		if (rc != 0) {
+			return rc;
+		}
+	}
+	return rzi_at_respond_status(RZI_AT_STATUS_OK);
+}

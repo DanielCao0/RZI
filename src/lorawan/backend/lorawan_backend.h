@@ -9,6 +9,9 @@
 #include <rzi/lorawan/lorawan.h>
 
 #include "lorawan_feature.h"
+#include "lorawan_network.h"
+#include "lorawan_channel.h"
+#include "lorawan_info.h"
 
 /** Events published by a backend and consumed by the service dispatcher. */
 enum rzi_lorawan_backend_event_type {
@@ -28,6 +31,10 @@ enum rzi_lorawan_backend_event_type {
 	RZI_LORAWAN_BACKEND_STATE_CHANGED,
 	/** Optional FUOTA session event consumed by the FUOTA service. */
 	RZI_LORAWAN_BACKEND_FUOTA,
+	/** LinkCheckAns received or the request timed out. */
+	RZI_LORAWAN_BACKEND_LINK_CHECK,
+	/** DeviceTimeAns received or the request timed out. */
+	RZI_LORAWAN_BACKEND_DEVICE_TIME,
 };
 
 /** FUOTA session kind carried by RZI_LORAWAN_BACKEND_FUOTA. */
@@ -84,6 +91,8 @@ struct rzi_lorawan_backend_event {
 			/** Reconstructed image size in bytes, or zero if unknown. */
 			uint32_t image_size;
 		} fuota;
+		/** Link-check result for RZI_LORAWAN_BACKEND_LINK_CHECK. */
+		struct rzi_lorawan_link_check_result link_check;
 	};
 };
 

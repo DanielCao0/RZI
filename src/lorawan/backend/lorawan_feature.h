@@ -51,4 +51,12 @@ struct rzi_lorawan_backend_extension {
 const struct rzi_lorawan_backend_extension *
 rzi_lorawan_feature_get(enum rzi_lorawan_feature_id feature);
 
+/**
+ * @brief Return the typed operations table for one feature.
+ *
+ * @return Backend-owned operations pointer, or NULL when unavailable.
+ */
+const void *rzi_lorawan_feature_ops(enum rzi_lorawan_feature_id feature, uint16_t version,
+				    size_t size);
+
 #endif /* RZI_LORAWAN_FEATURE_H */

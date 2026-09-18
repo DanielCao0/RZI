@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
 #include "at_command_lorawan_priv.h"
@@ -42,6 +43,71 @@ static int handle_key(const struct rzi_at_request *request, void *user_data)
 	return rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
+static int handle_devaddr(const struct rzi_at_request *request, void *user_data)
+{
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	uint8_t bytes[4];
+	char hex[9];
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		sys_put_be32(context->dev_addr, bytes);
+		rzi_at_lorawan_bin_to_hex(bytes, sizeof(bytes), hex);
+		return rzi_at_respond_value("AT+DEVADDR=%s", hex);
+	}
+	rc = rzi_at_lorawan_hex_to_bin(request->argument, bytes, sizeof(bytes));
+	if (rc != 0) {
+		return rc;
+	}
+	context->dev_addr = sys_get_be32(bytes);
+	rc = rzi_at_lorawan_nvm_save("devaddr", &context->dev_addr, sizeof(context->dev_addr));
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_netid(const struct rzi_at_request *request, void *user_data)
+{
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	uint8_t bytes[3];
+	char hex[7];
+	uint32_t net_id = 0;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		if (rzi_at_lorawan_is_joined() && rzi_lorawan_get_net_id(&net_id) == 0) {
+			context->net_id = net_id;
+			context->net_id_valid = true;
+		} else if (!context->net_id_valid) {
+			return -ENODATA;
+		}
+		bytes[0] = (uint8_t)((context->net_id >> 16) & 0xffU);
+		bytes[1] = (uint8_t)((context->net_id >> 8) & 0xffU);
+		bytes[2] = (uint8_t)(context->net_id & 0xffU);
+		rzi_at_lorawan_bin_to_hex(bytes, sizeof(bytes), hex);
+		return rzi_at_respond_value("AT+NETID=%s", hex);
+	}
+	rc = rzi_at_lorawan_hex_to_bin(request->argument, bytes, sizeof(bytes));
+	if (rc != 0) {
+		return rc;
+	}
+	context->net_id = ((uint32_t)bytes[0] << 16) | ((uint32_t)bytes[1] << 8) | bytes[2];
+	context->net_id_valid = true;
+	rc = rzi_at_lorawan_nvm_save("netid", &context->net_id, sizeof(context->net_id));
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_mcrootkey(const struct rzi_at_request *request, void *user_data)
+{
+	char hex[33];
+
+	ARG_UNUSED(request);
+	ARG_UNUSED(user_data);
+	rzi_at_lorawan_bin_to_hex(rzi_at_lorawan_context.app_key,
+				  sizeof(rzi_at_lorawan_context.app_key), hex);
+	return rzi_at_respond_value("AT+MCROOTKEY=%s", hex);
+}
+
 static struct key_command dev_eui = {
 	.response_name = "AT+DEVEUI",
 	.nvm_key = "deveui",
@@ -61,6 +127,20 @@ static struct key_command app_key = {
 	.nvm_key = "appkey",
 	.value = rzi_at_lorawan_context.app_key,
 	.size = sizeof(rzi_at_lorawan_context.app_key),
+};
+
+static struct key_command nwk_skey = {
+	.response_name = "AT+NWKSKEY",
+	.nvm_key = "nwkskey",
+	.value = rzi_at_lorawan_context.nwk_skey,
+	.size = sizeof(rzi_at_lorawan_context.nwk_skey),
+};
+
+static struct key_command app_skey = {
+	.response_name = "AT+APPSKEY",
+	.nvm_key = "appskey",
+	.value = rzi_at_lorawan_context.app_skey,
+	.size = sizeof(rzi_at_lorawan_context.app_skey),
 };
 
 static const struct rzi_at_command commands[] = {
@@ -84,6 +164,38 @@ static const struct rzi_at_command commands[] = {
 		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
 		.handler = handle_key,
 		.user_data = &app_key,
+	},
+	{
+		.name = "DEVADDR",
+		.help = "get or set the device address (4 bytes in hex)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_devaddr,
+	},
+	{
+		.name = "NWKSKEY",
+		.help = "get or set the network session key (16 bytes in hex)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_key,
+		.user_data = &nwk_skey,
+	},
+	{
+		.name = "APPSKEY",
+		.help = "get or set the application session key (16 bytes in hex)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_key,
+		.user_data = &app_skey,
+	},
+	{
+		.name = "NETID",
+		.help = "get or set the network identifier (NetID) (3 bytes in hex)",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_netid,
+	},
+	{
+		.name = "MCROOTKEY",
+		.help = "get the multicast root key (16 bytes in hex)",
+		.allowed_operations = RZI_AT_ALLOW_READ,
+		.handler = handle_mcrootkey,
 	},
 };
 

@@ -13,6 +13,7 @@
 #include <rzi/at/uart.h>
 
 static const struct device *active_uart;
+static uint32_t current_baud = 115200U;
 
 static void ignore_result(int result)
 {
@@ -71,5 +72,41 @@ int rzi_at_uart_start(const struct device *uart)
 		return rc;
 	}
 	uart_irq_rx_enable(uart);
+	return 0;
+}
+
+int rzi_at_uart_get_baud(uint32_t *baud_rate)
+{
+	if (baud_rate == NULL) {
+		return -EINVAL;
+	}
+	if (active_uart == NULL) {
+		return -ENODEV;
+	}
+	*baud_rate = current_baud;
+	return 0;
+}
+
+int rzi_at_uart_set_baud(uint32_t baud_rate)
+{
+	struct uart_config config;
+	int rc;
+
+	if (baud_rate == 0U) {
+		return -EINVAL;
+	}
+	if (active_uart == NULL) {
+		return -ENODEV;
+	}
+	rc = uart_config_get(active_uart, &config);
+	if (rc != 0) {
+		return rc;
+	}
+	config.baudrate = baud_rate;
+	rc = uart_configure(active_uart, &config);
+	if (rc != 0) {
+		return rc;
+	}
+	current_baud = baud_rate;
 	return 0;
 }

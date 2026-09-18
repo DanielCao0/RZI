@@ -5,6 +5,7 @@
  */
 
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <zephyr/devicetree.h>
@@ -31,7 +32,10 @@
 
 struct rzi_at_lorawan_context rzi_at_lorawan_context = {
 	.region = RZI_LORAWAN_REGION_EU_868,
+	.device_class = RZI_LORAWAN_CLASS_A,
 	.join_interval = RZI_AT_LORAWAN_JOIN_INTERVAL_DEFAULT,
+	.join_mode = 1U,
+	.network_mode = 1U,
 };
 
 static void ignore_result(int result)
@@ -83,6 +87,43 @@ void rzi_at_lorawan_bin_to_hex(const uint8_t *in, size_t len, char *out)
 		out[i * 2U + 1U] = digits[in[i] & 0x0f];
 	}
 	out[len * 2U] = '\0';
+}
+
+int rzi_at_lorawan_parse_long(const char *argument, long *value)
+{
+	char *end = NULL;
+
+	if (argument == NULL || value == NULL) {
+		return -EINVAL;
+	}
+	*value = strtol(argument, &end, 10);
+	if (end == argument || *end != '\0') {
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int rzi_at_lorawan_parse_bool(const char *argument, bool *value)
+{
+	if (strcmp(argument, "0") == 0) {
+		*value = false;
+		return 0;
+	}
+	if (strcmp(argument, "1") == 0) {
+		*value = true;
+		return 0;
+	}
+	return -EINVAL;
+}
+
+int rzi_at_lorawan_apply_class(void)
+{
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+
+	if (!context->service_started || context->device_class == RZI_LORAWAN_CLASS_A) {
+		return 0;
+	}
+	return rzi_lorawan_set_class(context->device_class);
 }
 
 int rzi_at_lorawan_band_to_region(int band, enum rzi_lorawan_region *region)
@@ -217,6 +258,39 @@ static int nvm_load(void)
 			context->join_attempts = join_value;
 		}
 	}
+	if (rc == 0) {
+		rc = nvm_read("njm", &join_value, sizeof(join_value), &found);
+		if (rc == 0 && found && join_value <= 1U) {
+			context->join_mode = join_value;
+		}
+	}
+	if (rc == 0) {
+		rc = nvm_read("nwm", &join_value, sizeof(join_value), &found);
+		if (rc == 0 && found && join_value <= 2U) {
+			context->network_mode = join_value;
+		}
+	}
+	if (rc == 0) {
+		rc = nvm_read("rety", &join_value, sizeof(join_value), &found);
+		if (rc == 0 && found && join_value <= 7U) {
+			context->retries = join_value;
+		}
+	}
+	if (rc == 0) {
+		rc = nvm_read("devaddr", &context->dev_addr, sizeof(context->dev_addr), &found);
+	}
+	if (rc == 0) {
+		rc = nvm_read("nwkskey", context->nwk_skey, sizeof(context->nwk_skey), &found);
+	}
+	if (rc == 0) {
+		rc = nvm_read("appskey", context->app_skey, sizeof(context->app_skey), &found);
+	}
+	if (rc == 0) {
+		rc = nvm_read("netid", &context->net_id, sizeof(context->net_id), &found);
+		if (rc == 0 && found) {
+			context->net_id_valid = true;
+		}
+	}
 	return rc;
 }
 
@@ -252,6 +326,15 @@ static void prepare_join_config(struct rzi_lorawan_join_config *config)
 	const struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 
 	memset(config, 0, sizeof(*config));
+	if (context->join_mode == 0U) {
+		config->activation = RZI_LORAWAN_ACTIVATION_ABP;
+		config->abp.dev_addr = context->dev_addr;
+		memcpy(config->abp.network_session_key, context->nwk_skey,
+		       sizeof(config->abp.network_session_key));
+		memcpy(config->abp.application_session_key, context->app_skey,
+		       sizeof(config->abp.application_session_key));
+		return;
+	}
 	config->activation = RZI_LORAWAN_ACTIVATION_OTAA;
 	memcpy(config->otaa.dev_eui, context->dev_eui, sizeof(config->otaa.dev_eui));
 	memcpy(config->otaa.join_eui, context->join_eui, sizeof(config->otaa.join_eui));
@@ -348,9 +431,11 @@ static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
 	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 
 	ARG_UNUSED(user_data);
-	if (state == RZI_LORAWAN_STATE_READY && atomic_cas(&context->join_pending, 1, 0) &&
-	    rzi_lorawan_join(&context->pending_join_config) != 0) {
-		report_join_failure();
+	if (state == RZI_LORAWAN_STATE_READY && atomic_cas(&context->join_pending, 1, 0)) {
+		if (rzi_at_lorawan_apply_class() != 0 ||
+		    rzi_lorawan_join(&context->pending_join_config) != 0) {
+			report_join_failure();
+		}
 	}
 }
 
@@ -445,7 +530,7 @@ static int extension_start(void)
 		return rc;
 	}
 #endif
-	if (context->auto_join && rzi_at_lorawan_join_start() != 0) {
+	if (context->auto_join && context->network_mode == 1U && rzi_at_lorawan_join_start() != 0) {
 		at_event("JOIN_FAILED_RX_TIMEOUT");
 	}
 	return 0;
@@ -454,8 +539,12 @@ static int extension_start(void)
 static int extension_factory_reset(void)
 {
 #if defined(CONFIG_RZI_AT_NVM)
-	static const char *const keys[] = {"deveui", "joineui",  "appkey",        "band",
-					   "cfm",    "autojoin", "join_interval", "join_attempts"};
+	static const char *const keys[] = {
+		"deveui",        "joineui",       "appkey", "band",  "cfm",  "autojoin",
+		"join_interval", "join_attempts", "njm",    "nwm",   "rety", "devaddr",
+		"nwkskey",       "appskey",       "netid",  "alias", "sn",   "pword",
+		"lpm",
+	};
 	int result = 0;
 
 	for (size_t i = 0; i < ARRAY_SIZE(keys); ++i) {
@@ -483,6 +572,11 @@ int rzi_at_lorawan_register(void)
 		&rzi_at_lorawan_key_id_group,
 		&rzi_at_lorawan_join_send_group,
 		&rzi_at_lorawan_network_management_group,
+		&rzi_at_lorawan_supplementary_group,
+		&rzi_at_lorawan_information_group,
+		&rzi_at_lorawan_class_b_group,
+		&rzi_at_lorawan_multicast_group,
+		&rzi_at_lorawan_certification_group,
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(groups); ++i) {

@@ -2,97 +2,188 @@
 
 Status: implemented
 
-Ownership boundaries for the RUI3 LoRa service surface. Placeholder files
-are version `0.0.0` and do not register commands.
+Public `rzi_lorawan_*` surface that corresponds to the RUI3 C service, now
+exposed under `include/rzi/lorawan/`. Headers are the ABI. This page is the
+function index and backend coverage.
 
 See also: [lorawan-api.md](./lorawan-api.md),
-[at-command-compatibility.md](./at-command-compatibility.md).
+[at-command-compatibility.md](./at-command-compatibility.md),
+[rui3-gap.md](./rui3-gap.md).
 
 ## Purpose
 
-RZI reserves stable ownership boundaries for the complete RUI3 LoRa service
-surface before implementing every feature. The reference is the RUI3 C service
-and C AT implementation, not `component/rui_v3_api/RAKLorawan.*`. The future
-Zephyr Arduino Core owns the C++ compatibility facade.
+These signatures are the RZI LoRaWAN ABI. Unsupported backends return
+`-ENOTSUP`. The reference behavior is the RUI3 C service and C AT
+implementation, not `component/rui_v3_api/RAKLorawan.*`. Persistent
+OTAA/ABP credentials stay inputs to `rzi_lorawan_join()`. Join retry,
+confirm-default, and last-payload readback stay in the AT package.
+P2P/FSK is `include/rzi/lora/lora.h`, not this ABI.
 
-Reserved `.c/.h` pairs live together under their owning `src/` feature
-directory and use version `0.0.0`. They are private, contain no callable API,
-and do not imply backend support. A public facade is added under `include/rzi/`
-only after its contract, backend support, Kconfig, tests, and documentation are
-complete.
+`tx_power` is the LoRaWAN power index, not dBm. `sub_band` is 0 (all) or
+1–8. `query_tx_possible()` returns `0` when `size` fits the current data
+rate. Class B ping-slot periodicity is 0–7. Channel masks use up to
+`RZI_LORAWAN_CHANNEL_MASK_WORDS` (6) words.
 
-## Core RUI3 service mapping
+## `include/rzi/lorawan/lorawan.h`
 
-- RUI3 `service_lora.c/.h` maps to `include/rzi/lorawan/lorawan.h`,
-  `src/lorawan/core/lorawan.c`, and the private backend contract.
-- ADR, data rate, transmit power, duty cycle, receive-window configuration,
-  public-network mode, LBT, join timing, channel masks, and fixed or sub-band
-  channel selection remain LoRaWAN Core operations.
-- Last-packet RSSI/SNR, protocol version, counters, and session information map
-  to the Core information model.
-- Class B beacon and ping-slot state remain part of Core class handling.
-- DeviceTimeReq and LinkCheckReq map to `src/lorawan/mac_commands/`.
-- RUI3 ARSSI maps to `src/lorawan/services/channel_scan/`.
-- Multicast session management maps to `src/lorawan/services/multicast/`.
-- Certification modes map to `src/lorawan/services/certification/`.
-- FUOTA coordination maps to `src/lorawan/services/fuota/`.
+Core lifecycle (SDK 0.2) plus network, channel, information, and Class B
+(SDK 0.3). `rzi_lorawan_callbacks` includes optional `link_check_done` and
+`device_time_done`.
 
-Persistent OTAA and ABP setter/getter functions are not duplicated as a second
-core API. RZI activation credentials remain explicit inputs to
-`rzi_lorawan_join()`. A future provisioning service may own persistent secrets.
+```c
+int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks,
+                                   rzi_lorawan_callback_handle_t *handle);
+int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t handle);
+int rzi_lorawan_set_region(enum rzi_lorawan_region region);
+int rzi_lorawan_set_join_backoff_bypass(bool enabled);
+int rzi_lorawan_start(void);
+int rzi_lorawan_join(const struct rzi_lorawan_join_config *config);
+int rzi_lorawan_leave(void);
+int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size,
+                     enum rzi_lorawan_message_type type);
+int rzi_lorawan_set_class(enum rzi_lorawan_class device_class);
+int rzi_lorawan_is_joined(bool *joined);
+uint32_t rzi_lorawan_get_capabilities(void);
 
-RUI3 `api.system.lpm.set(1)` maps to `rzi_power_set_policy(SUSPEND)`.
-RUI3 `api.system.sleep` maps to `include/rzi/power/power.h`. Official RUI3
-low-power applications are event-driven (timer callback + empty loop), not
-`sleep.all(fixed duration)` around an in-flight uplink. The coordinator owns
-policy and blockers; Zephyr owns the SoC transition. AT+SLEEP is not
-registered yet.
+int rzi_lorawan_get_region(enum rzi_lorawan_region *region);
+int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class);
+int rzi_lorawan_get_adr(bool *enabled);
+int rzi_lorawan_set_adr(bool enabled);
+int rzi_lorawan_get_data_rate(enum rzi_lorawan_data_rate *data_rate);
+int rzi_lorawan_set_data_rate(enum rzi_lorawan_data_rate data_rate);
+int rzi_lorawan_get_tx_power(uint8_t *tx_power);
+int rzi_lorawan_set_tx_power(uint8_t tx_power);
+int rzi_lorawan_get_duty_cycle(bool *enabled);
+int rzi_lorawan_set_duty_cycle(bool enabled);
+int rzi_lorawan_get_rx1_delay(uint32_t *delay_ms);
+int rzi_lorawan_set_rx1_delay(uint32_t delay_ms);
+int rzi_lorawan_get_rx2_delay(uint32_t *delay_ms);
+int rzi_lorawan_set_rx2_delay(uint32_t delay_ms);
+int rzi_lorawan_get_rx2_data_rate(enum rzi_lorawan_data_rate *data_rate);
+int rzi_lorawan_set_rx2_data_rate(enum rzi_lorawan_data_rate data_rate);
+int rzi_lorawan_get_rx2_frequency(uint32_t *frequency_hz);
+int rzi_lorawan_set_rx2_frequency(uint32_t frequency_hz);
+int rzi_lorawan_get_join_accept_delay1(uint32_t *delay_ms);
+int rzi_lorawan_set_join_accept_delay1(uint32_t delay_ms);
+int rzi_lorawan_get_join_accept_delay2(uint32_t *delay_ms);
+int rzi_lorawan_set_join_accept_delay2(uint32_t delay_ms);
+int rzi_lorawan_get_public_network(bool *enabled);
+int rzi_lorawan_set_public_network(bool enabled);
+int rzi_lorawan_get_lbt(bool *enabled);
+int rzi_lorawan_set_lbt(bool enabled);
+int rzi_lorawan_get_lbt_rssi(int16_t *rssi_dbm);
+int rzi_lorawan_set_lbt_rssi(int16_t rssi_dbm);
+int rzi_lorawan_get_lbt_scan_time(uint32_t *time_ms);
+int rzi_lorawan_set_lbt_scan_time(uint32_t time_ms);
 
-## FUOTA package ownership
+int rzi_lorawan_get_channel_mask(uint16_t *mask, size_t words);
+int rzi_lorawan_set_channel_mask(const uint16_t *mask, size_t words);
+int rzi_lorawan_get_sub_band(uint8_t *sub_band);
+int rzi_lorawan_set_sub_band(uint8_t sub_band);
+int rzi_lorawan_get_fixed_channel(uint32_t *frequency_hz);
+int rzi_lorawan_set_fixed_channel(uint32_t frequency_hz);
 
-`src/lorawan/services/fuota/` is the backend-independent coordination boundary
-exposed by `include/rzi/lorawan/fuota.h`. It does not reimplement LoRaWAN application
-packages. The USP backend uses the Clock Synchronization, Remote Multicast
-Setup, Fragmented Data Block Transport, and Firmware Management Package
-implementations built into LoRa Basics Modem. RZI owns event translation,
-image access, optional MCUboot installation, and reboot without exposing
-Semtech package or fragment-decoder types. See [fuota.md](./fuota.md).
+int rzi_lorawan_get_last_rssi(int16_t *rssi_dbm);
+int rzi_lorawan_get_last_snr(int8_t *snr_quarter_db);
+int rzi_lorawan_get_protocol_version(const char **version);
+int rzi_lorawan_get_net_id(uint32_t *net_id);
+int rzi_lorawan_get_dev_nonce(uint16_t *dev_nonce);
+int rzi_lorawan_set_dev_nonce(uint16_t dev_nonce);
+int rzi_lorawan_query_tx_possible(size_t size);
+int rzi_lorawan_is_busy(bool *busy);
 
-## Raw LoRa and FSK
-
-RUI3 places P2P in `service_lora`, but RZI treats it as a separate service:
-
-```text
-src/lora/lora.c
-src/lora/lora.h
-src/lora/lora_backend.h
-src/at/commands/lora/
+int rzi_lorawan_get_ping_slot_periodicity(uint8_t *periodicity);
+int rzi_lorawan_set_ping_slot_periodicity(uint8_t periodicity);
+int rzi_lorawan_get_beacon_frequency(uint32_t *frequency_hz);
+int rzi_lorawan_get_beacon_time(uint32_t *gps_time);
+int rzi_lorawan_get_beacon_data_rate(enum rzi_lorawan_data_rate *data_rate);
+int rzi_lorawan_get_beacon_gateway(struct rzi_lorawan_beacon_gateway *gateway);
+int rzi_lorawan_get_class_b_state(enum rzi_lorawan_class_b_state *state);
+int rzi_lorawan_stop_class_b(void);
 ```
 
-This boundary will own frequency, spreading factor, bandwidth, coding rate,
-preamble, power, sync word, CAD, send/receive, encryption, FSK bitrate, and
-frequency deviation. Radio coexistence with LoRaWAN must be specified before a
-callable API is added.
+`get_last_rssi` / `get_last_snr` are filled from the last application
+downlink. `get_protocol_version` is `"LoRaWAN 1.0.4"`.
 
-## AT command-domain mapping
+## `include/rzi/lorawan/mac_commands.h`
 
-Implemented and reserved LoRaWAN AT files follow the RUI3 command domains:
+```c
+int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mode *mode);
+int rzi_lorawan_request_link_check(enum rzi_lorawan_link_check_mode mode);
+int rzi_lorawan_get_device_time_enabled(bool *enabled);
+int rzi_lorawan_request_device_time(bool enabled);
+int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time);
+```
 
-- `key_id`: OTAA commands are implemented; ABP identifiers and session keys are
-  reserved.
-- `join_send`: join, confirmation, send, receive, and retry are implemented.
-- `network_management`: basic mode, band, and Class A are implemented; ADR,
-  duty cycle, data rate, receive windows, transmit power, time request, and LBT
-  are reserved.
-- `class_b`, `information`, `multicast`, `supplementary`, and `certification`
-  have explicit source placeholders.
-- Raw LoRa P2P commands have a separate `commands/lora/` package placeholder.
+`request_link_check(ONCE)` or `EVERY_UPLINK` triggers a request immediately.
+Completion is `link_check_done`. DeviceTime completion is `device_time_done`.
+`get_network_time` uses the GPS epoch.
 
-Placeholder files do not register command descriptors. Unsupported commands
-return `AT_ERROR` rather than accepting configuration that has no effect.
+## `include/rzi/lorawan/multicast.h`
 
-## Backend-only boundaries
+```c
+int rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session *session);
+int rzi_lorawan_remove_multicast_session(uint32_t dev_addr);
+int rzi_lorawan_get_multicast_count(size_t *count);
+int rzi_lorawan_get_multicast_session(size_t index,
+                                      struct rzi_lorawan_multicast_session *session);
+int rzi_lorawan_clear_multicast_sessions(void);
+```
 
-RUI3 `LmHandler`, NVM internals, stack test helpers, and direct LoRaMac types are
-backend implementation details. RZI does not reserve matching public headers
-for them. Backends translate those facilities into RZI-owned types and events.
+Groups are 0–3. `group_id` of `-1` allocates the next free slot. Listed
+sessions omit keys.
+
+## `include/rzi/lorawan/channel_scan.h`
+
+```c
+int rzi_lorawan_get_channel_rssi_count(size_t *count);
+int rzi_lorawan_get_channel_rssi(size_t index, struct rzi_lorawan_channel_rssi *rssi);
+```
+
+## `include/rzi/lorawan/certification.h`
+
+```c
+int rzi_lorawan_get_certification_mode(bool *enabled);
+int rzi_lorawan_set_certification_mode(bool enabled);
+int rzi_lorawan_get_certification_port_enabled(bool *enabled);
+int rzi_lorawan_set_certification_port_enabled(bool enabled);
+```
+
+## `include/rzi/lorawan/fuota.h`
+
+FUOTA coordination stays Kconfig-gated (`CONFIG_RZI_LORAWAN_FUOTA`). See
+[fuota.md](./fuota.md).
+
+## Backend coverage
+
+Public facades always compile except FUOTA. A capability bit means the
+backend implements that group. A NULL operation still returns `-ENOTSUP`.
+
+| Group | USP / LBM | Zephyr `lorawan_*` |
+|---|---|---|
+| Join / send / class | OTAA, Class A/B/C | OTAA, ABP, Class A/C |
+| ADR, DR, public network, LBT | Yes | ADR, DR |
+| TX power, duty-cycle enable, RX / join windows | `-ENOTSUP` (not in `smtc_modem_*`) | `-ENOTSUP` |
+| Channel mask / sub-band / fixed channel | `-ENOTSUP` | Channel mask |
+| RSSI / SNR / protocol version | Core downlink cache / constant | Same |
+| `query_tx_possible` / `is_busy` / DevNonce | TX size and busy | TX size, busy, DevNonce |
+| Class B ping-slot / state | Yes; beacon fields `-ENOTSUP` | `-ENOTSUP` |
+| LinkCheckReq / DeviceTimeReq | Yes | Yes (not under `CONFIG_LORAWAN_EMUL`) |
+| Multicast 0–3 | Yes | `-ENOTSUP` |
+| Channel RSSI scan | `-ENOTSUP` | `-ENOTSUP` |
+| Certification | Mode yes; FPort is local | `-ENOTSUP` |
+| FUOTA | When `CONFIG_RZI_LORAWAN_FUOTA` | When enabled |
+
+AT commands wrap these APIs. `-ENOTSUP` becomes `AT_ERROR`.
+
+## Out of this ABI
+
+Do not add these as `rzi_lorawan_*`:
+
+- credential get/set (`dev_eui`, `join_eui`, `app_key`, ABP keys) — `join()`
+- confirm default, last confirm status, send retry — AT `CFM` / `CFS` / `RETY`
+- auto-join period and attempt count — AT `JOIN`
+- last received payload buffer — AT `RECV`; C uses `downlink`
+- work-mode switch to P2P/FSK — `rzi_lora_*`
+- sleep / suspend / resume — `rzi_power_*`
+- LPTP, LmHandler, LoRaMac types

@@ -25,6 +25,62 @@ static struct k_thread at_thread;
 static struct rzi_at_io active_io;
 static atomic_t started;
 static atomic_t rx_overflow;
+static atomic_t locked;
+static atomic_t echo_enabled = ATOMIC_INIT(IS_ENABLED(CONFIG_RZI_AT_ECHO));
+static char password[9];
+
+bool rzi_at_is_locked(void)
+{
+	return atomic_get(&locked) != 0;
+}
+
+void rzi_at_set_locked(bool enable)
+{
+	if (enable) {
+		atomic_set(&locked, 1);
+	} else {
+		atomic_clear(&locked);
+	}
+}
+
+bool rzi_at_echo_enabled(void)
+{
+	return atomic_get(&echo_enabled) != 0;
+}
+
+void rzi_at_set_echo(bool enable)
+{
+	if (enable) {
+		atomic_set(&echo_enabled, 1);
+	} else {
+		atomic_clear(&echo_enabled);
+	}
+}
+
+bool rzi_at_password_matches(const char *value)
+{
+	return value != NULL && strcmp(password, value) == 0;
+}
+
+int rzi_at_set_password(const char *value)
+{
+	size_t len;
+
+	if (value == NULL) {
+		return -EINVAL;
+	}
+	len = strlen(value);
+	if (len == 0U || len > 8U) {
+		return -EINVAL;
+	}
+	memcpy(password, value, len + 1U);
+	return 0;
+}
+
+const char *rzi_at_password(void)
+{
+	return password;
+}
 
 static void ignore_result(int result)
 {

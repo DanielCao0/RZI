@@ -24,14 +24,24 @@ struct join_parameters {
 
 static int handle_njm(const struct rzi_at_request *request, void *user_data)
 {
-	ARG_UNUSED(user_data);
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	long parsed;
+	int rc;
 
+	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+NJM=1");
+		return rzi_at_respond_value("AT+NJM=%u", context->join_mode);
 	}
-	/* OTAA is implemented; ABP remains a planned service. */
-	return strcmp(request->argument, "1") == 0 ? rzi_at_respond_status(RZI_AT_STATUS_OK)
-						   : -EINVAL;
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 1) {
+		return -EINVAL;
+	}
+	if (parsed == 0 && (rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_ABP) == 0U) {
+		return -ENOTSUP;
+	}
+	context->join_mode = (uint8_t)parsed;
+	rc = rzi_at_lorawan_nvm_save("njm", &context->join_mode, sizeof(context->join_mode));
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
 static int handle_njs(const struct rzi_at_request *request, void *user_data)
@@ -238,6 +248,64 @@ static int handle_recv(const struct rzi_at_request *request, void *user_data)
 	return rzi_at_respond_value("AT+RECV=%u:%s", port, hex);
 }
 
+static int handle_rety(const struct rzi_at_request *request, void *user_data)
+{
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	long parsed;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	if (request->operation == RZI_AT_OP_READ) {
+		return rzi_at_respond_value("AT+RETY=%u", context->retries);
+	}
+	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
+	if (rc != 0 || parsed < 0 || parsed > 7) {
+		return -EINVAL;
+	}
+	context->retries = (uint8_t)parsed;
+	rc = rzi_at_lorawan_nvm_save("rety", &context->retries, sizeof(context->retries));
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
+}
+
+static int handle_lpsend(const struct rzi_at_request *request, void *user_data)
+{
+	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	uint8_t payload[RZI_LORAWAN_MAX_PAYLOAD];
+	char *end;
+	const char *cursor = request->argument;
+	long port;
+	long ack;
+	size_t hex_len;
+	int rc;
+
+	ARG_UNUSED(user_data);
+	port = strtol(cursor, &end, 10);
+	if (end == cursor || *end != ':' || port < 1 || port > 223) {
+		return -EINVAL;
+	}
+	cursor = end + 1;
+	ack = strtol(cursor, &end, 10);
+	if (end == cursor || *end != ':' || (ack != 0 && ack != 1)) {
+		return -EINVAL;
+	}
+	cursor = end + 1;
+	hex_len = strlen(cursor);
+	if (hex_len == 0U || (hex_len % 2U) != 0U || hex_len > sizeof(payload) * 2U) {
+		return -EINVAL;
+	}
+	rc = rzi_at_lorawan_hex_to_bin(cursor, payload, hex_len / 2U);
+	if (rc != 0) {
+		return rc;
+	}
+	if (!rzi_at_lorawan_is_joined()) {
+		return -ENETDOWN;
+	}
+	atomic_set(&context->tx_confirmed, ack != 0);
+	rc = rzi_lorawan_send((uint8_t)port, payload, hex_len / 2U,
+			      ack != 0 ? RZI_LORAWAN_MSG_CONFIRMED : RZI_LORAWAN_MSG_UNCONFIRMED);
+	return respond_to_result(rc);
+}
+
 static const struct rzi_at_command commands[] = {
 	{
 		.name = "NJM",
@@ -281,6 +349,18 @@ static const struct rzi_at_command commands[] = {
 		.help = "print the last received data in hex format",
 		.allowed_operations = RZI_AT_ALLOW_READ,
 		.handler = handle_recv,
+	},
+	{
+		.name = "RETY",
+		.help = "get or set the number of retransmission of confirm packet data",
+		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
+		.handler = handle_rety,
+	},
+	{
+		.name = "LPSEND",
+		.help = "send long packet data (max 242 bytes in this implementation)",
+		.allowed_operations = RZI_AT_ALLOW_WRITE,
+		.handler = handle_lpsend,
 	},
 };
 

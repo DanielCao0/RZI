@@ -31,6 +31,8 @@ enum rzi_capability {
 	RZI_CAP_RSUP = (1U << 3),
 	/** Product power-policy coordinator is compiled in. */
 	RZI_CAP_POWER = (1U << 4),
+	/** Backend-independent raw LoRa and FSK service is compiled in. */
+	RZI_CAP_LORA = (1U << 5),
 	/** @deprecated Use @ref RZI_CAP_RSUP. */
 	RZI_CAP_SLOT_UPDATE = RZI_CAP_RSUP,
 	/** @deprecated Use @ref RZI_CAP_RSUP. */
