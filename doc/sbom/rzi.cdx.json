@@ -1,0 +1,137 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:cf421571-0c75-58e1-b162-46e02364d447",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-09-15T12:25:50Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "RZI generate-sbom.py",
+          "publisher": "RAKwireless"
+        }
+      ]
+    },
+    "authors": [
+      {
+        "name": "RAKwireless"
+      }
+    ],
+    "component": {
+      "type": "library",
+      "bom-ref": "pkg:rzi",
+      "name": "rzi",
+      "version": "0.2.0",
+      "description": "Independent Zephyr module. Public C APIs live under include/rzi/. Backend protocol stacks are not part of the public ABI.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "copyright": "Copyright 2026 RAKwireless",
+      "purl": "pkg:github/DanielCao0/RZI@12a150bb6c7730e7441cf51623a2a0d93e0135ef",
+      "supplier": {
+        "name": "RAKwireless"
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/DanielCao0/RZI"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/DanielCao0/RZI.git#12a150bb6c7730e7441cf51623a2a0d93e0135ef"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "sbom:scope",
+        "value": "rzi-module-source"
+      },
+      {
+        "name": "sbom:note",
+        "value": "Firmware image SBOMs must be generated with west spdx from a product build; they include Zephyr and HALs."
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:usp_zephyr",
+      "name": "usp_zephyr",
+      "version": "bfacd435f53935ebea1a0e95fb877f4ede119985",
+      "description": "Pinned by rzi/west.yml. Workspace path: usp_zephyr. RZI west patches applied: usp_zephyr/0001-zephyr-4.4-warning-fixes.patch, usp_zephyr/0002-fix-lr-fhss-src-path.patch, usp_zephyr/0003-disable-duplicate-xiao-board-root.patch, usp_zephyr/0004-sx1262-pa-compile-definitions.patch, usp_zephyr/0005-stm32wl-subghz-radio.patch.",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause-Clear"
+          }
+        }
+      ],
+      "copyright": "Copyright Semtech Corporation 2025",
+      "purl": "pkg:github/Lora-net/usp_zephyr@bfacd435f53935ebea1a0e95fb877f4ede119985",
+      "supplier": {
+        "name": "Semtech Corporation"
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/Lora-net/usp_zephyr"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/Lora-net/usp_zephyr.git#bfacd435f53935ebea1a0e95fb877f4ede119985"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:usp",
+      "name": "usp",
+      "version": "351b2015350670eb4dfa3aec35eb04433e062654",
+      "description": "Pinned by rzi/west.yml. Workspace path: modules/lib/usp. west clones this project with git submodules enabled.",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause-Clear"
+          }
+        }
+      ],
+      "copyright": "Copyright Semtech Corporation 2025",
+      "purl": "pkg:github/Lora-net/usp@351b2015350670eb4dfa3aec35eb04433e062654",
+      "supplier": {
+        "name": "Semtech Corporation"
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/Lora-net/usp"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/Lora-net/usp.git#351b2015350670eb4dfa3aec35eb04433e062654"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:rzi",
+      "dependsOn": [
+        "pkg:usp_zephyr",
+        "pkg:usp"
+      ]
+    },
+    {
+      "ref": "pkg:usp_zephyr"
+    },
+    {
+      "ref": "pkg:usp"
+    }
+  ]
+}

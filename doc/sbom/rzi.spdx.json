@@ -1,0 +1,104 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "rzi-0.2.0",
+  "documentNamespace": "https://github.com/DanielCao0/RZI/spdxdocs/rzi-0.2.0-cf421571-0c75-58e1-b162-46e02364d447",
+  "documentDescribes": [
+    "SPDXRef-Package-rzi"
+  ],
+  "creationInfo": {
+    "created": "2026-09-15T12:25:50Z",
+    "creators": [
+      "Organization: RAKwireless",
+      "Tool: RZI generate-sbom.py"
+    ],
+    "licenseListVersion": "3.25",
+    "comment": "Source-level SBOM of the RZI Zephyr module and the backend projects it pins in west.yml. Zephyr, MCUBoot, and SoC HALs are selected by the consuming application and are omitted. Use west spdx after a firmware build for an image SBOM."
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-rzi",
+      "name": "rzi",
+      "versionInfo": "0.2.0",
+      "downloadLocation": "git+https://github.com/DanielCao0/RZI.git@12a150bb6c7730e7441cf51623a2a0d93e0135ef",
+      "filesAnalyzed": false,
+      "homepage": "https://github.com/DanielCao0/RZI",
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "Copyright 2026 RAKwireless",
+      "supplier": "Organization: RAKwireless",
+      "originator": "Organization: RAKwireless",
+      "primaryPackagePurpose": "LIBRARY",
+      "comment": "Independent Zephyr module. Public C APIs live under include/rzi/. Backend protocol stacks are not part of the public ABI.",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/DanielCao0/RZI@12a150bb6c7730e7441cf51623a2a0d93e0135ef"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-usp_zephyr",
+      "name": "usp_zephyr",
+      "versionInfo": "bfacd435f53935ebea1a0e95fb877f4ede119985",
+      "downloadLocation": "git+https://github.com/Lora-net/usp_zephyr.git@bfacd435f53935ebea1a0e95fb877f4ede119985",
+      "filesAnalyzed": false,
+      "homepage": "https://github.com/Lora-net/usp_zephyr",
+      "licenseConcluded": "BSD-3-Clause-Clear",
+      "licenseDeclared": "BSD-3-Clause-Clear",
+      "copyrightText": "Copyright Semtech Corporation 2025",
+      "supplier": "Organization: Semtech Corporation",
+      "originator": "Organization: Semtech Corporation",
+      "primaryPackagePurpose": "LIBRARY",
+      "comment": "Pinned by rzi/west.yml. Workspace path: usp_zephyr. RZI west patches applied: usp_zephyr/0001-zephyr-4.4-warning-fixes.patch, usp_zephyr/0002-fix-lr-fhss-src-path.patch, usp_zephyr/0003-disable-duplicate-xiao-board-root.patch, usp_zephyr/0004-sx1262-pa-compile-definitions.patch, usp_zephyr/0005-stm32wl-subghz-radio.patch.",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/Lora-net/usp_zephyr@bfacd435f53935ebea1a0e95fb877f4ede119985"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-usp",
+      "name": "usp",
+      "versionInfo": "351b2015350670eb4dfa3aec35eb04433e062654",
+      "downloadLocation": "git+https://github.com/Lora-net/usp.git@351b2015350670eb4dfa3aec35eb04433e062654",
+      "filesAnalyzed": false,
+      "homepage": "https://github.com/Lora-net/usp",
+      "licenseConcluded": "BSD-3-Clause-Clear",
+      "licenseDeclared": "BSD-3-Clause-Clear",
+      "copyrightText": "Copyright Semtech Corporation 2025",
+      "supplier": "Organization: Semtech Corporation",
+      "originator": "Organization: Semtech Corporation",
+      "primaryPackagePurpose": "LIBRARY",
+      "comment": "Pinned by rzi/west.yml. Workspace path: modules/lib/usp. west clones this project with git submodules enabled.",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/Lora-net/usp@351b2015350670eb4dfa3aec35eb04433e062654"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relatedSpdxElement": "SPDXRef-Package-rzi",
+      "relationshipType": "DESCRIBES"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-rzi",
+      "relatedSpdxElement": "SPDXRef-Package-usp_zephyr",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-rzi",
+      "relatedSpdxElement": "SPDXRef-Package-usp",
+      "relationshipType": "DEPENDS_ON"
+    }
+  ]
+}
