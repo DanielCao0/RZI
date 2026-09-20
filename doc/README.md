@@ -52,6 +52,7 @@ switches, and limits that do not belong in a header comment.
 | [coding-standards.md](./coding-standards.md) | normative | Layout, naming, errors, commits |
 | [api-docs.md](./api-docs.md) | normative | Doxygen and compiler annotations |
 | [sbom.md](./sbom.md) | implemented | Module SPDX / CycloneDX SBOM |
+| [ci.md](./ci.md) | implemented | CI jobs, version pins, local reproduction |
 | [naming-conventions.md](./naming-conventions.md) | superseded | Redirect to coding standards §3 |
 
 Product and Arduino operator notes live outside the repository:

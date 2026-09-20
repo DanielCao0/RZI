@@ -140,6 +140,9 @@ run_checkpatch() {
 	if [[ "${staged}" == "yes" ]]; then
 		scope="staged changes"
 		patch="$(git -C "${REPO}" diff --cached "${exclude[@]}")"
+	elif [[ -n "${BASE_REF:-}" ]]; then
+		scope="changes vs ${BASE_REF}"
+		patch="$(git -C "${REPO}" diff "${BASE_REF}...HEAD" "${exclude[@]}")"
 	elif ! git -C "${REPO}" diff --quiet HEAD --; then
 		scope="working tree vs HEAD"
 		patch="$(git -C "${REPO}" diff HEAD "${exclude[@]}")"

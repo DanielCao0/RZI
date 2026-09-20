@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief RSUP on any Zephyr UART (type 1 → image-1).
+ * @brief RSUP on any Zephyr UART (type 1 -> image-1).
  */
 
 #include <string.h>

@@ -545,6 +545,10 @@ their translation units are excluded until explicitly selected.
 
 ## 16. Verification strategy
 
+Status: host-side checks run in CI; hardware verification stays a release
+gate. [ci.md](./ci.md) documents the workflow, version pins, and local
+reproduction.
+
 Automated verification includes:
 
 - build every sample in the supported board/backend matrix;

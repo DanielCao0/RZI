@@ -1,0 +1,301 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# RZI continuous integration, modelled on the Zephyr project gates:
+# compliance (checkpatch / clang-format / ABI hygiene), twister tests on
+# native_sim, sample builds for the product boards, public-header compilation,
+# Doxygen, and SBOM regeneration.
+#
+# Version pins and local reproduction steps are documented in doc/ci.md.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Zephyr revision validated with the pinned USP backend and the patches
+  # under zephyr/patches/. Bump together with the patches and doc/ci.md.
+  ZEPHYR_REVISION: 161f758ba363ec90cd9b727a5d82e6c86efa85ad
+  ZEPHYR_SDK_VERSION: "1.0.1"
+  CLANG_FORMAT_VERSION: "23.1.0"
+  DOXYGEN_VERSION: "1.13.2"
+
+jobs:
+  compliance:
+    name: Compliance
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v4
+        with:
+          path: rzi
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up the west workspace
+        uses: ./rzi/.github/actions/setup-workspace
+        with:
+          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
+
+      - name: Fetch the pull request base
+        if: github.event_name == 'pull_request'
+        run: git -C rzi fetch --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Install clang-format
+        run: python3 -m pip install "clang-format==${CLANG_FORMAT_VERSION}"
+
+      - name: Coding style
+        working-directory: workspace/rzi
+        env:
+          BASE_REF: >-
+            ${{ github.event_name == 'pull_request' &&
+            format('origin/{0}', github.base_ref) || '' }}
+        run: scripts/check-style.sh
+
+      - name: Public ABI must not leak backend symbols
+        run: |
+          if grep -rnE '\b(smtc_[a-z]|LoRaMac|LmHandler|Mcps|Mlme|ral_[a-z]|sx126|sx127|lr11)' \
+              rzi/include/rzi/; then
+            echo "::error::private backend symbols leaked into include/rzi/"
+            exit 1
+          fi
+
+      - name: Source must be ASCII
+        run: |
+          if LC_ALL=C grep -rnP '[^\x00-\x7F]' rzi/src rzi/include; then
+            echo "::error::non-ASCII text in source"
+            exit 1
+          fi
+
+      - name: SPDX tags on every source file
+        run: |
+          missing="$(find rzi/src rzi/include -name '*.[ch]' \
+            ! -exec grep -q 'SPDX-License-Identifier' {} \; -print)"
+          if [[ -n "${missing}" ]]; then
+            echo "::error::missing SPDX-License-Identifier:"
+            echo "${missing}"
+            exit 1
+          fi
+
+      - name: Version strings stay in sync
+        run: |
+          version="$(grep -oP 'RZI_VERSION_STRING "\K[^"]+' rzi/include/rzi/version.h)"
+          grep -q "PROJECT_NUMBER         = ${version}" rzi/doc/Doxyfile
+          python3 - "${version}" <<'PY'
+          import json
+          import sys
+
+          packages = json.load(open("rzi/doc/sbom/rzi.spdx.json"))["packages"]
+          rzi = next(p for p in packages if p["name"] == "rzi")
+          assert rzi["versionInfo"] == sys.argv[1], (rzi["versionInfo"], sys.argv[1])
+          PY
+
+  twister:
+    name: Twister (native_sim)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v4
+        with:
+          path: rzi
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up the west workspace
+        uses: ./rzi/.github/actions/setup-workspace
+        with:
+          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends device-tree-compiler gperf
+
+      - name: Install the Zephyr Python requirements
+        run: |
+          python3 -m pip install \
+            -r workspace/zephyr/scripts/requirements-base.txt \
+            -r workspace/zephyr/scripts/requirements-build-test.txt
+
+      - name: Run the test suites
+        working-directory: workspace
+        run: west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v -j "$(nproc)"
+
+      - name: Upload the twister report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: twister-report
+          path: workspace/twister-out/
+          if-no-files-found: ignore
+
+  samples:
+    name: Samples (product boards)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v4
+        with:
+          path: rzi
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up the west workspace
+        uses: ./rzi/.github/actions/setup-workspace
+        with:
+          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends device-tree-compiler gperf
+
+      - name: Install the Zephyr Python requirements
+        run: |
+          python3 -m pip install \
+            -r workspace/zephyr/scripts/requirements-base.txt \
+            -r workspace/zephyr/scripts/requirements-build-test.txt \
+            imgtool
+
+      - name: Cache the Zephyr SDK
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}
+          key: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-arm-zephyr-eabi
+
+      - name: Install the Zephyr SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
+          tar -xf "zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
+          "./zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -y -t arm-zephyr-eabi
+
+      - name: Select the Zephyr SDK
+        run: |
+          echo "ZEPHYR_SDK_INSTALL_DIR=${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Build the samples
+        working-directory: workspace
+        run: west twister -T "${GITHUB_WORKSPACE}/rzi/samples" --inline-logs -v -j "$(nproc)"
+
+      - name: Upload the twister report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: twister-samples-report
+          path: workspace/twister-out/
+          if-no-files-found: ignore
+
+  headers:
+    name: Public headers (C and C++)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v4
+        with:
+          path: rzi
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up the west workspace
+        uses: ./rzi/.github/actions/setup-workspace
+        with:
+          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends device-tree-compiler gperf
+
+      - name: Install the Zephyr Python requirements
+        run: |
+          python3 -m pip install \
+            -r workspace/zephyr/scripts/requirements-base.txt \
+            -r workspace/zephyr/scripts/requirements-build-test.txt
+
+      - name: Configure a reference build
+        working-directory: workspace
+        run: >-
+          west build -b native_sim/native/64
+          "${GITHUB_WORKSPACE}/rzi/samples/lorawan/at"
+          -d build-headers --pristine=always
+
+      - name: Compile every public header as C and C++
+        run: python3 rzi/scripts/check-public-headers.py workspace/build-headers
+
+  doc:
+    name: Documentation (Doxygen)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v4
+        with:
+          path: rzi
+
+      - name: Cache doxygen
+        id: doxygen
+        uses: actions/cache@v4
+        with:
+          path: doxygen-${{ env.DOXYGEN_VERSION }}
+          key: doxygen-${{ env.DOXYGEN_VERSION }}-linux-x86_64
+
+      - name: Install doxygen
+        if: steps.doxygen.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://www.doxygen.nl/files/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
+          mkdir -p "doxygen-${DOXYGEN_VERSION}"
+          tar -xf "doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz" \
+            -C "doxygen-${DOXYGEN_VERSION}" --strip-components=1
+
+      - name: Build the documentation
+        working-directory: rzi
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/doxygen-${DOXYGEN_VERSION}/bin:${PATH}"
+          scripts/generate-doxygen.sh
+          if [[ -s doc/doxygen/warnings.log ]]; then
+            echo "::error::doxygen warnings:"
+            cat doc/doxygen/warnings.log
+            exit 1
+          fi
+
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v4
+        with:
+          path: rzi
+          fetch-depth: 0
+
+      - name: Regenerate and validate
+        working-directory: rzi
+        run: |
+          scripts/generate-sbom.sh
+          python3 -m json.tool doc/sbom/rzi.spdx.json > /dev/null
+          python3 -m json.tool doc/sbom/rzi.cdx.json > /dev/null

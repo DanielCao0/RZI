@@ -1,5 +1,7 @@
 # RZI
 
+[![CI](https://github.com/DanielCao0/RZI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DanielCao0/RZI/actions/workflows/ci.yml)
+
 RZI is an independent Zephyr module that exposes RAK-oriented C APIs while
 keeping protocol-stack integration private and relying on upstream Zephyr
 board support. The first implemented service is LoRaWAN over Semtech USP and
@@ -216,3 +218,10 @@ scripts/check-style.sh           # working tree, or HEAD when clean
 scripts/check-style.sh --staged  # staged changes only
 scripts/check-style.sh --fix     # apply clang-format in place
 ```
+
+## CI
+
+GitHub Actions runs the style checks above plus twister on `native_sim`,
+sample builds for both product boards, public-header compilation (C and
+C++), Doxygen, and SBOM regeneration on every push and pull request. Jobs,
+version pins, and local reproduction: [`doc/ci.md`](doc/ci.md).

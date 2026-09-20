@@ -77,6 +77,8 @@ INPUT                  = ../include/rzi \
                          at-framework.md \
                          at-command-compatibility.md \
                          rui3-mapping.md \
+                         rui3-gap.md \
+                         sbom.md \
                          coding-standards.md \
                          naming-conventions.md \
                          api-docs.md
