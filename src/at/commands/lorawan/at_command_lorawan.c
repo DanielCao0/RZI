@@ -21,6 +21,7 @@
 #include <rzi/lorawan/lorawan.h>
 
 #include "../../at_priv.h"
+#include "../at_network_mode.h"
 #include "at_command_lorawan_priv.h"
 
 #define USER_NODE DT_PATH(zephyr_user)
@@ -35,7 +36,6 @@ struct rzi_at_lorawan_context rzi_at_lorawan_context = {
 	.device_class = RZI_LORAWAN_CLASS_A,
 	.join_interval = RZI_AT_LORAWAN_JOIN_INTERVAL_DEFAULT,
 	.join_mode = 1U,
-	.network_mode = 1U,
 };
 
 static void ignore_result(int result)
@@ -262,12 +262,6 @@ static int nvm_load(void)
 		rc = nvm_read("njm", &join_value, sizeof(join_value), &found);
 		if (rc == 0 && found && join_value <= 1U) {
 			context->join_mode = join_value;
-		}
-	}
-	if (rc == 0) {
-		rc = nvm_read("nwm", &join_value, sizeof(join_value), &found);
-		if (rc == 0 && found && join_value <= 2U) {
-			context->network_mode = join_value;
 		}
 	}
 	if (rc == 0) {
@@ -530,7 +524,8 @@ static int extension_start(void)
 		return rc;
 	}
 #endif
-	if (context->auto_join && context->network_mode == 1U && rzi_at_lorawan_join_start() != 0) {
+	if (context->auto_join && rzi_at_network_mode_get() == RZI_AT_NETWORK_MODE_LORAWAN &&
+	    rzi_at_lorawan_join_start() != 0) {
 		at_event("JOIN_FAILED_RX_TIMEOUT");
 	}
 	return 0;
@@ -540,10 +535,9 @@ static int extension_factory_reset(void)
 {
 #if defined(CONFIG_RZI_AT_NVM)
 	static const char *const keys[] = {
-		"deveui",        "joineui",       "appkey", "band",  "cfm",  "autojoin",
-		"join_interval", "join_attempts", "njm",    "nwm",   "rety", "devaddr",
-		"nwkskey",       "appskey",       "netid",  "alias", "sn",   "pword",
-		"lpm",
+		"deveui",        "joineui",       "appkey", "band", "cfm",     "autojoin",
+		"join_interval", "join_attempts", "njm",    "rety", "devaddr", "nwkskey",
+		"appskey",       "netid",         "alias",  "sn",   "pword",   "lpm",
 	};
 	int result = 0;
 

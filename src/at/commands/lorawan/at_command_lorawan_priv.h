@@ -65,8 +65,6 @@ struct rzi_at_lorawan_context {
 	bool net_id_valid;
 	/** Network join mode: 1 = OTAA, 0 = ABP. */
 	uint8_t join_mode;
-	/** Working mode: 0 = P2P LoRa, 1 = LoRaWAN, 2 = P2P FSK. */
-	uint8_t network_mode;
 	/** Confirmed-uplink retransmission count for AT+RETY. */
 	uint8_t retries;
 	/** Region selected by AT+BAND. */

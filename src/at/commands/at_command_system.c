@@ -35,6 +35,9 @@
 #endif
 
 #include "../at_priv.h"
+#if defined(CONFIG_RZI_AT_COMMAND_LORAWAN) || defined(CONFIG_RZI_AT_COMMAND_LORA)
+#include "at_network_mode.h"
+#endif
 
 static __maybe_unused void ignore_result(int result)
 {
@@ -568,6 +571,11 @@ int rzi_at_builtin_register(void)
 			}
 		}
 	}
+#if defined(CONFIG_RZI_AT_COMMAND_LORAWAN) || defined(CONFIG_RZI_AT_COMMAND_LORA)
+	if (rc == 0) {
+		rc = rzi_at_network_mode_register();
+	}
+#endif
 #if defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
 	if (rc == 0) {
 		rc = rzi_at_lorawan_register();

@@ -1,23 +1,18 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief LoRaWAN network mode, region, class, and MAC-parameter AT commands.
+ * @brief LoRaWAN region, class, and MAC-parameter AT commands.
  */
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <zephyr/sys/reboot.h>
 #include <zephyr/sys/util.h>
 
 #include <rzi/lorawan/mac_commands.h>
 
 #include "at_command_lorawan_priv.h"
-
-#if defined(CONFIG_RZI_AT_COMMAND_LORA)
-#include "../lora/at_command_lora_priv.h"
-#endif
 
 static int class_supported(enum rzi_lorawan_class device_class)
 {
@@ -85,41 +80,6 @@ static int handle_u32(const struct rzi_at_request *request, const char *name,
 	}
 	rc = set((uint32_t)parsed * scale);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
-}
-
-static int handle_nwm(const struct rzi_at_request *request, void *user_data)
-{
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
-	long parsed;
-	int rc;
-
-	ARG_UNUSED(user_data);
-	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+NWM=%u", context->network_mode);
-	}
-	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
-	if (rc != 0 || parsed < 0 || parsed > 2) {
-		return -EINVAL;
-	}
-	if (parsed != 1 && !IS_ENABLED(CONFIG_RZI_AT_COMMAND_LORA)) {
-		return -ENOTSUP;
-	}
-	if ((uint8_t)parsed == context->network_mode) {
-		return rzi_at_respond_status(RZI_AT_STATUS_OK);
-	}
-	context->network_mode = (uint8_t)parsed;
-	rc = rzi_at_lorawan_nvm_save("nwm", &context->network_mode, sizeof(context->network_mode));
-	if (rc != 0) {
-		return rc;
-	}
-#if defined(CONFIG_RZI_AT_COMMAND_LORA)
-	rzi_at_lora_on_network_mode(context->network_mode);
-#endif
-	rc = rzi_at_respond_status(RZI_AT_STATUS_OK);
-	if (!IS_ENABLED(CONFIG_ZTEST)) {
-		sys_reboot(SYS_REBOOT_COLD);
-	}
-	return rc;
 }
 
 static int handle_band(const struct rzi_at_request *request, void *user_data)
@@ -379,13 +339,6 @@ static int handle_linkcheck(const struct rzi_at_request *request, void *user_dat
 }
 
 static const struct rzi_at_command commands[] = {
-	{
-		.name = "NWM",
-		.help = "get or set the network working mode (0 = P2P_LORA, 1 = LoRaWAN, 2 = "
-			"P2P_FSK)",
-		.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
-		.handler = handle_nwm,
-	},
 	{
 		.name = "BAND",
 		.help = "get or set the active region (0 = EU433, 1 = CN470, 2 = RU864, "

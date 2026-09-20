@@ -43,10 +43,11 @@ The supported customer topology is an application-as-manifest west workspace:
 rzi-workspace/
 ├── .west/
 ├── app/                    Customer manifest repository
-├── rzi/                    Independent RZI SDK repository
-├── zephyr/                 Revision selected by the application
-├── usp_zephyr/             Current USP backend dependency
-└── modules/lib/usp/        Current USP implementation dependency
+├── rzi/                              Independent RZI SDK repository
+├── zephyr/                           Revision selected by the application
+└── modules/lib/
+    ├── usp_zephyr/                   USP Zephyr glue (backend)
+    └── usp/                          USP / LoRa Basics Modem
 ```
 
 The application declares RZI and imports its dependency manifest:
@@ -225,6 +226,11 @@ to subscribers outside the modem callback context. The private contract in
 versioned private extension descriptor in `src/lorawan/backend/lorawan_feature.h`;
 each implemented feature owns its typed private operation table. This keeps
 the core backend vtable stable while allowing features to evolve separately.
+Optional services attach through `rzi_lorawan_register_service()` in
+`src/lorawan/core/lorawan_service.h`. Core fans those hooks out after start and
+on every dispatched event; it does not name FUOTA or include service headers.
+FUOTA operations live in `src/lorawan/backend/lorawan_fuota.h` with the other
+backend feature contracts.
 See [lorawan-api.md](./lorawan-api.md) for the normative API and concurrency
 contract.
 
@@ -370,6 +376,7 @@ src/at/
 ├── at_priv.h                cross-file private contract
 ├── commands/
 │   ├── at_command_system.c  system command package
+│   ├── at_network_mode.c    shared AT+NWM state
 │   └── lorawan/
 │       ├── at_command_lorawan.c
 │       │                         package state, callbacks, NVM, registration
@@ -380,7 +387,7 @@ src/at/
 │       ├── at_command_lorawan_join_send.c
 │       │                         activation and application data
 │       └── at_command_lorawan_network_management.c
-│                                 mode, region, and device class
+│                                 region, class, and MAC parameters
 └── adapters/
     ├── at_adapter_uart.c    implemented interrupt-driven UART adapter
     └── at_adapter_ble_uart.c
@@ -516,9 +523,11 @@ rzi/
 │   ├── core/                Version and compiled-service capabilities
 │   ├── lorawan/
 │   │   ├── core/lorawan.c
+│   │   ├── core/lorawan_service.h
 │   │   ├── backend/
 │   │   │   ├── lorawan_backend.h
 │   │   │   ├── lorawan_feature.h
+│   │   │   ├── lorawan_fuota.h
 │   │   │   ├── usp/lorawan_backend_usp.c
 │   │   │   ├── zephyr/lorawan_backend_zephyr.c
 │   │   │   └── zephyr_lbm.c                       planned

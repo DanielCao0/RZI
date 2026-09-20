@@ -12,15 +12,8 @@
 #include <zephyr/sys/util.h>
 
 #include "../../at_priv.h"
+#include "../at_network_mode.h"
 #include "at_command_lora_priv.h"
-
-#if defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
-#include "../lorawan/at_command_lorawan_priv.h"
-#endif
-
-#if !defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
-static uint8_t network_mode;
-#endif
 
 static __maybe_unused void ignore_result(int result)
 {
@@ -98,38 +91,28 @@ int rzi_at_lora_parse_bool(const char *argument, bool *value)
 	return -EINVAL;
 }
 
-uint8_t rzi_at_lora_network_mode(void)
+static void on_network_mode(uint8_t mode)
 {
-#if defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
-	return rzi_at_lorawan_context.network_mode;
-#else
-	return network_mode;
-#endif
-}
-
-void rzi_at_lora_on_network_mode(uint8_t mode)
-{
-#if !defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
-	network_mode = mode;
-#endif
-	if (mode == 1U) {
+	if (mode == RZI_AT_NETWORK_MODE_LORAWAN) {
 		ignore_result(rzi_lora_stop());
 		return;
 	}
-	ignore_result(rzi_lora_start(mode == 2U ? RZI_LORA_MOD_FSK : RZI_LORA_MOD_LORA));
+	ignore_result(rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
+									 : RZI_LORA_MOD_LORA));
 }
 
 int rzi_at_lora_ensure_started(void)
 {
-	uint8_t mode = rzi_at_lora_network_mode();
+	uint8_t mode = rzi_at_network_mode_get();
 
-	if (mode == 1U) {
+	if (mode == RZI_AT_NETWORK_MODE_LORAWAN) {
 		return -EBUSY;
 	}
 	if (rzi_lora_is_started()) {
 		return 0;
 	}
-	return rzi_lora_start(mode == 2U ? RZI_LORA_MOD_FSK : RZI_LORA_MOD_LORA);
+	return rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
+								  : RZI_LORA_MOD_LORA);
 }
 
 static void on_tx_done(int error, void *user_data)
@@ -157,32 +140,6 @@ static const struct rzi_lora_callbacks callbacks = {
 	.rx_done = on_rx_done,
 };
 
-#if !defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
-static int handle_nwm(const struct rzi_at_request *request, void *user_data)
-{
-	long parsed;
-	int rc;
-
-	ARG_UNUSED(user_data);
-	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+NWM=%u", network_mode);
-	}
-	rc = rzi_at_lora_parse_long(request->argument, &parsed);
-	if (rc != 0 || parsed < 0 || parsed > 2) {
-		return -EINVAL;
-	}
-	rzi_at_lora_on_network_mode((uint8_t)parsed);
-	return rzi_at_respond_status(RZI_AT_STATUS_OK);
-}
-
-static const struct rzi_at_command nwm_command = {
-	.name = "NWM",
-	.help = "get or set the network working mode (0 = P2P_LORA, 1 = LoRaWAN, 2 = P2P_FSK)",
-	.allowed_operations = RZI_AT_ALLOW_READ | RZI_AT_ALLOW_WRITE,
-	.handler = handle_nwm,
-};
-#endif
-
 static int extension_start(void)
 {
 	int rc = rzi_lora_register_callbacks(&callbacks);
@@ -190,7 +147,7 @@ static int extension_start(void)
 	if (rc != 0) {
 		return rc;
 	}
-	if (rzi_at_lora_network_mode() != 1U) {
+	if (rzi_at_network_mode_get() != RZI_AT_NETWORK_MODE_LORAWAN) {
 		rc = rzi_at_lora_ensure_started();
 	}
 	return rc;
@@ -213,15 +170,11 @@ int rzi_at_lora_register(void)
 		&rzi_at_lora_test_group,
 	};
 
-#if !defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
-	int rc = rzi_at_register(&nwm_command, 1);
+	int rc = rzi_at_network_mode_add_listener(on_network_mode);
 
 	if (rc != 0) {
 		return rc;
 	}
-#else
-	int rc = 0;
-#endif
 	for (size_t i = 0; i < ARRAY_SIZE(groups); ++i) {
 		rc = rzi_at_register(groups[i]->commands, groups[i]->count);
 		if (rc != 0) {

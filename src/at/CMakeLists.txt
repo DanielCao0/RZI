@@ -7,6 +7,10 @@ zephyr_library_sources(
   commands/at_command_system.c
 )
 
+if(CONFIG_RZI_AT_COMMAND_LORAWAN OR CONFIG_RZI_AT_COMMAND_LORA)
+  zephyr_library_sources(commands/at_network_mode.c)
+endif()
+
 zephyr_library_sources_ifdef(
   CONFIG_RZI_AT_COMMAND_LORA
   commands/lora/at_command_lora.c

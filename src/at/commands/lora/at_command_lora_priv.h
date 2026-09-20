@@ -41,10 +41,4 @@ int rzi_at_lora_parse_bool(const char *argument, bool *value);
 /** Ensure the raw LoRa service is started for the current network mode. */
 int rzi_at_lora_ensure_started(void);
 
-/** Apply a network-mode change from AT+NWM without requiring a reboot. */
-void rzi_at_lora_on_network_mode(uint8_t mode);
-
-/** Return the current working mode: 0 = P2P LoRa, 1 = LoRaWAN, 2 = P2P FSK. */
-uint8_t rzi_at_lora_network_mode(void);
-
 #endif /* RZI_AT_COMMAND_LORA_PRIV_H */
