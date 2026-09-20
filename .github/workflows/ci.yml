@@ -130,7 +130,8 @@ jobs:
         run: |
           python3 -m pip install \
             -r zephyr/scripts/requirements-base.txt \
-            -r zephyr/scripts/requirements-build-test.txt
+            -r zephyr/scripts/requirements-build-test.txt \
+            -r zephyr/scripts/requirements-run-test.txt
 
       - name: Run the test suites
         run: west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v -j "$(nproc)"
@@ -173,6 +174,7 @@ jobs:
           python3 -m pip install \
             -r zephyr/scripts/requirements-base.txt \
             -r zephyr/scripts/requirements-build-test.txt \
+            -r zephyr/scripts/requirements-run-test.txt \
             imgtool
 
       - name: Cache the Zephyr SDK
@@ -187,7 +189,7 @@ jobs:
         run: |
           wget -q "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
           tar -xf "zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
-          "./zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -y -t arm-zephyr-eabi
+          "./zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -t arm-zephyr-eabi -c
 
       - name: Select the Zephyr SDK
         run: |
@@ -234,12 +236,13 @@ jobs:
         run: |
           python3 -m pip install \
             -r zephyr/scripts/requirements-base.txt \
-            -r zephyr/scripts/requirements-build-test.txt
+            -r zephyr/scripts/requirements-build-test.txt \
+            -r zephyr/scripts/requirements-run-test.txt
 
       - name: Configure a reference build
         run: >-
           west build -b native_sim/native/64
-          "${GITHUB_WORKSPACE}/rzi/samples/lorawan/at"
+          "${GITHUB_WORKSPACE}/rzi/tests/lorawan/core"
           -d build-headers --pristine=always
 
       - name: Compile every public header as C and C++
@@ -266,13 +269,23 @@ jobs:
         run: |
           wget -q "https://github.com/doxygen/doxygen/releases/download/Release_$(echo "${DOXYGEN_VERSION}" | tr . _)/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
           mkdir -p "doxygen-${DOXYGEN_VERSION}"
-          tar -xf "doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz" \
-            -C "doxygen-${DOXYGEN_VERSION}" --strip-components=1
+          tar -xf "doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz" -C "doxygen-${DOXYGEN_VERSION}"
+
+      - name: Locate the doxygen binary
+        run: |
+          binary="$(find "doxygen-${DOXYGEN_VERSION}" -type f -name doxygen | head -1)"
+          if [[ -z "${binary}" ]]; then
+            echo "::error::doxygen binary not found after extraction"
+            find "doxygen-${DOXYGEN_VERSION}" | head -20
+            exit 1
+          fi
+          echo "DOXYGEN_BINDIR=${GITHUB_WORKSPACE}/$(dirname "${binary}")" >> "${GITHUB_ENV}"
+          "${binary}" --version
 
       - name: Build the documentation
         working-directory: rzi
         run: |
-          export PATH="${GITHUB_WORKSPACE}/doxygen-${DOXYGEN_VERSION}/bin:${PATH}"
+          export PATH="${DOXYGEN_BINDIR}:${PATH}"
           scripts/generate-doxygen.sh
           if [[ -s doc/doxygen/warnings.log ]]; then
             echo "::error::doxygen warnings:"
