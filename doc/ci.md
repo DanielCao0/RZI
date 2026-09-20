@@ -61,6 +61,12 @@ second copy.
 
 ## Local reproduction
 
+Prerequisites match the runner: a Python environment with
+`zephyr/scripts/requirements-{base,build-test,run-test}.txt` installed,
+`device-tree-compiler`, `gperf`, and `gcc-multilib` / `g++-multilib` for the
+32-bit `native_sim/native` variant. Sample builds need the Zephyr SDK
+(`ZEPHYR_SDK_INSTALL_DIR`).
+
 ```bash
 # Compliance (uses the west workspace Zephyr for checkpatch)
 scripts/check-style.sh
@@ -70,13 +76,17 @@ west twister -T rzi/tests --inline-logs -v
 west twister -T rzi/samples --inline-logs -v
 
 # Public headers against a configured build
-west build -b native_sim/native/64 rzi/samples/lorawan/at -d build-headers
-python3 rzi/scripts/check-public-headers.py build-headers
+west build -b native_sim/native/64 rzi/tests/lorawan/core -d build-headers
+python3 scripts/check-public-headers.py build-headers
 
 # Documentation and SBOM
 scripts/generate-doxygen.sh
 scripts/generate-sbom.sh
 ```
+
+On a host without the Zephyr SDK, the native_sim jobs also work with
+`ZEPHYR_TOOLCHAIN_VARIANT=host`, which skips the SDK lookup that
+`verify-toolchain.cmake` performs.
 
 ## Out of scope
 
