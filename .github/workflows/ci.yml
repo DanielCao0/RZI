@@ -104,6 +104,10 @@ jobs:
   twister:
     name: Twister (native_sim)
     runs-on: ubuntu-24.04
+    env:
+      # native_sim builds use the host compiler; declaring the host toolchain
+      # skips the Zephyr SDK lookup this job does not need.
+      ZEPHYR_TOOLCHAIN_VARIANT: host
     steps:
       - name: Check out RZI
         uses: actions/checkout@v4
@@ -217,6 +221,8 @@ jobs:
   headers:
     name: Public headers (C and C++)
     runs-on: ubuntu-24.04
+    env:
+      ZEPHYR_TOOLCHAIN_VARIANT: host
     steps:
       - name: Check out RZI
         uses: actions/checkout@v4
