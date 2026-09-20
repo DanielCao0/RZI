@@ -36,6 +36,11 @@
 
 #include "../at_priv.h"
 
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 #if defined(CONFIG_RZI_AT_COMMAND_LORAWAN)
 int rzi_at_lorawan_register(void);
 #endif
@@ -199,7 +204,7 @@ static int handle_boot(const struct rzi_at_request *request, void *user_data)
 {
 	ARG_UNUSED(request);
 	ARG_UNUSED(user_data);
-	(void)rzi_at_respond_status(RZI_AT_STATUS_OK);
+	ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
 #if defined(CONFIG_RZI_RSUP)
 	rzi_rsup_arm_reboot();
 #else
@@ -233,7 +238,7 @@ static int handle_factory(const struct rzi_at_request *request, void *user_data)
 	if (rc != 0) {
 		return rc;
 	}
-	(void)rzi_at_respond_status(RZI_AT_STATUS_OK);
+	ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
 	sys_reboot(SYS_REBOOT_COLD);
 	return 0;
 }
@@ -316,7 +321,7 @@ static int handle_sleep(const struct rzi_at_request *request, void *user_data)
 	if (end == request->argument || *end != '\0' || parsed <= 0 || parsed > INT32_MAX) {
 		return -EINVAL;
 	}
-	(void)rzi_at_respond_status(RZI_AT_STATUS_OK);
+	ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
 	return rzi_power_sleep((int32_t)parsed);
 #else
 	ARG_UNUSED(request);

@@ -15,6 +15,11 @@
 
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
 #include <rzi/power/power.h>
+
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
 #endif
 
 #define RZI_STORAGE_NAME_MAX 64
@@ -110,11 +115,11 @@ int rzi_storage_write(const char *namespace_name, const char *key, const void *v
 	}
 	k_mutex_lock(&storage_lock, K_FOREVER);
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	(void)rzi_power_block(RZI_POWER_BLOCK_FLASH);
+	ignore_result(rzi_power_block(RZI_POWER_BLOCK_FLASH));
 #endif
 	rc = settings_save_one(name, value, size);
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	(void)rzi_power_unblock(RZI_POWER_BLOCK_FLASH);
+	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
 #endif
 	k_mutex_unlock(&storage_lock);
 	return rc;
@@ -135,11 +140,11 @@ int rzi_storage_delete(const char *namespace_name, const char *key)
 	}
 	k_mutex_lock(&storage_lock, K_FOREVER);
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	(void)rzi_power_block(RZI_POWER_BLOCK_FLASH);
+	ignore_result(rzi_power_block(RZI_POWER_BLOCK_FLASH));
 #endif
 	rc = settings_delete(name);
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	(void)rzi_power_unblock(RZI_POWER_BLOCK_FLASH);
+	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
 #endif
 	k_mutex_unlock(&storage_lock);
 	return rc;

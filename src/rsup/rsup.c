@@ -22,6 +22,11 @@
 
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
 #include <rzi/power/power.h>
+
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
 #endif
 
 #if defined(CONFIG_SOC_SERIES_NRF52X)
@@ -192,7 +197,7 @@ int rzi_rsup_run(const struct device *uart)
 	}
 
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	(void)rzi_power_block(RZI_POWER_BLOCK_UPDATE);
+	ignore_result(rzi_power_block(RZI_POWER_BLOCK_UPDATE));
 #endif
 	rc = wait_host(uart);
 	if (rc) {
@@ -250,7 +255,7 @@ int rzi_rsup_run(const struct device *uart)
 	rc = 0;
 out:
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	(void)rzi_power_unblock(RZI_POWER_BLOCK_UPDATE);
+	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_UPDATE));
 #endif
 	return rc;
 }

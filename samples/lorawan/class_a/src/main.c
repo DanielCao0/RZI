@@ -7,6 +7,11 @@
 #include <rzi/lorawan/lorawan.h>
 #include <rzi/power/power.h>
 
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 LOG_MODULE_REGISTER(rzi_lorawan_sample, LOG_LEVEL_INF);
 
 #define USER_NODE          DT_PATH(zephyr_user)
@@ -122,8 +127,8 @@ int main(void)
 	wait_until(&stack_ready);
 
 	while (request_join() != 0) {
-		(void)rzi_lorawan_leave();
-		(void)rzi_power_sleep(RETRY_DELAY_MS);
+		ignore_result(rzi_lorawan_leave());
+		ignore_result(rzi_power_sleep(RETRY_DELAY_MS));
 	}
 	LOG_INF("Joined");
 
@@ -132,6 +137,6 @@ int main(void)
 		if (rc != 0 && rc != -EBUSY) {
 			LOG_WRN("Uplink rejected: %d", rc);
 		}
-		(void)rzi_power_sleep(UPLINK_INTERVAL_MS);
+		ignore_result(rzi_power_sleep(UPLINK_INTERVAL_MS));
 	}
 }

@@ -7,6 +7,11 @@
 #include <rzi/lorawan/fuota.h>
 #include <rzi/lorawan/lorawan.h>
 
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 LOG_MODULE_REGISTER(rzi_fuota_sample, LOG_LEVEL_INF);
 
 #define USER_NODE         DT_PATH(zephyr_user)
@@ -149,7 +154,7 @@ int main(void)
 	wait_until(&stack_ready);
 
 	while (request_join() != 0) {
-		(void)rzi_lorawan_leave();
+		ignore_result(rzi_lorawan_leave());
 		k_sleep(RETRY_DELAY);
 	}
 	LOG_INF("Joined");

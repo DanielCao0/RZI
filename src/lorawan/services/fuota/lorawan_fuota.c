@@ -23,6 +23,11 @@
 #include "lorawan_fuota.h"
 #include "../../backend/lorawan_feature.h"
 
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 #ifdef CONFIG_IMG_MANAGER
 #include <zephyr/dfu/flash_img.h>
 #include <zephyr/dfu/mcuboot.h>
@@ -93,7 +98,7 @@ static void set_state_locked(enum rzi_fuota_state next)
 		if (want && !power_flash_held && rzi_power_block(RZI_POWER_BLOCK_FLASH) == 0) {
 			power_flash_held = true;
 		} else if (!want && power_flash_held) {
-			(void)rzi_power_unblock(RZI_POWER_BLOCK_FLASH);
+			ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
 			power_flash_held = false;
 		}
 	}

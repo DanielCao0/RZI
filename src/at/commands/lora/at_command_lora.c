@@ -22,6 +22,11 @@
 static uint8_t network_mode;
 #endif
 
+static __maybe_unused void ignore_result(int result)
+{
+	ARG_UNUSED(result);
+}
+
 static int hex_nibble(char value)
 {
 	if (value >= '0' && value <= '9') {
@@ -108,10 +113,10 @@ void rzi_at_lora_on_network_mode(uint8_t mode)
 	network_mode = mode;
 #endif
 	if (mode == 1U) {
-		(void)rzi_lora_stop();
+		ignore_result(rzi_lora_stop());
 		return;
 	}
-	(void)rzi_lora_start(mode == 2U ? RZI_LORA_MOD_FSK : RZI_LORA_MOD_LORA);
+	ignore_result(rzi_lora_start(mode == 2U ? RZI_LORA_MOD_FSK : RZI_LORA_MOD_LORA));
 }
 
 int rzi_at_lora_ensure_started(void)
@@ -131,9 +136,9 @@ static void on_tx_done(int error, void *user_data)
 {
 	ARG_UNUSED(user_data);
 	if (error == 0) {
-		(void)rzi_at_publish_event("TXP2P DONE");
+		ignore_result(rzi_at_publish_event("TXP2P DONE"));
 	} else {
-		(void)rzi_at_publish_event("TXP2P ERROR");
+		ignore_result(rzi_at_publish_event("TXP2P ERROR"));
 	}
 }
 
@@ -144,7 +149,7 @@ static void on_rx_done(const uint8_t *data, size_t size, int16_t rssi_dbm, int8_
 
 	ARG_UNUSED(user_data);
 	rzi_at_lora_bin_to_hex(data, size, hex);
-	(void)rzi_at_publish_event("RXP2P:%d:%d:%s", rssi_dbm, snr_quarter_db / 4, hex);
+	ignore_result(rzi_at_publish_event("RXP2P:%d:%d:%s", rssi_dbm, snr_quarter_db / 4, hex));
 }
 
 static const struct rzi_lora_callbacks callbacks = {
