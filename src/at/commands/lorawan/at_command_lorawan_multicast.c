@@ -46,14 +46,14 @@ static int handle_addmulc(const struct rzi_at_request *request, void *user_data)
 	if (sscanf(request->argument, "%c:%8[0-9A-Fa-f]:%32[0-9A-Fa-f]:%32[0-9A-Fa-f]:%u:%u:%u",
 		   &class_letter, dev_addr, nwk_skey, app_skey, &frequency_hz, &data_rate,
 		   &periodicity) != 7) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (class_letter == 'B') {
 		session.device_class = RZI_LORAWAN_CLASS_B;
 	} else if (class_letter == 'C') {
 		session.device_class = RZI_LORAWAN_CLASS_C;
 	} else {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = parse_dev_addr(dev_addr, &session.dev_addr);
 	if (rc == 0) {
@@ -65,7 +65,7 @@ static int handle_addmulc(const struct rzi_at_request *request, void *user_data)
 					       sizeof(session.application_session_key));
 	}
 	if (rc != 0 || frequency_hz == 0U || data_rate > 15U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	session.frequency_hz = frequency_hz;
 	session.data_rate = (enum rzi_lorawan_data_rate)data_rate;
@@ -116,7 +116,7 @@ static int handle_lstmulc(const struct rzi_at_request *request, void *user_data)
 				   session.dev_addr, session.frequency_hz,
 				   (unsigned int)session.data_rate, session.periodicity);
 		if (written < 0 || (size_t)written >= sizeof(line) - used) {
-			return -ENOMEM;
+			return -RZI_ERR_NO_RESOURCE;
 		}
 		used += (size_t)written;
 	}

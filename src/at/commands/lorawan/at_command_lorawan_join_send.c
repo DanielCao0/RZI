@@ -34,10 +34,10 @@ static int handle_njm(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 1) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (parsed == 0 && (rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_ABP) == 0U) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	context->join_mode = (uint8_t)parsed;
 	rc = rzi_at_lorawan_nvm_save("njm", &context->join_mode, sizeof(context->join_mode));
@@ -68,7 +68,7 @@ static int handle_cfm(const struct rzi_at_request *request, void *user_data)
 		enabled = true;
 		atomic_set(&context->confirmed_uplink, 1);
 	} else {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	int rc = rzi_at_lorawan_nvm_save("cfm", &enabled, sizeof(enabled));
 
@@ -98,7 +98,7 @@ static int parse_join_parameters(const char *argument, struct join_parameters *p
 
 		values[count] = strtol(cursor, &end, 10);
 		if (end == cursor || values[count] < 0 || values[count] > UINT8_MAX) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		++count;
 		if (*end == '\0') {
@@ -106,7 +106,7 @@ static int parse_join_parameters(const char *argument, struct join_parameters *p
 			break;
 		}
 		if (*end != ':' || end[1] == '\0') {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		cursor = end + 1;
 	}
@@ -114,7 +114,7 @@ static int parse_join_parameters(const char *argument, struct join_parameters *p
 	if (*cursor != '\0' || count == 0 || values[0] > 1 || (count >= 2 && values[1] > 1) ||
 	    (count >= 3 && (values[2] < RZI_AT_LORAWAN_JOIN_INTERVAL_MIN ||
 			    values[2] > RZI_AT_LORAWAN_JOIN_INTERVAL_MAX))) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	parameters->start = values[0] != 0;
@@ -169,7 +169,7 @@ static int handle_join(const struct rzi_at_request *request, void *user_data)
 		return rc;
 	}
 	if (parameters.start && atomic_get(&context->join_sequence_active)) {
-		return -EBUSY;
+		return -RZI_ERR_BUSY;
 	}
 	rc = save_join_parameters(&parameters);
 	if (rc != 0) {
@@ -193,24 +193,21 @@ static int handle_send(const struct rzi_at_request *request, void *user_data)
 
 	ARG_UNUSED(user_data);
 	if (colon == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	port = strtol(request->argument, &port_end, 10);
 	if (port_end != colon || port < 1 || port > 223) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	hex = colon + 1;
 	hex_len = strlen(hex);
 	if (hex_len == 0 || hex_len > sizeof(payload) * 2U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_at_lorawan_hex_to_bin(hex, payload, hex_len / 2U);
 	if (rc != 0) {
 		return rc;
-	}
-	if (!rzi_at_lorawan_is_joined()) {
-		return -ENETDOWN;
 	}
 
 	confirmed = atomic_get(&context->confirmed_uplink) != 0;
@@ -260,7 +257,7 @@ static int handle_rety(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 7) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	context->retries = (uint8_t)parsed;
 	rc = rzi_at_lorawan_nvm_save("rety", &context->retries, sizeof(context->retries));
@@ -281,24 +278,21 @@ static int handle_lpsend(const struct rzi_at_request *request, void *user_data)
 	ARG_UNUSED(user_data);
 	port = strtol(cursor, &end, 10);
 	if (end == cursor || *end != ':' || port < 1 || port > 223) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	cursor = end + 1;
 	ack = strtol(cursor, &end, 10);
 	if (end == cursor || *end != ':' || (ack != 0 && ack != 1)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	cursor = end + 1;
 	hex_len = strlen(cursor);
 	if (hex_len == 0U || (hex_len % 2U) != 0U || hex_len > sizeof(payload) * 2U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_at_lorawan_hex_to_bin(cursor, payload, hex_len / 2U);
 	if (rc != 0) {
 		return rc;
-	}
-	if (!rzi_at_lorawan_is_joined()) {
-		return -ENETDOWN;
 	}
 	atomic_set(&context->tx_confirmed, ack != 0);
 	rc = rzi_lorawan_send((uint8_t)port, payload, hex_len / 2U,

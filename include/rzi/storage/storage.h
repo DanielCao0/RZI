@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,7 +18,7 @@ extern "C" {
 /** @defgroup rzi_storage RZI storage service
  *  @brief Serialized, namespaced storage independent of its physical backend.
  *  @since 0.2
- *  @version 0.2.0
+ *  @version 0.4.0
  *  @{
  */
 
@@ -26,7 +28,7 @@ extern "C" {
  * This operation is idempotent.
  *
  * @retval 0 Storage is ready.
- * @retval -EIO Backend initialization failed.
+ * @retval -RZI_ERR_IO Backend initialization failed.
  * @note Thread context only.
  * @since 0.2
  */
@@ -41,10 +43,10 @@ __must_check int rzi_storage_init(void);
  * @param size Required stored and destination size.
  *
  * @retval 0 Value loaded.
- * @retval -EINVAL An argument or path component is invalid.
- * @retval -ENOENT The value does not exist.
- * @retval -EMSGSIZE The stored value does not have the requested size.
- * @retval -ENAMETOOLONG The composed backend key is too long.
+ * @retval -RZI_ERR_INVALID An argument or path component is invalid.
+ * @retval -RZI_ERR_NOT_FOUND The value does not exist.
+ * @retval -RZI_ERR_TOO_LARGE The stored value does not have the requested size.
+ * @retval -RZI_ERR_TOO_LARGE The composed backend key is too long.
  * @note Thread context only.
  * @since 0.2
  */
@@ -60,9 +62,9 @@ __must_check int rzi_storage_read(const char *namespace_name, const char *key, v
  * @param size Number of bytes to store.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL An argument or path component is invalid.
- * @retval -ENAMETOOLONG The composed backend key is too long.
- * @retval -EIO The backend write failed.
+ * @retval -RZI_ERR_INVALID An argument or path component is invalid.
+ * @retval -RZI_ERR_TOO_LARGE The composed backend key is too long.
+ * @retval -RZI_ERR_IO The backend write failed.
  * @note Thread context only.
  * @since 0.2
  */
@@ -76,9 +78,9 @@ __must_check int rzi_storage_write(const char *namespace_name, const char *key, 
  * @param key Key relative to namespace_name.
  *
  * @retval 0 Value deleted.
- * @retval -ENOENT The value does not exist.
- * @retval -EINVAL An argument or path component is invalid.
- * @retval -ENAMETOOLONG The composed backend key is too long.
+ * @retval -RZI_ERR_NOT_FOUND The value does not exist.
+ * @retval -RZI_ERR_INVALID An argument or path component is invalid.
+ * @retval -RZI_ERR_TOO_LARGE The composed backend key is too long.
  * @note Thread context only.
  * @since 0.2
  */

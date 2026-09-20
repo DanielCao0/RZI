@@ -35,11 +35,11 @@ int rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session
 	     session->device_class != RZI_LORAWAN_CLASS_C) ||
 	    (unsigned int)session->data_rate > RZI_LORAWAN_DR_15 || session->frequency_hz == 0U ||
 	    session->group_id < -1 || session->group_id > 3) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = multicast_ops();
 	if (ops == NULL || ops->add == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->add(session);
 }
@@ -54,7 +54,7 @@ int rzi_lorawan_remove_multicast_session(uint32_t dev_addr)
 	}
 	ops = multicast_ops();
 	if (ops == NULL || ops->remove == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->remove(dev_addr);
 }
@@ -68,11 +68,11 @@ int rzi_lorawan_get_multicast_count(size_t *count)
 		return rc;
 	}
 	if (count == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = multicast_ops();
 	if (ops == NULL || ops->get_count == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get_count(count);
 }
@@ -86,11 +86,11 @@ int rzi_lorawan_get_multicast_session(size_t index, struct rzi_lorawan_multicast
 		return rc;
 	}
 	if (session == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = multicast_ops();
 	if (ops == NULL || ops->get == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get(index, session);
 }
@@ -105,7 +105,7 @@ int rzi_lorawan_clear_multicast_sessions(void)
 	}
 	ops = multicast_ops();
 	if (ops == NULL || ops->clear == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->clear();
 }

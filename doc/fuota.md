@@ -90,7 +90,7 @@ A whole-firmware upgrade needs:
    `CONFIG_RZI_MCUBOOT` so `rzi_fuota_apply()` copies the image to slot1
    (see [boot.md](./boot.md))
 
-Without `CONFIG_IMG_MANAGER`, `rzi_fuota_apply()` returns `-ENOTSUP`.
+Without `CONFIG_IMG_MANAGER`, `rzi_fuota_apply()` returns `-RZI_ERR_NOT_SUPPORTED`.
 Applications can still extract the image with `rzi_fuota_read_image()`.
 
 `rzi_rak3372` is single-slot (no `image-1`), so

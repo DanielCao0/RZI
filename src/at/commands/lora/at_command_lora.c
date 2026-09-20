@@ -39,14 +39,14 @@ int rzi_at_lora_hex_to_bin(const char *hex, uint8_t *out, size_t out_len)
 	size_t len = strlen(hex);
 
 	if (len != out_len * 2U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	for (size_t i = 0; i < out_len; ++i) {
 		int high = hex_nibble(hex[i * 2U]);
 		int low = hex_nibble(hex[i * 2U + 1U]);
 
 		if (high < 0 || low < 0) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		out[i] = (uint8_t)((high << 4) | low);
 	}
@@ -69,11 +69,11 @@ int rzi_at_lora_parse_long(const char *argument, long *value)
 	char *end = NULL;
 
 	if (argument == NULL || value == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	*value = strtol(argument, &end, 10);
 	if (end == argument || *end != '\0') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	return 0;
 }
@@ -88,7 +88,7 @@ int rzi_at_lora_parse_bool(const char *argument, bool *value)
 		*value = true;
 		return 0;
 	}
-	return -EINVAL;
+	return -RZI_ERR_INVALID;
 }
 
 static void on_network_mode(uint8_t mode)
@@ -106,7 +106,7 @@ int rzi_at_lora_ensure_started(void)
 	uint8_t mode = rzi_at_network_mode_get();
 
 	if (mode == RZI_AT_NETWORK_MODE_LORAWAN) {
-		return -EBUSY;
+		return -RZI_ERR_BUSY;
 	}
 	if (rzi_lora_is_started()) {
 		return 0;

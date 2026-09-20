@@ -6,6 +6,7 @@ RUI3-compatible command behavior without tying commands to a serial driver
 or a protocol backend.
 
 See also: [at-command-compatibility.md](./at-command-compatibility.md),
+[error-codes.md](./error-codes.md),
 [rui3-mapping.md](./rui3-mapping.md).
 
 ## Boundaries
@@ -77,9 +78,12 @@ its command name, help text, allowed RUI3 operations, handler, and optional
 context. Registration validates the complete batch, rejects duplicate or
 invalid names, and becomes immutable when the service starts.
 
-Handlers use `rzi_at_respond_status()` or `rzi_at_respond_value()`. Components
-publish asynchronous RUI3 events with `rzi_at_publish_event()`. The core
-serializes all output, including events produced by other threads.
+Handlers use `rzi_at_respond_status()` or `rzi_at_respond_value()`. A
+handler that does not write a reply returns `0` or a negative `RZI_ERR_*`.
+The parser maps those codes to unchanged RUI3 status names; see
+[error-codes.md](./error-codes.md). Components publish asynchronous RUI3
+events with `rzi_at_publish_event()`. The core serializes all output,
+including events produced by other threads.
 
 ## Execution and ownership
 

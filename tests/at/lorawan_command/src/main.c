@@ -32,7 +32,7 @@ static int io_write(const uint8_t *data, size_t size, void *user_data)
 	k_mutex_lock(&output_lock, K_FOREVER);
 	if (output_size + size >= sizeof(output)) {
 		k_mutex_unlock(&output_lock);
-		return -ENOSPC;
+		return -RZI_ERR_OVERFLOW;
 	}
 	memcpy(output + output_size, data, size);
 	output_size += size;
@@ -92,7 +92,7 @@ static int fake_send(uint8_t port, const uint8_t *data, size_t size,
 
 static int fake_set_class(enum rzi_lorawan_class device_class)
 {
-	return device_class == RZI_LORAWAN_CLASS_A ? 0 : -ENOTSUP;
+	return device_class == RZI_LORAWAN_CLASS_A ? 0 : -RZI_ERR_NOT_SUPPORTED;
 }
 
 static int fake_is_joined(bool *joined)
@@ -189,6 +189,9 @@ ZTEST(rzi_at_lorawan_command, test_rui3_compatible_otaa_workflow)
 	send_command_until("AT+NJS=?\r", "AT+NJS=1");
 	send_command_until("AT+CFM=1\r", "\r\nOK\r\n");
 	send_command_until("AT+SEND=12:1234\r", "+EVT:SEND_CONFIRMED_OK");
+	send_command_until("AT+JOIN=0\r", "\r\nOK\r\n");
+	send_command_until("AT+SEND=12:1234\r", "AT_NO_NETWORK_JOINED");
+	send_command_until("AT+JOIN\r", "+EVT:JOINED");
 	zassert_equal(received_port, 12);
 	zassert_equal(received_size, 2);
 	zassert_equal(received_message_type, RZI_LORAWAN_MSG_CONFIRMED);

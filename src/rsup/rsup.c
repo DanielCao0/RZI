@@ -99,7 +99,7 @@ static int uart_read_n(const struct device *uart, uint8_t *buf, size_t len, int 
 			continue;
 		}
 		if (k_uptime_get() > deadline) {
-			return -ETIMEDOUT;
+			return -RZI_ERR_TIMEOUT;
 		}
 		k_sleep(K_MSEC(1));
 	}
@@ -132,7 +132,7 @@ static int write_slot1(const struct device *uart, uint32_t length, uint32_t expe
 
 	rc = flash_img_init(&ctx);
 	if (rc) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 
 	uart_puts(uart, RSUP_GO);
@@ -147,22 +147,22 @@ static int write_slot1(const struct device *uart, uint32_t length, uint32_t expe
 		}
 
 		if (off == 0U && n >= 4U && sys_get_le32(buf) != IMAGE_MAGIC) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 
 		crc = crc32_ieee_update(crc, buf, n);
 		rc = flash_img_buffered_write(&ctx, buf, n, flush);
 		if (rc) {
-			return rc;
+			return rzi_err_from_errno(rc);
 		}
 		off += n;
 	}
 
 	if (crc != expect_crc) {
-		return -EBADMSG;
+		return -RZI_ERR_BAD_MESSAGE;
 	}
 
-	return boot_request_upgrade(BOOT_UPGRADE_PERMANENT);
+	return rzi_err_from_errno(boot_request_upgrade(BOOT_UPGRADE_PERMANENT));
 }
 
 bool rzi_rsup_requested(void)
@@ -193,7 +193,7 @@ int rzi_rsup_run(const struct device *uart)
 	int rc;
 
 	if (uart == NULL || !device_is_ready(uart)) {
-		return -ENODEV;
+		return -RZI_ERR_NO_DEVICE;
 	}
 
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
@@ -206,7 +206,7 @@ int rzi_rsup_run(const struct device *uart)
 
 	k_sleep(K_MSEC(200));
 	deadline = k_uptime_get() + CONFIG_RZI_RSUP_HEADER_TIMEOUT_MS;
-	rc = -ETIMEDOUT;
+	rc = -RZI_ERR_TIMEOUT;
 	while (k_uptime_get() < deadline) {
 		uart_puts(uart, RSUP_RDY);
 		rc = uart_read_n(uart, (uint8_t *)&hdr, sizeof(hdr), 1000);
@@ -220,27 +220,27 @@ int rzi_rsup_run(const struct device *uart)
 
 	if (memcmp(hdr.magic, RSUP_MAGIC, 4) != 0) {
 		uart_puts(uart, "ERR MAGIC\n");
-		rc = -EINVAL;
+		rc = -RZI_ERR_INVALID;
 		goto out;
 	}
 	if (hdr.type != RSUP_TYPE_SLOT1) {
 		uart_puts(uart, "ERR TYPE\n");
-		rc = -EINVAL;
+		rc = -RZI_ERR_INVALID;
 		goto out;
 	}
 	if (hdr.length == 0U) {
 		uart_puts(uart, "ERR LEN\n");
-		rc = -EINVAL;
+		rc = -RZI_ERR_INVALID;
 		goto out;
 	}
 
 	LOG_INF("RSUP slot1 len %u", hdr.length);
 	rc = write_slot1(uart, hdr.length, hdr.crc32);
-	if (rc == -EBADMSG) {
+	if (rc == -RZI_ERR_BAD_MESSAGE) {
 		uart_puts(uart, "ERR CRC\n");
 		goto out;
 	}
-	if (rc == -ETIMEDOUT) {
+	if (rc == -RZI_ERR_TIMEOUT) {
 		uart_puts(uart, "ERR TO\n");
 		goto out;
 	}

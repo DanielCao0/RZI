@@ -27,18 +27,18 @@ static int parse_colon_u32(const char *argument, uint32_t *values, size_t expect
 		unsigned long parsed = strtoul(cursor, &end, 10);
 
 		if (end == cursor) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		values[count++] = (uint32_t)parsed;
 		if (*end == '\0') {
 			break;
 		}
 		if (*end != ':' || end[1] == '\0') {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		cursor = end + 1;
 	}
-	return count == expected ? 0 : -EINVAL;
+	return count == expected ? 0 : -RZI_ERR_INVALID;
 }
 
 static int write_u32(const struct rzi_at_request *request, const char *name, uint32_t min,
@@ -57,7 +57,7 @@ static int write_u32(const struct rzi_at_request *request, const char *name, uin
 	}
 	rc = rzi_at_lora_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < (long)min || parsed > (long)max) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	store(&config, (uint32_t)parsed);
 	return respond_ok(rzi_lora_set_config(&config));
@@ -358,7 +358,7 @@ static int handle_psend(const struct rzi_at_request *request, void *user_data)
 
 	ARG_UNUSED(user_data);
 	if (hex_len == 0U || (hex_len % 2U) != 0U || hex_len > sizeof(payload) * 2U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_at_lora_hex_to_bin(request->argument, payload, hex_len / 2U);
 	if (rc != 0) {
@@ -382,7 +382,7 @@ static int handle_precv(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lora_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 65535) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_at_lora_ensure_started();
 	if (rc != 0) {

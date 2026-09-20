@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,7 +20,7 @@ extern "C" {
 /** @defgroup rzi_lora RZI raw LoRa / FSK
  *  @brief Thread-safe C API for P2P LoRa and FSK.
  *  @since 0.3
- *  @version 0.3.0
+ *  @version 0.4.0
  *  @{
  */
 
@@ -74,7 +76,7 @@ struct rzi_lora_callbacks {
 	/**
 	 * @brief Called after an accepted P2P uplink finishes.
 	 *
-	 * @param error Zero on success, otherwise a negative errno value.
+	 * @param error Zero on success, otherwise a negative RZI_ERR_* value.
 	 * @param user_data Pointer from this table.
 	 */
 	void (*tx_done)(int error, void *user_data);
@@ -104,8 +106,8 @@ struct rzi_lora_callbacks {
  * @param callbacks Callback table.
  *
  * @retval 0 Table copied.
- * @retval -EINVAL callbacks is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID callbacks is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -118,10 +120,13 @@ __must_check int rzi_lora_register_callbacks(const struct rzi_lora_callbacks *ca
  * @param modulation Physical modulation used by later send and receive calls.
  *
  * @retval 0 Service started.
- * @retval -EINVAL modulation is not a supported enumerator.
- * @retval -ENOTSUP The selected backend cannot start.
- * @retval -EBUSY The radio is owned by another service.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID modulation is not a supported enumerator.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend cannot start.
+ * @retval -RZI_ERR_BUSY The radio is owned by another service.
+ * @retval -RZI_ERR_NOT_READY The backend is not initialized.
+ * @retval -RZI_ERR_NO_DEVICE The radio device is missing.
+ * @retval -RZI_ERR_IO The radio failed to start.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -132,8 +137,8 @@ __must_check int rzi_lora_start(enum rzi_lora_modulation modulation);
  * @brief Stop the raw LoRa service and any radio test.
  *
  * @retval 0 Service stopped.
- * @retval -ENOTSUP The selected backend cannot stop.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend cannot stop.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -156,8 +161,8 @@ bool rzi_lora_is_started(void);
  * @param config Destination filled before this function returns.
  *
  * @retval 0 Configuration copied.
- * @retval -EINVAL config is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID config is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -173,9 +178,9 @@ __must_check int rzi_lora_get_config(struct rzi_lora_config *config);
  * @param config Configuration to store.
  *
  * @retval 0 Configuration stored.
- * @retval -EINVAL config is NULL or a field is out of range.
- * @retval -ENOTSUP The backend rejected the configuration.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID config is NULL or a field is out of range.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend rejected the configuration.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -193,10 +198,13 @@ __must_check int rzi_lora_set_config(const struct rzi_lora_config *config);
  * @param size Number of bytes in data, 1 through RZI_LORA_MAX_PAYLOAD.
  *
  * @retval 0 Request accepted.
- * @retval -EINVAL data is NULL or size is out of range.
- * @retval -ENOTSUP The service has not started or the backend cannot send.
- * @retval -EBUSY The radio is busy.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID data is NULL or size is out of range.
+ * @retval -RZI_ERR_NOT_SUPPORTED The service has not started or the backend cannot send.
+ * @retval -RZI_ERR_BUSY The radio is busy.
+ * @retval -RZI_ERR_NOT_READY The backend is not initialized.
+ * @retval -RZI_ERR_NO_DEVICE The radio device is missing.
+ * @retval -RZI_ERR_IO The radio operation failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -210,9 +218,12 @@ __must_check int rzi_lora_send(const uint8_t *data, size_t size);
  *        values receive until that timeout.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The service has not started or the backend cannot receive.
- * @retval -EBUSY The radio is busy.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The service has not started or the backend cannot receive.
+ * @retval -RZI_ERR_BUSY The radio is busy.
+ * @retval -RZI_ERR_NOT_READY The backend is not initialized.
+ * @retval -RZI_ERR_NO_DEVICE The radio device is missing.
+ * @retval -RZI_ERR_IO The radio operation failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -244,8 +255,8 @@ void rzi_lora_poll(void);
  * @brief Start an RSSI measurement test.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The backend does not implement radio tests.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -256,8 +267,8 @@ __must_check int rzi_lora_test_rssi(void);
  * @brief Start a continuous-wave tone test.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The backend does not implement radio tests.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -270,8 +281,8 @@ __must_check int rzi_lora_test_tone(void);
  * @param packet_count Number of packets to transmit.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The backend does not implement radio tests.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -284,8 +295,8 @@ __must_check int rzi_lora_test_tx(uint32_t packet_count);
  * @param packet_count Number of packets to receive.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The backend does not implement radio tests.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -300,8 +311,8 @@ __must_check int rzi_lora_test_rx(uint32_t packet_count);
  * @param duration_ms Requested duration; backends may ignore it.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The backend does not implement radio tests.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -312,8 +323,8 @@ __must_check int rzi_lora_test_cw(uint32_t frequency_hz, int8_t power_dbm, uint3
  * @brief Stop an ongoing radio test.
  *
  * @retval 0 Request accepted.
- * @retval -ENOTSUP The backend does not implement radio tests.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

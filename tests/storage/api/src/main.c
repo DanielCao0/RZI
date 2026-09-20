@@ -21,12 +21,13 @@ ZTEST(rzi_storage_api, test_arguments_are_validated_before_backend_access)
 
 	memset(long_key, 'a', sizeof(long_key) - 1U);
 	long_key[sizeof(long_key) - 1U] = '\0';
-	zassert_equal(rzi_storage_read(NULL, "key", &value, sizeof(value)), -EINVAL);
-	zassert_equal(rzi_storage_read("rzi", "", &value, sizeof(value)), -EINVAL);
-	zassert_equal(rzi_storage_read("rzi", "key", NULL, sizeof(value)), -EINVAL);
-	zassert_equal(rzi_storage_write("rzi", "key", NULL, sizeof(value)), -EINVAL);
-	zassert_equal(rzi_storage_delete("rzi", long_key), -ENAMETOOLONG);
-	zassert_equal(rzi_storage_read("rzi", "missing", &value, sizeof(value)), -ENOENT);
+	zassert_equal(rzi_storage_read(NULL, "key", &value, sizeof(value)), -RZI_ERR_INVALID);
+	zassert_equal(rzi_storage_read("rzi", "", &value, sizeof(value)), -RZI_ERR_INVALID);
+	zassert_equal(rzi_storage_read("rzi", "key", NULL, sizeof(value)), -RZI_ERR_INVALID);
+	zassert_equal(rzi_storage_write("rzi", "key", NULL, sizeof(value)), -RZI_ERR_INVALID);
+	zassert_equal(rzi_storage_delete("rzi", long_key), -RZI_ERR_TOO_LARGE);
+	zassert_equal(rzi_storage_read("rzi", "missing", &value, sizeof(value)),
+		      -RZI_ERR_NOT_FOUND);
 }
 
 ZTEST_SUITE(rzi_storage_api, NULL, NULL, NULL, NULL, NULL);

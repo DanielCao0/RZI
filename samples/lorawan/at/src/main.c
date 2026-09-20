@@ -6,6 +6,7 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <rzi/at/uart.h>
+#include <rzi/err.h>
 
 #define AT_UART_NODE DT_ALIAS(rzi_at_uart)
 
@@ -18,7 +19,7 @@ static const struct device *const at_uart = DEVICE_DT_GET(AT_UART_NODE);
 int main(void)
 {
 	if (!device_is_ready(at_uart)) {
-		return -ENODEV;
+		return -RZI_ERR_NO_DEVICE;
 	}
 
 	/* Give a USB CDC host time to open the port before the service

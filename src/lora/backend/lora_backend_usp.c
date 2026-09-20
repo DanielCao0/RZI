@@ -21,15 +21,15 @@ static int map_rc(smtc_modem_return_code_t rc)
 	case SMTC_MODEM_RC_OK:
 		return 0;
 	case SMTC_MODEM_RC_NOT_INIT:
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	case SMTC_MODEM_RC_INVALID:
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	case SMTC_MODEM_RC_BUSY:
-		return -EBUSY;
+		return -RZI_ERR_BUSY;
 	case SMTC_MODEM_RC_FAIL:
-		return -EIO;
+		return -RZI_ERR_IO;
 	default:
-		return -EIO;
+		return -RZI_ERR_IO;
 	}
 }
 

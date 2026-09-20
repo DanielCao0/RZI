@@ -11,6 +11,8 @@
 
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,7 +25,7 @@ extern "C" {
  *  idle. On STM32WLE5, @ref RZI_POWER_POLICY_SUSPEND allows STOP0/1/2.
  *
  *  @since 0.2
- *  @version 0.2.0
+ *  @version 0.4.0
  *  @{
  */
 
@@ -91,7 +93,7 @@ enum rzi_power_wake_reason {
  * and blockers.
  *
  * @retval 0 Coordinator is ready.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -103,8 +105,8 @@ __must_check int rzi_power_init(void);
  * @param policy Requested policy.
  *
  * @retval 0 Policy stored and PM locks updated.
- * @retval -EINVAL @p policy is out of range.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p policy is out of range.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -116,8 +118,8 @@ __must_check int rzi_power_set_policy(enum rzi_power_policy policy);
  * @param[out] policy Destination.
  *
  * @retval 0 Policy copied.
- * @retval -EINVAL @p policy is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p policy is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -132,8 +134,8 @@ __must_check int rzi_power_get_policy(enum rzi_power_policy *policy);
  * @param blocker Blocker identity.
  *
  * @retval 0 Reference taken.
- * @retval -EINVAL @p blocker is invalid.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p blocker is invalid.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -145,8 +147,8 @@ __must_check int rzi_power_block(enum rzi_power_blocker blocker);
  * @param blocker Blocker identity previously passed to @ref rzi_power_block.
  *
  * @retval 0 Reference released.
- * @retval -EINVAL @p blocker is invalid or has no matching take.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p blocker is invalid or has no matching take.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -158,8 +160,8 @@ __must_check int rzi_power_unblock(enum rzi_power_blocker blocker);
  * @param[out] blockers Bitmask of @ref rzi_power_blocker values.
  *
  * @retval 0 Mask copied.
- * @retval -EINVAL @p blockers is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p blockers is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -186,7 +188,7 @@ bool rzi_power_is_sleep_allowed(void);
  * @param uptime_ms Absolute @c k_uptime_get() deadline, or negative to clear.
  *
  * @retval 0 Deadline stored.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -198,8 +200,8 @@ __must_check int rzi_power_set_wake_deadline(int64_t uptime_ms);
  * @param[out] uptime_ms Absolute deadline, or a negative value when none.
  *
  * @retval 0 Value copied.
- * @retval -EINVAL @p uptime_ms is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p uptime_ms is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -215,7 +217,7 @@ __must_check int rzi_power_get_wake_deadline(int64_t *uptime_ms);
  *                the SoC default mask.
  *
  * @retval 0 Mask stored.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -227,8 +229,8 @@ __must_check int rzi_power_set_wake_sources(uint32_t sources);
  * @param[out] sources Destination.
  *
  * @retval 0 Mask copied.
- * @retval -EINVAL @p sources is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p sources is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -240,8 +242,8 @@ __must_check int rzi_power_get_wake_sources(uint32_t *sources);
  * @param[out] reason Destination.
  *
  * @retval 0 Reason copied.
- * @retval -EINVAL @p reason is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID @p reason is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -258,7 +260,7 @@ __must_check int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason);
  *                   or forever when no deadline is set.
  *
  * @retval 0 The timeout or wake deadline elapsed.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -271,10 +273,10 @@ __must_check int rzi_power_sleep(int32_t timeout_ms);
  * the SoC power-off path (STANDBY/shutdown). A GPIO (or USB on 4631,
  * RTC/radio on 3372) wake source must be enabled by the application.
  *
- * @retval -EBUSY A blocker is held or the policy is not shutdown.
- * @retval -ENOTSUP Shutdown is unavailable or the wake-source mask cannot
+ * @retval -RZI_ERR_BUSY A blocker is held or the policy is not shutdown.
+ * @retval -RZI_ERR_NOT_SUPPORTED Shutdown is unavailable or the wake-source mask cannot
  *                  wake this SoC from power-off.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */

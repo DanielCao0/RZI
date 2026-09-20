@@ -48,11 +48,11 @@ static bool equals_ignore_case(const char *left, const char *right)
 
 static void respond_for_error(int rc)
 {
-	if (rc == -EINVAL) {
+	if (rc == -RZI_ERR_INVALID) {
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_PARAM_ERROR));
-	} else if (rc == -EBUSY) {
+	} else if (rc == -RZI_ERR_BUSY) {
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_BUSY_ERROR));
-	} else if (rc == -ENETDOWN) {
+	} else if (rc == -RZI_ERR_NOT_JOINED) {
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_NO_NETWORK_JOINED));
 	} else if (rc != 0) {
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
@@ -192,7 +192,7 @@ int rzi_at_parser_feed(uint8_t byte)
 	}
 	if (line_length >= sizeof(line) - 1U) {
 		line_overflow = true;
-		return -ENOSPC;
+		return -RZI_ERR_OVERFLOW;
 	}
 	line[line_length++] = (char)byte;
 #if defined(CONFIG_RZI_AT_ECHO)

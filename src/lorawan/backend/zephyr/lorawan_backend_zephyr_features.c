@@ -93,7 +93,7 @@ static int zephyr_set_data_rate(enum rzi_lorawan_data_rate value)
 		data_rate = value;
 	}
 	rzi_lorawan_zephyr_unlock();
-	return rc;
+	return rzi_err_from_errno(rc);
 }
 
 static int zephyr_get_channel_mask(uint16_t *mask, size_t words)
@@ -106,7 +106,7 @@ static int zephyr_get_channel_mask(uint16_t *mask, size_t words)
 	}
 	if (!channel_mask_valid) {
 		rzi_lorawan_zephyr_unlock();
-		return -ENODATA;
+		return -RZI_ERR_NO_DATA;
 	}
 	copy = MIN(words, ARRAY_SIZE(channel_mask));
 	memset(mask, 0, words * sizeof(uint16_t));
@@ -127,7 +127,7 @@ static int zephyr_set_channel_mask(const uint16_t *mask, size_t words)
 	required = mask_words_for_region(rzi_lorawan_zephyr_region());
 	if (words < required) {
 		rzi_lorawan_zephyr_unlock();
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	memcpy(local, mask, required * sizeof(uint16_t));
 #ifndef CONFIG_LORAWAN_EMUL
@@ -141,7 +141,7 @@ static int zephyr_set_channel_mask(const uint16_t *mask, size_t words)
 	}
 #endif
 	rzi_lorawan_zephyr_unlock();
-	return rc;
+	return rzi_err_from_errno(rc);
 }
 
 static const struct rzi_lorawan_network_ops zephyr_network_ops = {
@@ -168,7 +168,7 @@ static int zephyr_query_tx_possible(size_t size)
 	}
 	lorawan_get_payload_sizes(&next_size, &max_size);
 	rzi_lorawan_zephyr_unlock();
-	return size > next_size ? -EMSGSIZE : 0;
+	return size > next_size ? -RZI_ERR_TOO_LARGE : 0;
 }
 
 static int zephyr_get_dev_nonce(uint16_t *dev_nonce)
@@ -217,7 +217,7 @@ static const struct rzi_lorawan_info_ops zephyr_info_ops = {
 static int zephyr_link_check_request(void)
 {
 #ifdef CONFIG_LORAWAN_EMUL
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #else
 	int rc = rzi_lorawan_zephyr_lock_started();
 
@@ -225,14 +225,14 @@ static int zephyr_link_check_request(void)
 		return rc;
 	}
 	rzi_lorawan_zephyr_unlock();
-	return lorawan_request_link_check(true);
+	return rzi_err_from_errno(lorawan_request_link_check(true));
 #endif
 }
 
 static int zephyr_device_time_request(void)
 {
 #ifdef CONFIG_LORAWAN_EMUL
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #else
 	int rc = rzi_lorawan_zephyr_lock_started();
 
@@ -240,7 +240,7 @@ static int zephyr_device_time_request(void)
 		return rc;
 	}
 	rzi_lorawan_zephyr_unlock();
-	return lorawan_request_device_time(true);
+	return rzi_err_from_errno(lorawan_request_device_time(true));
 #endif
 }
 
@@ -248,7 +248,7 @@ static int zephyr_get_network_time(struct rzi_lorawan_network_time *time)
 {
 #ifdef CONFIG_LORAWAN_EMUL
 	ARG_UNUSED(time);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #else
 	uint32_t gps_time = 0;
 	int rc = rzi_lorawan_zephyr_lock_started();
@@ -259,7 +259,7 @@ static int zephyr_get_network_time(struct rzi_lorawan_network_time *time)
 	rzi_lorawan_zephyr_unlock();
 	rc = lorawan_device_time_get(&gps_time);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	time->gps_seconds = gps_time;
 	time->gps_subseconds = 0;

@@ -32,7 +32,7 @@ the public header. The rest is absorbed by the backend.
 ## Friction exposed by the second backend
 
 1. **No `leave()`**.
-   Zephyr cannot end a session. The backend returns `-ENOTSUP` and the
+   Zephyr cannot end a session. The backend returns `-RZI_ERR_NOT_SUPPORTED` and the
    service stays JOINED.
 2. **No `is_joined()`**.
    The adapter only records joins it started. An NVM-restored session does
@@ -54,20 +54,20 @@ the public header. The rest is absorbed by the backend.
    FragSession descriptor approximates `SESSION_STARTED`. The finish
    callback of `lorawan_frag_transport_run()` has no success/failure or
    image length. There is no FMP, so no `REBOOT_REQUESTED`. Image length
-   returns `-ENODATA`; RZI infers it from the MCUboot header.
+   returns `-RZI_ERR_NO_DATA`; RZI infers it from the MCUboot header.
 7. **AS923 is a single region**.
    RZI GRP1–4 all map to `LORAWAN_REGION_AS923`.
 8. **Class B is unsupported**.
-   `set_class(B)` returns `-ENOTSUP`.
-9. **JOIN_FAILED now carries an errno**.
+   `set_class(B)` returns `-RZI_ERR_NOT_SUPPORTED`.
+9. **JOIN_FAILED now carries a negative `RZI_ERR_*`**.
    Zephyr `lorawan_join()` returns a concrete error. The service no longer
-   always reports `-ETIMEDOUT`.
+   always reports `-RZI_ERR_TIMEOUT`.
 
 ## Usage
 
 Build commands, overlay replacement, and `.config` checks are in
 [lorawan-backends.md](./lorawan-backends.md). The adapter advertises ABP
-and Class C even without FUOTA; `leave()` still returns `-ENOTSUP`.
+and Class C even without FUOTA; `leave()` still returns `-RZI_ERR_NOT_SUPPORTED`.
 
 ```text
 CONFIG_RZI_LORAWAN=y

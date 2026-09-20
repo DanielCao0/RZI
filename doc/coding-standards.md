@@ -246,7 +246,8 @@ Applications and samples include only public headers:
 
 Public functions:
 
-- Return `0` on success and a negative errno on failure.
+- Return `0` on success and a negative `enum rzi_err` on failure.
+  See [error-codes.md](./error-codes.md). Do not return POSIX errno.
 - Validate arguments before entering a backend.
 - If `0` only means "request accepted", the header and `@retval` must say
   so. Completion uses a callback; applications must not guess.
@@ -261,7 +262,7 @@ public headers or public types.
 ## 6. Concurrency and context
 
 - Default: public functions are thread-context only. ISR callers return
-  `-EWOULDBLOCK`.
+  `-RZI_ERR_WOULDBLOCK`.
 - Callbacks run serially on the documented thread (LoRaWAN uses the
   dispatcher thread). Do not assume they may block or re-enter arbitrarily.
 - Pointers passed to a callback are valid only for that invocation. Data
@@ -339,7 +340,7 @@ commit unless the surface area is tiny.
 - [ ] Backend / board / protocol-stack names did not enter the public API.
 - [ ] AT command names have no `AT+` and are uppercase ASCII.
 - [ ] Return values and asynchronous completion are not mixed. Errors are
-      negative errno.
+      negative `RZI_ERR_*` values.
 - [ ] Thread / ISR / callback context is documented.
 - [ ] Production-library `.c` / `.h` files have `@file` and `@brief`.
 - [ ] `scripts/check-style.sh` passes.

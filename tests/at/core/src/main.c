@@ -22,7 +22,7 @@ static int io_write(const uint8_t *data, size_t size, void *user_data)
 	k_mutex_lock(&output_lock, K_FOREVER);
 	if (output_size + size >= sizeof(output)) {
 		k_mutex_unlock(&output_lock);
-		return -ENOSPC;
+		return -RZI_ERR_OVERFLOW;
 	}
 	memcpy(output + output_size, data, size);
 	output_size += size;
@@ -125,7 +125,7 @@ ZTEST(rzi_at_core, test_operation_validation)
 
 ZTEST(rzi_at_core, test_registry_is_immutable_after_start)
 {
-	zassert_equal(rzi_at_register(&custom_command, 1), -EACCES);
+	zassert_equal(rzi_at_register(&custom_command, 1), -RZI_ERR_DENIED);
 }
 
 ZTEST(rzi_at_core, test_system_lock_and_sleep)

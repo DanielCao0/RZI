@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,7 +20,7 @@ extern "C" {
 /** @defgroup rzi_lorawan RZI LoRaWAN service
  *  @brief Thread-safe C API for the RZI LoRaWAN service.
  *  @since 0.2
- *  @version 0.3.0
+ *  @version 0.4.0
  *  @{
  */
 
@@ -251,7 +253,7 @@ enum rzi_lorawan_tx_status {
 struct rzi_lorawan_tx_result {
 	/** Protocol-level transmit result. */
 	enum rzi_lorawan_tx_status status;
-	/** Zero on normal completion, otherwise a negative errno value. */
+	/** Zero on normal completion, otherwise a negative RZI_ERR_* value. */
 	int error;
 };
 
@@ -285,7 +287,7 @@ typedef uint16_t rzi_lorawan_callback_handle_t;
  * @since 0.2
  */
 struct rzi_lorawan_callbacks {
-	/** Called with zero after join success or negative errno after failure. */
+	/** Called with zero after join success or a negative RZI_ERR_* after failure. */
 	void (*join_done)(int status, void *user_data);
 	/** Called after an accepted uplink reaches a terminal result. */
 	void (*send_done)(const struct rzi_lorawan_tx_result *result, void *user_data);
@@ -298,7 +300,7 @@ struct rzi_lorawan_callbacks {
 	/** Called after a LinkCheckAns, or not at all when the request failed. */
 	void (*link_check_done)(const struct rzi_lorawan_link_check_result *result,
 				void *user_data);
-	/** Called with zero after DeviceTimeAns, otherwise a negative errno. */
+	/** Called with zero after DeviceTimeAns, otherwise a negative RZI_ERR_*. */
 	void (*device_time_done)(int status, void *user_data);
 	/** Opaque subscriber pointer passed to every callback. */
 	void *user_data;
@@ -315,9 +317,9 @@ struct rzi_lorawan_callbacks {
  * @param[out] handle Registration handle used to unregister this subscriber.
  *
  * @retval 0 Subscriber registered.
- * @retval -EINVAL A required pointer is NULL or the callback table is empty.
- * @retval -ENOMEM All callback subscriber slots are occupied.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID A required pointer is NULL or the callback table is empty.
+ * @retval -RZI_ERR_NO_RESOURCE All callback subscriber slots are occupied.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -334,9 +336,9 @@ __must_check int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbac
  * @param handle Handle returned by rzi_lorawan_register_callbacks().
  *
  * @retval 0 Subscriber unregistered.
- * @retval -EINVAL The handle is invalid.
- * @retval -ENOENT The handle is not registered.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The handle is invalid.
+ * @retval -RZI_ERR_NOT_FOUND The handle is not registered.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -349,9 +351,9 @@ __must_check int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t 
  * @param region Region used by the selected backend.
  *
  * @retval 0 Region stored.
- * @retval -EINVAL The region value is invalid.
- * @retval -EALREADY The service has already started.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The region value is invalid.
+ * @retval -RZI_ERR_ALREADY The service has already started.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @pre The service has not started.
  * @note Thread context only.
@@ -366,8 +368,8 @@ __must_check int rzi_lorawan_set_region(enum rzi_lorawan_region region);
  *        behavior.
  *
  * @retval 0 Policy stored.
- * @retval -EALREADY The service has already started.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ALREADY The service has already started.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @warning Enabling this option may violate regional duty-cycle requirements
  *          and must not be used in production. Backends that have no join
@@ -385,9 +387,9 @@ __must_check int rzi_lorawan_set_join_backoff_bypass(bool enabled);
  * through state_changed() with RZI_LORAWAN_STATE_READY.
  *
  * @retval 0 Startup accepted.
- * @retval -EALREADY The service has already started.
- * @retval -EIO Backend startup failed.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ALREADY The service has already started.
+ * @retval -RZI_ERR_IO Backend startup failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. Runtime stop and reinitialization are not
  *       supported.
@@ -405,12 +407,12 @@ __must_check int rzi_lorawan_start(void);
  * @param config Activation mode and credentials.
  *
  * @retval 0 Request accepted.
- * @retval -EINVAL The configuration is NULL or contains an invalid mode.
- * @retval -EAGAIN The service or backend is not ready.
- * @retval -EBUSY The backend is processing a conflicting operation.
- * @retval -EIO The backend operation failed.
- * @retval -ENOTSUP The selected backend does not support the activation mode.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The configuration is NULL or contains an invalid mode.
+ * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
+ * @retval -RZI_ERR_BUSY The backend is processing a conflicting operation.
+ * @retval -RZI_ERR_IO The backend operation failed.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not support the activation mode.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @pre RZI_LORAWAN_STATE_READY has been reported.
  * @note Thread context only.
@@ -422,12 +424,12 @@ __must_check int rzi_lorawan_join(const struct rzi_lorawan_join_config *config);
  * @brief Leave the current network session.
  *
  * @retval 0 Leave request accepted.
- * @retval -EAGAIN The service or backend is not ready.
- * @retval -EBUSY An uplink is still outstanding.
- * @retval -EINVAL The backend rejected the current session state.
- * @retval -ENOTSUP The selected backend cannot leave a session.
- * @retval -EIO The backend operation failed.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
+ * @retval -RZI_ERR_BUSY An uplink is still outstanding.
+ * @retval -RZI_ERR_INVALID The backend rejected the current session state.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend cannot leave a session.
+ * @retval -RZI_ERR_IO The backend operation failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -446,11 +448,12 @@ __must_check int rzi_lorawan_leave(void);
  * one outstanding uplink is currently supported.
  *
  * @retval 0 Request accepted.
- * @retval -EINVAL The port, payload, size, or message type is invalid.
- * @retval -EAGAIN The service or backend is not ready.
- * @retval -EBUSY Another uplink is outstanding.
- * @retval -EIO The backend operation failed.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The port, payload, size, or message type is invalid.
+ * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
+ * @retval -RZI_ERR_NOT_JOINED No network session is active.
+ * @retval -RZI_ERR_BUSY Another uplink is outstanding.
+ * @retval -RZI_ERR_IO The backend operation failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. The backend copies data before returning.
  * @since 0.2
@@ -464,11 +467,11 @@ __must_check int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size
  * @param device_class Requested Class A, B, or C operation.
  *
  * @retval 0 Class selected.
- * @retval -EINVAL The class value is invalid.
- * @retval -EAGAIN The service or backend is not ready.
- * @retval -EIO The backend operation failed.
- * @retval -ENOTSUP The selected backend does not support the class.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The class value is invalid.
+ * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
+ * @retval -RZI_ERR_IO The backend operation failed.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not support the class.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -481,10 +484,10 @@ __must_check int rzi_lorawan_set_class(enum rzi_lorawan_class device_class);
  * @param[out] joined Set to true when the stack is joined.
  *
  * @retval 0 State returned.
- * @retval -EINVAL joined is NULL.
- * @retval -EAGAIN The service or backend is not ready.
- * @retval -EIO The backend operation failed.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID joined is NULL.
+ * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
+ * @retval -RZI_ERR_IO The backend operation failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -505,8 +508,8 @@ uint32_t rzi_lorawan_get_capabilities(void);
  * @param[out] region Stored region.
  *
  * @retval 0 Region stored.
- * @retval -EINVAL region is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID region is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. May be called before start.
  * @since 0.3
@@ -519,9 +522,9 @@ __must_check int rzi_lorawan_get_region(enum rzi_lorawan_region *region);
  * @param[out] device_class Stored class.
  *
  * @retval 0 Class stored.
- * @retval -EINVAL device_class is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID device_class is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -534,10 +537,10 @@ __must_check int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class);
  * @param[out] enabled True when ADR is enabled.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support network management.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support network management.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -550,9 +553,9 @@ __must_check int rzi_lorawan_get_adr(bool *enabled);
  * @param enabled True to enable network-controlled ADR.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support network management.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support network management.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -565,10 +568,10 @@ __must_check int rzi_lorawan_set_adr(bool enabled);
  * @param[out] data_rate Stored data-rate index.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL data_rate is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID data_rate is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -581,10 +584,10 @@ __must_check int rzi_lorawan_get_data_rate(enum rzi_lorawan_data_rate *data_rate
  * @param data_rate Data-rate index.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL The data-rate value is invalid.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The data-rate value is invalid.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -597,10 +600,10 @@ __must_check int rzi_lorawan_set_data_rate(enum rzi_lorawan_data_rate data_rate)
  * @param[out] tx_power Stored power index.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL tx_power is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID tx_power is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. The value is a LoRaWAN power index, not dBm.
  * @since 0.3
@@ -613,10 +616,10 @@ __must_check int rzi_lorawan_get_tx_power(uint8_t *tx_power);
  * @param tx_power Power index in the range 0 through 15.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL tx_power is out of range.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID tx_power is out of range.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -629,10 +632,10 @@ __must_check int rzi_lorawan_set_tx_power(uint8_t tx_power);
  * @param[out] enabled True when duty-cycle limiting is enabled.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -645,9 +648,9 @@ __must_check int rzi_lorawan_get_duty_cycle(bool *enabled);
  * @param enabled True to enforce the regional duty cycle.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -660,10 +663,10 @@ __must_check int rzi_lorawan_set_duty_cycle(bool enabled);
  * @param[out] delay_ms Stored delay.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL delay_ms is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -676,10 +679,10 @@ __must_check int rzi_lorawan_get_rx1_delay(uint32_t *delay_ms);
  * @param delay_ms Receive-window delay.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL delay_ms is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -692,10 +695,10 @@ __must_check int rzi_lorawan_set_rx1_delay(uint32_t delay_ms);
  * @param[out] delay_ms Stored delay.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL delay_ms is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -708,10 +711,10 @@ __must_check int rzi_lorawan_get_rx2_delay(uint32_t *delay_ms);
  * @param delay_ms Receive-window delay.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL delay_ms is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -724,10 +727,10 @@ __must_check int rzi_lorawan_set_rx2_delay(uint32_t delay_ms);
  * @param[out] data_rate Stored data-rate index.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL data_rate is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID data_rate is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -740,10 +743,10 @@ __must_check int rzi_lorawan_get_rx2_data_rate(enum rzi_lorawan_data_rate *data_
  * @param data_rate Data-rate index.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL The data-rate value is invalid.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The data-rate value is invalid.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -756,10 +759,10 @@ __must_check int rzi_lorawan_set_rx2_data_rate(enum rzi_lorawan_data_rate data_r
  * @param[out] frequency_hz Stored frequency.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL frequency_hz is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID frequency_hz is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -772,10 +775,10 @@ __must_check int rzi_lorawan_get_rx2_frequency(uint32_t *frequency_hz);
  * @param frequency_hz RX2 frequency.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL frequency_hz is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID frequency_hz is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -788,10 +791,10 @@ __must_check int rzi_lorawan_set_rx2_frequency(uint32_t frequency_hz);
  * @param[out] delay_ms Stored delay.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL delay_ms is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -804,10 +807,10 @@ __must_check int rzi_lorawan_get_join_accept_delay1(uint32_t *delay_ms);
  * @param delay_ms Join-accept window delay.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL delay_ms is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -820,10 +823,10 @@ __must_check int rzi_lorawan_set_join_accept_delay1(uint32_t delay_ms);
  * @param[out] delay_ms Stored delay.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL delay_ms is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -836,10 +839,10 @@ __must_check int rzi_lorawan_get_join_accept_delay2(uint32_t *delay_ms);
  * @param delay_ms Join-accept window delay.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL delay_ms is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID delay_ms is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -852,10 +855,10 @@ __must_check int rzi_lorawan_set_join_accept_delay2(uint32_t delay_ms);
  * @param[out] enabled True for public network mode.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -868,9 +871,9 @@ __must_check int rzi_lorawan_get_public_network(bool *enabled);
  * @param enabled True for public-network sync words.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -883,10 +886,10 @@ __must_check int rzi_lorawan_set_public_network(bool enabled);
  * @param[out] enabled True when listen-before-talk is enabled.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -899,9 +902,9 @@ __must_check int rzi_lorawan_get_lbt(bool *enabled);
  * @param enabled True to enable listen-before-talk.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -914,10 +917,10 @@ __must_check int rzi_lorawan_set_lbt(bool enabled);
  * @param[out] rssi_dbm Stored threshold.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL rssi_dbm is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID rssi_dbm is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -930,9 +933,9 @@ __must_check int rzi_lorawan_get_lbt_rssi(int16_t *rssi_dbm);
  * @param rssi_dbm Threshold used while listening.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -945,10 +948,10 @@ __must_check int rzi_lorawan_set_lbt_rssi(int16_t rssi_dbm);
  * @param[out] time_ms Stored duration.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL time_ms is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID time_ms is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -961,10 +964,10 @@ __must_check int rzi_lorawan_get_lbt_scan_time(uint32_t *time_ms);
  * @param time_ms Listen duration.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL time_ms is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID time_ms is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -978,10 +981,10 @@ __must_check int rzi_lorawan_set_lbt_scan_time(uint32_t time_ms);
  * @param words Number of 16-bit words in mask.
  *
  * @retval 0 Mask copied.
- * @retval -EINVAL mask is NULL or words is zero.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support channel management.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID mask is NULL or words is zero.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support channel management.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -995,10 +998,10 @@ __must_check int rzi_lorawan_get_channel_mask(uint16_t *mask, size_t words);
  * @param words Number of 16-bit words in mask.
  *
  * @retval 0 Mask applied.
- * @retval -EINVAL mask is NULL or words is invalid for the region.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support channel management.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID mask is NULL or words is invalid for the region.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support channel management.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1011,10 +1014,10 @@ __must_check int rzi_lorawan_set_channel_mask(const uint16_t *mask, size_t words
  * @param[out] sub_band 0 for all channels, or 1 through 8.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL sub_band is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The region or backend does not support sub-bands.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID sub_band is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support sub-bands.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1027,10 +1030,10 @@ __must_check int rzi_lorawan_get_sub_band(uint8_t *sub_band);
  * @param sub_band 0 for all channels, or 1 through 8.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL sub_band is greater than 8.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The region or backend does not support sub-bands.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID sub_band is greater than 8.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support sub-bands.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1043,10 +1046,10 @@ __must_check int rzi_lorawan_set_sub_band(uint8_t sub_band);
  * @param[out] frequency_hz Stored frequency, or zero when all channels are used.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL frequency_hz is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The region or backend does not support a fixed channel.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID frequency_hz is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support a fixed channel.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1059,10 +1062,10 @@ __must_check int rzi_lorawan_get_fixed_channel(uint32_t *frequency_hz);
  * @param frequency_hz Channel frequency, or zero to restore the sub-band mask.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL The frequency is not a regional channel.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The region or backend does not support a fixed channel.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID The frequency is not a regional channel.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support a fixed channel.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1075,9 +1078,9 @@ __must_check int rzi_lorawan_set_fixed_channel(uint32_t frequency_hz);
  * @param[out] rssi_dbm Stored RSSI in dBm.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL rssi_dbm is NULL.
- * @retval -ENODATA No downlink has been received.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID rssi_dbm is NULL.
+ * @retval -RZI_ERR_NO_DATA No downlink has been received.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1090,9 +1093,9 @@ __must_check int rzi_lorawan_get_last_rssi(int16_t *rssi_dbm);
  * @param[out] snr_quarter_db Stored SNR in quarter-dB units.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL snr_quarter_db is NULL.
- * @retval -ENODATA No downlink has been received.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID snr_quarter_db is NULL.
+ * @retval -RZI_ERR_NO_DATA No downlink has been received.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1105,8 +1108,8 @@ __must_check int rzi_lorawan_get_last_snr(int8_t *snr_quarter_db);
  * @param[out] version Pointer to a static NUL-terminated string.
  *
  * @retval 0 Pointer stored.
- * @retval -EINVAL version is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID version is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. The pointer remains valid for the process lifetime.
  * @since 0.3
@@ -1119,10 +1122,10 @@ __must_check int rzi_lorawan_get_protocol_version(const char **version);
  * @param[out] net_id Stored NetID.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL net_id is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID net_id is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1135,10 +1138,10 @@ __must_check int rzi_lorawan_get_net_id(uint32_t *net_id);
  * @param[out] dev_nonce Stored nonce.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL dev_nonce is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not expose DevNonce.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID dev_nonce is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not expose DevNonce.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1151,9 +1154,9 @@ __must_check int rzi_lorawan_get_dev_nonce(uint16_t *dev_nonce);
  * @param dev_nonce Next OTAA nonce.
  *
  * @retval 0 Value stored.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend manages DevNonce itself.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend manages DevNonce itself.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1166,10 +1169,10 @@ __must_check int rzi_lorawan_set_dev_nonce(uint16_t dev_nonce);
  * @param size Payload length to test.
  *
  * @retval 0 The payload fits the current data rate.
- * @retval -EMSGSIZE The payload is too large.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend cannot report payload limits.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_TOO_LARGE The payload is too large.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend cannot report payload limits.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1182,8 +1185,8 @@ __must_check int rzi_lorawan_query_tx_possible(size_t size);
  * @param[out] busy True when an uplink or join is outstanding.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL busy is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID busy is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1196,10 +1199,10 @@ __must_check int rzi_lorawan_is_busy(bool *busy);
  * @param[out] periodicity Periodicity in the range 0 through 7.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL periodicity is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support Class B.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID periodicity is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support Class B.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1212,10 +1215,10 @@ __must_check int rzi_lorawan_get_ping_slot_periodicity(uint8_t *periodicity);
  * @param periodicity Periodicity in the range 0 through 7.
  *
  * @retval 0 Setting applied.
- * @retval -EINVAL periodicity is greater than 7.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support Class B.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID periodicity is greater than 7.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support Class B.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1228,10 +1231,10 @@ __must_check int rzi_lorawan_set_ping_slot_periodicity(uint8_t periodicity);
  * @param[out] frequency_hz Stored frequency.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL frequency_hz is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID frequency_hz is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1244,11 +1247,11 @@ __must_check int rzi_lorawan_get_beacon_frequency(uint32_t *frequency_hz);
  * @param[out] gps_time GPS seconds from the last beacon.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL gps_time is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENODATA No beacon has been received.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID gps_time is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NO_DATA No beacon has been received.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1261,10 +1264,10 @@ __must_check int rzi_lorawan_get_beacon_time(uint32_t *gps_time);
  * @param[out] data_rate Stored data-rate index.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL data_rate is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID data_rate is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1277,11 +1280,11 @@ __must_check int rzi_lorawan_get_beacon_data_rate(enum rzi_lorawan_data_rate *da
  * @param[out] gateway Stored beacon gateway fields.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL gateway is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENODATA No beacon gateway info is available.
- * @retval -ENOTSUP The backend does not support this query.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID gateway is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NO_DATA No beacon gateway info is available.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1294,10 +1297,10 @@ __must_check int rzi_lorawan_get_beacon_gateway(struct rzi_lorawan_beacon_gatewa
  * @param[out] state Stored Class B state.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL state is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support Class B.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID state is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support Class B.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -1308,9 +1311,9 @@ __must_check int rzi_lorawan_get_class_b_state(enum rzi_lorawan_class_b_state *s
  * @brief Stop Class B and return to Class A.
  *
  * @retval 0 Class B stopped.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support Class B.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support Class B.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

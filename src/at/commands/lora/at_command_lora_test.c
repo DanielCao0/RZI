@@ -55,7 +55,7 @@ static int handle_count(const struct rzi_at_request *request, int (*fn)(uint32_t
 
 	rc = rzi_at_lora_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = ensure_radio();
 	if (rc != 0) {
@@ -100,19 +100,19 @@ static int handle_tconf(const struct rzi_at_request *request, void *user_data)
 	while (*cursor != '\0' && count < ARRAY_SIZE(values)) {
 		values[count] = strtoul(cursor, &end, 10);
 		if (end == cursor) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		++count;
 		if (*end == '\0') {
 			break;
 		}
 		if (*end != ':') {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		cursor = end + 1;
 	}
 	if (count < 6U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	config.frequency_hz = (uint32_t)values[0];
 	config.spreading_factor = (uint8_t)values[1];
@@ -134,19 +134,19 @@ static int handle_hop(const struct rzi_at_request *request, int (*fn)(uint32_t))
 	while (*cursor != '\0' && count < ARRAY_SIZE(values)) {
 		values[count] = strtoul(cursor, &end, 10);
 		if (end == cursor) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		++count;
 		if (*end == '\0') {
 			break;
 		}
 		if (*end != ':') {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		cursor = end + 1;
 	}
 	if (count != 4U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = ensure_radio();
 	if (rc != 0) {
@@ -186,17 +186,17 @@ static int handle_cw(const struct rzi_at_request *request, void *user_data)
 	ARG_UNUSED(user_data);
 	frequency = strtoul(cursor, &end, 10);
 	if (end == cursor || *end != ':') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	cursor = end + 1;
 	power = strtol(cursor, &end, 10);
 	if (end == cursor || *end != ':') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	cursor = end + 1;
 	duration = strtoul(cursor, &end, 10);
 	if (end == cursor || *end != '\0') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = ensure_radio();
 	if (rc != 0) {

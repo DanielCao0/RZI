@@ -33,14 +33,14 @@ ZTEST(rzi_power_api, test_arguments_and_blockers)
 	enum rzi_power_policy policy;
 	uint32_t blockers = 0U;
 
-	zassert_equal(rzi_power_get_policy(NULL), -EINVAL);
-	zassert_equal(rzi_power_get_blockers(NULL), -EINVAL);
-	zassert_equal(rzi_power_get_wake_deadline(NULL), -EINVAL);
-	zassert_equal(rzi_power_get_wake_sources(NULL), -EINVAL);
-	zassert_equal(rzi_power_get_wake_reason(NULL), -EINVAL);
-	zassert_equal(rzi_power_set_policy((enum rzi_power_policy)4), -EINVAL);
-	zassert_equal(rzi_power_block(RZI_POWER_BLOCK_COUNT), -EINVAL);
-	zassert_equal(rzi_power_unblock(RZI_POWER_BLOCK_APP), -EINVAL);
+	zassert_equal(rzi_power_get_policy(NULL), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_get_blockers(NULL), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_get_wake_deadline(NULL), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_get_wake_sources(NULL), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_get_wake_reason(NULL), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_set_policy((enum rzi_power_policy)4), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_block(RZI_POWER_BLOCK_COUNT), -RZI_ERR_INVALID);
+	zassert_equal(rzi_power_unblock(RZI_POWER_BLOCK_APP), -RZI_ERR_INVALID);
 
 	zassert_ok(rzi_power_block(RZI_POWER_BLOCK_APP));
 	zassert_ok(rzi_power_block(RZI_POWER_BLOCK_TRANSPORT));
@@ -76,10 +76,10 @@ ZTEST(rzi_power_api, test_deadline_sleep_and_shutdown_refused)
 	zassert_ok(rzi_power_sleep(1));
 
 	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_IDLE));
-	zassert_equal(rzi_power_shutdown(), -EBUSY);
+	zassert_equal(rzi_power_shutdown(), -RZI_ERR_BUSY);
 	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_SHUTDOWN));
 	zassert_ok(rzi_power_block(RZI_POWER_BLOCK_APP));
-	zassert_equal(rzi_power_shutdown(), -EBUSY);
+	zassert_equal(rzi_power_shutdown(), -RZI_ERR_BUSY);
 	zassert_ok(rzi_power_unblock(RZI_POWER_BLOCK_APP));
 	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_IDLE));
 }

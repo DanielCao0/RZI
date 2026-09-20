@@ -3,11 +3,12 @@
 Status: normative
 
 Public C contract between applications and the selected protocol backend.
-The precise ABI is `include/rzi/lorawan/lorawan.h` (group 0.3.0) plus
+The precise ABI is `include/rzi/lorawan/lorawan.h` (group 0.4.0) plus
 `mac_commands.h`, `multicast.h`, `channel_scan.h`, `certification.h`, and
 `fuota.h`.
 
-See also: [lorawan-backends.md](./lorawan-backends.md),
+See also: [error-codes.md](./error-codes.md),
+[lorawan-backends.md](./lorawan-backends.md),
 [fuota.md](./fuota.md), [rui3-mapping.md](./rui3-mapping.md).
 The header-to-RUI3 mapping is in [rui3-mapping.md](./rui3-mapping.md).
 
@@ -38,7 +39,7 @@ package implementations.
 Public facades live in `include/rzi/lorawan/`. Private backend operation
 tables stay out of the public include path. A backend advertises runtime
 support with capability bits; a missing or NULL operation returns
-`-ENOTSUP`. FUOTA remains Kconfig-gated. Raw LoRa P2P and FSK use the
+`-RZI_ERR_NOT_SUPPORTED`. FUOTA remains Kconfig-gated. Raw LoRa P2P and FSK use the
 separate `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
 ## 2. Relationship to Zephyr and RUI3
@@ -52,7 +53,7 @@ set_region -> start -> join(config) -> send(port, data, size, type)
 - `join` takes a separate activation config;
 - `send` uses a confirmed/unconfirmed message type;
 - Region, activation, device class, and message type are explicit enums;
-- Standard capabilities the backend does not support return `-ENOTSUP`.
+- Standard capabilities the backend does not support return `-RZI_ERR_NOT_SUPPORTED`.
 
 RZI does not copy Zephyr's synchronous join semantics. USP/LBM join, TX, and
 downlink are already asynchronous events, so RZI uses RUI3-style
@@ -87,7 +88,7 @@ Rules:
    the `READY` state is not missed;
 2. `set_region` and `set_join_backoff_bypass` may be called only before
    `start`;
-3. `start` is a process-wide one-shot. A repeat returns `-EALREADY`;
+3. `start` is a process-wide one-shot. A repeat returns `-RZI_ERR_ALREADY`;
 4. `RZI_LORAWAN_STATE_READY` means the backend can accept a join. It does
    not mean the device has joined the network;
 5. After an unexpected modem reset, RZI reconfigures the backend and emits
@@ -121,7 +122,7 @@ GenAppKey must fill the two fields themselves; the AT package cannot.
 The join config is deep-copied before `rzi_lorawan_join()` returns. The
 caller may then free or mutate the original object. A return of `0` only
 means the backend accepted the request. `join_done` status `0` means
-network activation finished. A negative errno means this attempt ended
+network activation finished. A negative `RZI_ERR_*` means this attempt ended
 without joining.
 
 Retry policy belongs to the application or the AT service. RZI core does
@@ -132,14 +133,15 @@ not hide an infinite retry loop.
 `rzi_lorawan_send()` ports are 1 through 223. Maximum payload is
 `RZI_LORAWAN_MAX_PAYLOAD`. The backend copies the payload before the
 function returns. Only one outstanding uplink is allowed. A second request
-returns `-EBUSY`.
+returns `-RZI_ERR_BUSY`. Unjoined devices return `-RZI_ERR_NOT_JOINED`.
 
 `send_done` receives a `rzi_lorawan_tx_result` that is valid only for the
 duration of the callback:
 
 - `RZI_LORAWAN_TX_ACKED`: a confirmed uplink received an acknowledgement;
 - `RZI_LORAWAN_TX_SENT`: the frame was sent without an acknowledgement;
-- `RZI_LORAWAN_TX_NOT_SENT`: the request was never sent.
+- `RZI_LORAWAN_TX_NOT_SENT`: the request was never sent; `error` holds the
+  negative `RZI_ERR_*` from the backend.
 
 Metadata and payload pointers in the downlink callback are valid only until
 that callback returns. Subscribers that need the data later must copy it.
@@ -163,7 +165,7 @@ That guarantees user callbacks:
 
 Callbacks must return quickly and must not block for long. One slow
 subscriber delays the others. On queue overflow, RZI reports the loss with
-`error(-EOVERFLOW)`. Queue depth, subscriber limit, dispatcher stack, and
+`error(-RZI_ERR_OVERFLOW)`. Queue depth, subscriber limit, dispatcher stack, and
 priority are Kconfig settings.
 
 The callback table, including `user_data`, is copied at registration. The
@@ -174,18 +176,27 @@ after every in-flight callback has returned.
 
 ## 7. Error semantics
 
-Every fallible API returns `0` or a negative errno:
+Every fallible API returns `0` or a negative `enum rzi_err`. The closed
+catalog and AT mapping are in [error-codes.md](./error-codes.md). LoRaWAN
+uses this subset:
 
-- `-EINVAL`: invalid argument, enum, port, or payload length;
-- `-EWOULDBLOCK`: a thread-context API was called from an ISR;
-- `-EAGAIN`: the service or backend is not ready;
-- `-EALREADY`: repeated `start`, or a start-time setting changed after
-  `start`;
-- `-EBUSY`: a conflicting asynchronous operation is already in flight;
-- `-ENOTSUP`: the selected backend does not support the requested
-  capability;
-- `-ENOMEM`: callback subscriber slots are full;
-- `-EIO`: a backend failure without a more precise error.
+- `-RZI_ERR_INVALID`: invalid argument, enum, port, or payload length;
+- `-RZI_ERR_WOULDBLOCK`: a thread-context API was called from an ISR;
+- `-RZI_ERR_NOT_READY`: the service or backend is not ready;
+- `-RZI_ERR_ALREADY`: repeated `start`, or a start-time setting changed
+  after `start`;
+- `-RZI_ERR_BUSY`: a conflicting asynchronous operation is already in
+  flight;
+- `-RZI_ERR_NOT_SUPPORTED`: the selected backend does not support the
+  requested capability;
+- `-RZI_ERR_NO_RESOURCE`: callback subscriber slots are full;
+- `-RZI_ERR_NOT_FOUND`: handle or multicast session does not exist;
+- `-RZI_ERR_NO_DATA`: no downlink or beacon has been received;
+- `-RZI_ERR_TOO_LARGE`: the payload does not fit the current data rate;
+- `-RZI_ERR_TIMEOUT`: join failed without a more precise backend code;
+- `-RZI_ERR_OVERFLOW`: the dispatcher event queue overflowed;
+- `-RZI_ERR_IO`: a backend failure without a more precise error;
+- `-RZI_ERR_NOT_JOINED`: uplink requested without an active session.
 
 The `error` callback reports asynchronous backend errors and event-queue
 overflow. It does not replace synchronous API argument checks.
@@ -198,7 +209,7 @@ and the internal event envelope. A backend:
 - provides a capability bit mask;
 - receives region, development policy, and an event sink at `start`;
 - deep-copies the join config and send payload;
-- converts vendor return values to negative errno;
+- converts vendor return values to negative `RZI_ERR_*`;
 - does not call user callbacks directly;
 - does not leak vendor objects, enums, or thread models into public
   headers.

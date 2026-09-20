@@ -40,7 +40,7 @@ static int trig_link_check(void)
 	const struct rzi_lorawan_link_check_ops *ops = link_check_ops();
 
 	if (ops == NULL || ops->request == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->request();
 }
@@ -50,7 +50,7 @@ static int trig_device_time(void)
 	const struct rzi_lorawan_device_time_ops *ops = device_time_ops();
 
 	if (ops == NULL || ops->request == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->request();
 }
@@ -63,10 +63,10 @@ int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mode *mode)
 		return rc;
 	}
 	if (mode == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (link_check_ops() == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	*mode = link_check_mode;
 	return 0;
@@ -80,10 +80,10 @@ int rzi_lorawan_request_link_check(enum rzi_lorawan_link_check_mode mode)
 		return rc;
 	}
 	if ((unsigned int)mode > RZI_LORAWAN_LINK_CHECK_EVERY_UPLINK) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (link_check_ops() == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	link_check_mode = mode;
 	if (mode == RZI_LORAWAN_LINK_CHECK_DISABLED) {
@@ -104,10 +104,10 @@ int rzi_lorawan_get_device_time_enabled(bool *enabled)
 		return rc;
 	}
 	if (enabled == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (device_time_ops() == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	*enabled = device_time_enabled;
 	return 0;
@@ -121,7 +121,7 @@ int rzi_lorawan_request_device_time(bool enabled)
 		return rc;
 	}
 	if (device_time_ops() == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	device_time_enabled = enabled;
 	if (!enabled) {
@@ -139,11 +139,11 @@ int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time)
 		return rc;
 	}
 	if (time == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = device_time_ops();
 	if (ops == NULL || ops->get_network_time == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get_network_time(time);
 }

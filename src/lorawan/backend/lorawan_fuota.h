@@ -11,11 +11,11 @@
 
 #define RZI_LORAWAN_FUOTA_OPS_VERSION 1U
 
-/** Optional FUOTA operations. NULL members return -ENOTSUP. */
+/** Optional FUOTA operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
 struct rzi_lorawan_fuota_ops {
 	/** Start ALCSync and optionally request MAC DeviceTime. */
 	int (*start_clock_sync)(void);
-	/** Return the reconstructed image size, or a negative errno. */
+	/** Return the reconstructed image size, or a negative RZI_ERR_*. */
 	int (*get_image_size)(size_t *size);
 	/** Read reconstructed image bytes from backend storage. */
 	int (*read_image)(uint32_t offset, uint8_t *buffer, size_t size);

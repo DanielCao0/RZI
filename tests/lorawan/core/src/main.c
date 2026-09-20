@@ -77,7 +77,7 @@ static void on_error(int error, void *user_data)
 {
 	struct callback_stats *stats = user_data;
 
-	zassert_equal(error, -EIO);
+	zassert_equal(error, -RZI_ERR_IO);
 	atomic_inc(&stats->errors);
 	k_sem_give(&callback_sem);
 }
@@ -147,7 +147,8 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 	zassert_ok(rzi_lorawan_register_callbacks(&first_callbacks, &first_handle));
 	zassert_ok(rzi_lorawan_register_callbacks(&second_callbacks, &second_handle));
 	zassert_not_equal(first_handle, second_handle);
-	zassert_equal(rzi_lorawan_register_callbacks(&callbacks, &second_handle), -ENOMEM);
+	zassert_equal(rzi_lorawan_register_callbacks(&callbacks, &second_handle),
+		      -RZI_ERR_NO_RESOURCE);
 
 	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_US_915));
 	zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
@@ -155,9 +156,11 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 	wait_for_callbacks(2);
 	zassert_equal(atomic_get(&first.ready), 1);
 	zassert_equal(atomic_get(&second.ready), 1);
-	zassert_equal(rzi_lorawan_start(), -EALREADY);
+	zassert_equal(rzi_lorawan_start(), -RZI_ERR_ALREADY);
+	zassert_equal(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_CONFIRMED),
+		      -RZI_ERR_NOT_JOINED);
 
-	zassert_equal(rzi_lorawan_join(&abp), -ENOTSUP);
+	zassert_equal(rzi_lorawan_join(&abp), -RZI_ERR_NOT_SUPPORTED);
 	zassert_ok(rzi_lorawan_join(&otaa));
 	wait_for_callbacks(2);
 	zassert_equal(atomic_get(&first.joined), 1);
@@ -178,7 +181,7 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 		};
 		const struct rzi_lorawan_backend_event error = {
 			.type = RZI_LORAWAN_BACKEND_ERROR,
-			.error = -EIO,
+			.error = -RZI_ERR_IO,
 		};
 
 		fake_sink(&downlink);
@@ -255,7 +258,7 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 		zassert_ok(rzi_lorawan_get_protocol_version(&version));
 		zassert_ok(strcmp(version, "LoRaWAN 1.0.4"));
 		zassert_ok(rzi_lorawan_query_tx_possible(10));
-		zassert_equal(rzi_lorawan_query_tx_possible(200), -EMSGSIZE);
+		zassert_equal(rzi_lorawan_query_tx_possible(200), -RZI_ERR_TOO_LARGE);
 		zassert_ok(rzi_lorawan_set_ping_slot_periodicity(3));
 		zassert_ok(rzi_lorawan_get_class(&device_class));
 		zassert_equal(device_class, RZI_LORAWAN_CLASS_A);
@@ -283,7 +286,7 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 	}
 
 	zassert_ok(rzi_lorawan_unregister_callbacks(second_handle));
-	zassert_equal(rzi_lorawan_unregister_callbacks(second_handle), -ENOENT);
+	zassert_equal(rzi_lorawan_unregister_callbacks(second_handle), -RZI_ERR_NOT_FOUND);
 }
 
 ZTEST_SUITE(rzi_lorawan_core, NULL, NULL, NULL, NULL, NULL);

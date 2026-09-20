@@ -11,6 +11,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/settings/settings.h>
 
+#include <rzi/err.h>
 #include <rzi/storage/storage.h>
 
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
@@ -44,11 +45,11 @@ static int build_name(char *name, size_t name_size, const char *namespace_name, 
 	int length;
 
 	if (!valid_component(namespace_name) || !valid_component(key)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	length = snprintk(name, name_size, "%s/%s", namespace_name, key);
 	if (length < 0 || (size_t)length >= name_size) {
-		return -ENAMETOOLONG;
+		return -RZI_ERR_TOO_LARGE;
 	}
 	return 0;
 }
@@ -62,6 +63,8 @@ int rzi_storage_init(void)
 		rc = settings_subsys_init();
 		if (rc == 0) {
 			initialized = true;
+		} else {
+			rc = rzi_err_from_errno(rc);
 		}
 	}
 	k_mutex_unlock(&storage_lock);
@@ -75,7 +78,7 @@ int rzi_storage_read(const char *namespace_name, const char *key, void *value, s
 	int rc;
 
 	if (value == NULL || size == 0U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = build_name(name, sizeof(name), namespace_name, key);
 	if (rc != 0) {
@@ -89,12 +92,12 @@ int rzi_storage_read(const char *namespace_name, const char *key, void *value, s
 	bytes = settings_load_one(name, value, size);
 	k_mutex_unlock(&storage_lock);
 	if (bytes < 0) {
-		return (int)bytes;
+		return rzi_err_from_errno((int)bytes);
 	}
 	if (bytes == 0) {
-		return -ENOENT;
+		return -RZI_ERR_NOT_FOUND;
 	}
-	return bytes == (ssize_t)size ? 0 : -EMSGSIZE;
+	return bytes == (ssize_t)size ? 0 : -RZI_ERR_TOO_LARGE;
 }
 
 int rzi_storage_write(const char *namespace_name, const char *key, const void *value, size_t size)
@@ -103,7 +106,7 @@ int rzi_storage_write(const char *namespace_name, const char *key, const void *v
 	int rc;
 
 	if (value == NULL || size == 0U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = build_name(name, sizeof(name), namespace_name, key);
 	if (rc != 0) {
@@ -122,7 +125,7 @@ int rzi_storage_write(const char *namespace_name, const char *key, const void *v
 	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
 #endif
 	k_mutex_unlock(&storage_lock);
-	return rc;
+	return rzi_err_from_errno(rc);
 }
 
 int rzi_storage_delete(const char *namespace_name, const char *key)
@@ -147,5 +150,5 @@ int rzi_storage_delete(const char *namespace_name, const char *key)
 	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
 #endif
 	k_mutex_unlock(&storage_lock);
-	return rc;
+	return rzi_err_from_errno(rc);
 }

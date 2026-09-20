@@ -42,7 +42,7 @@ static enum lora_signal_bandwidth map_bandwidth(uint32_t index)
 static int fill_config(const struct rzi_lora_config *config, bool tx, struct lora_modem_config *out)
 {
 	if (modulation != RZI_LORA_MOD_LORA) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	memset(out, 0, sizeof(*out));
 	out->frequency = config->frequency_hz;
@@ -65,7 +65,7 @@ static int zephyr_start(enum rzi_lora_modulation value)
 	const struct device *dev = radio_device();
 
 	if (dev == NULL || !device_is_ready(dev)) {
-		return -ENODEV;
+		return -RZI_ERR_NO_DEVICE;
 	}
 	modulation = value;
 	return 0;
@@ -90,7 +90,7 @@ static int zephyr_send(const uint8_t *data, size_t size)
 	int rc;
 
 	if (dev == NULL) {
-		return -ENODEV;
+		return -RZI_ERR_NO_DEVICE;
 	}
 	rc = rzi_lora_get_config(&config);
 	if (rc != 0) {
@@ -102,9 +102,9 @@ static int zephyr_send(const uint8_t *data, size_t size)
 	}
 	rc = lora_config(dev, &modem);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
-	rc = lora_send(dev, (uint8_t *)data, size);
+	rc = rzi_err_from_errno(lora_send(dev, (uint8_t *)data, size));
 	rzi_lora_publish_tx_done(rc);
 	return rc;
 }
@@ -123,7 +123,7 @@ static int zephyr_receive(uint32_t timeout_ms)
 		return 0;
 	}
 	if (dev == NULL) {
-		return -ENODEV;
+		return -RZI_ERR_NO_DEVICE;
 	}
 	rc = rzi_lora_get_config(&config);
 	if (rc != 0) {
@@ -135,7 +135,7 @@ static int zephyr_receive(uint32_t timeout_ms)
 	}
 	rc = lora_config(dev, &modem);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	rc = lora_recv(dev, payload, sizeof(payload),
 		       timeout_ms == 65535U ? K_FOREVER : K_MSEC(timeout_ms), &rssi, &snr);
@@ -143,18 +143,18 @@ static int zephyr_receive(uint32_t timeout_ms)
 		rzi_lora_publish_rx(payload, (size_t)rc, rssi, (int8_t)(snr * 4));
 		return 0;
 	}
-	return rc;
+	return rzi_err_from_errno(rc);
 }
 
 static int unsupported(void)
 {
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 }
 
 static int unsupported_count(uint32_t packet_count)
 {
 	ARG_UNUSED(packet_count);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 }
 
 static int unsupported_cw(uint32_t frequency_hz, int8_t power_dbm, uint32_t duration_ms)
@@ -162,7 +162,7 @@ static int unsupported_cw(uint32_t frequency_hz, int8_t power_dbm, uint32_t dura
 	ARG_UNUSED(frequency_hz);
 	ARG_UNUSED(power_dbm);
 	ARG_UNUSED(duration_ms);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 }
 
 const struct rzi_lora_backend_api rzi_lora_backend = {

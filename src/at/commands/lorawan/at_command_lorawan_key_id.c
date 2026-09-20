@@ -79,7 +79,7 @@ static int handle_netid(const struct rzi_at_request *request, void *user_data)
 			context->net_id = net_id;
 			context->net_id_valid = true;
 		} else if (!context->net_id_valid) {
-			return -ENODATA;
+			return -RZI_ERR_NO_DATA;
 		}
 		bytes[0] = (uint8_t)((context->net_id >> 16) & 0xffU);
 		bytes[1] = (uint8_t)((context->net_id >> 8) & 0xffU);

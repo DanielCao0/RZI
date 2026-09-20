@@ -11,6 +11,7 @@
 #include <zephyr/toolchain.h>
 
 #include <rzi/lorawan/lorawan.h>
+#include <rzi/err.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,10 +45,10 @@ struct rzi_lorawan_network_time {
  * @param[out] mode Stored mode.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL mode is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support LinkCheckReq.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID mode is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support LinkCheckReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -64,10 +65,10 @@ __must_check int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mod
  * @param mode Scheduling policy.
  *
  * @retval 0 Mode stored.
- * @retval -EINVAL mode is invalid.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support LinkCheckReq.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID mode is invalid.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support LinkCheckReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -80,10 +81,10 @@ __must_check int rzi_lorawan_request_link_check(enum rzi_lorawan_link_check_mode
  * @param[out] enabled True when DeviceTimeReq is scheduled.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support DeviceTimeReq.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support DeviceTimeReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -98,9 +99,9 @@ __must_check int rzi_lorawan_get_device_time_enabled(bool *enabled);
  * @param enabled True to request network time.
  *
  * @retval 0 Setting stored.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support DeviceTimeReq.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support DeviceTimeReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -113,10 +114,10 @@ __must_check int rzi_lorawan_request_device_time(bool enabled);
  * @param[out] time Stored GPS time.
  *
  * @retval 0 Time stored.
- * @retval -EINVAL time is NULL.
- * @retval -EAGAIN The service has not started or the clock is unsynchronized.
- * @retval -ENOTSUP The backend does not support DeviceTimeReq.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID time is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started or the clock is unsynchronized.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support DeviceTimeReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

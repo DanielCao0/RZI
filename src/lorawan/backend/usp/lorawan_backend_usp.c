@@ -57,19 +57,19 @@ int rzi_lorawan_usp_result(smtc_modem_return_code_t rc)
 	case SMTC_MODEM_RC_OK:
 		return 0;
 	case SMTC_MODEM_RC_NOT_INIT:
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	case SMTC_MODEM_RC_INVALID:
 	case SMTC_MODEM_RC_INVALID_STACK_ID:
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	case SMTC_MODEM_RC_BUSY:
-		return -EBUSY;
+		return -RZI_ERR_BUSY;
 	case SMTC_MODEM_RC_NO_TIME:
 	case SMTC_MODEM_RC_NO_EVENT:
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	case SMTC_MODEM_RC_FAIL:
-		return -EIO;
+		return -RZI_ERR_IO;
 	default:
-		return -EIO;
+		return -RZI_ERR_IO;
 	}
 }
 
@@ -90,7 +90,7 @@ static const smtc_modem_region_t regions[] = {
 static int map_region(enum rzi_lorawan_region value, smtc_modem_region_t *out)
 {
 	if ((unsigned int)value >= ARRAY_SIZE(regions)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	*out = regions[value];
@@ -201,6 +201,7 @@ static void modem_event_callback(void)
 			break;
 		case SMTC_MODEM_EVENT_JOINFAIL:
 			event.type = RZI_LORAWAN_BACKEND_JOIN_FAILED;
+			event.error = -RZI_ERR_TIMEOUT;
 			rzi_lorawan_usp_publish(&event);
 			break;
 		case SMTC_MODEM_EVENT_TXDONE:
@@ -215,6 +216,7 @@ static void modem_event_callback(void)
 				break;
 			default:
 				event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
+				event.error = -RZI_ERR_IO;
 				break;
 			}
 			rzi_lorawan_usp_publish(&event);
@@ -260,7 +262,7 @@ static void modem_event_callback(void)
 			event.error = source.event_data.lorawan_mac_time.status ==
 						      SMTC_MODEM_EVENT_MAC_REQUEST_ANSWERED
 					      ? 0
-					      : -ETIMEDOUT;
+					      : -RZI_ERR_TIMEOUT;
 			rzi_lorawan_usp_publish(&event);
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 			if (event.error == 0) {
@@ -333,7 +335,7 @@ int rzi_lorawan_usp_enter(void)
 	k_mutex_lock(&rac_api_mutex, K_FOREVER);
 	if (!ready) {
 		k_mutex_unlock(&rac_api_mutex);
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	}
 	return 0;
 }
@@ -365,7 +367,7 @@ static int usp_join(const struct rzi_lorawan_join_config *config)
 	int rc;
 
 	if (config->activation != RZI_LORAWAN_ACTIVATION_OTAA) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	rc = rzi_lorawan_usp_enter();
 	if (rc != 0) {
@@ -389,7 +391,7 @@ static int usp_leave(void)
 	}
 	/* Preserve completion ownership: do not cancel an outstanding TX. */
 	if (tx_pending) {
-		return rzi_lorawan_usp_finish(-EBUSY);
+		return rzi_lorawan_usp_finish(-RZI_ERR_BUSY);
 	}
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 	fuota_image_ready = false;
@@ -406,7 +408,7 @@ static int usp_send(uint8_t port, const uint8_t *data, size_t size,
 		return rc;
 	}
 	if (tx_pending) {
-		return rzi_lorawan_usp_finish(-EBUSY);
+		return rzi_lorawan_usp_finish(-RZI_ERR_BUSY);
 	}
 	rc = rzi_lorawan_usp_result(smtc_modem_request_uplink(
 		STACK_ID, port, type == RZI_LORAWAN_MSG_CONFIRMED, data, size));
@@ -453,7 +455,7 @@ static int usp_set_class(enum rzi_lorawan_class device_class)
 		rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_IDLE);
 		break;
 	default:
-		return rzi_lorawan_usp_finish(-EINVAL);
+		return rzi_lorawan_usp_finish(-RZI_ERR_INVALID);
 	}
 	return rzi_lorawan_usp_finish(
 		rzi_lorawan_usp_result(smtc_modem_set_class(STACK_ID, mapped)));
@@ -518,17 +520,17 @@ static int usp_fuota_get_image_size(size_t *size)
 	uint32_t file_size = 0;
 
 	if (size == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	lorawan_fragmentation_package_get_file_size(STACK_ID, &file_size);
 	if (file_size == 0U) {
-		return -ENODATA;
+		return -RZI_ERR_NO_DATA;
 	}
 	*size = file_size;
 	return 0;
 #else
 	ARG_UNUSED(size);
-	return -ENODATA;
+	return -RZI_ERR_NO_DATA;
 #endif
 }
 
@@ -564,7 +566,7 @@ static int usp_start(enum rzi_lorawan_region selected_region, bool bypass,
 	smtc_modem_region_t selected;
 
 	if (map_region(selected_region, &selected) != 0 || sink == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	region = selected;
 	join_backoff_bypass = bypass;

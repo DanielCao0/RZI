@@ -65,7 +65,7 @@ static int fake_send(uint8_t port, const uint8_t *data, size_t size,
 
 static int fake_set_class(enum rzi_lorawan_class device_class)
 {
-	return device_class == RZI_LORAWAN_CLASS_C ? 0 : -ENOTSUP;
+	return device_class == RZI_LORAWAN_CLASS_C ? 0 : -RZI_ERR_NOT_SUPPORTED;
 }
 
 static int fake_is_joined(bool *joined)
@@ -89,7 +89,7 @@ static int fake_get_image_size(size_t *size)
 static int fake_read_image(uint32_t offset, uint8_t *buffer, size_t size)
 {
 	if (offset + size > sizeof(fake_image)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	memcpy(buffer, &fake_image[offset], size);
 	return 0;
@@ -97,7 +97,7 @@ static int fake_read_image(uint32_t offset, uint8_t *buffer, size_t size)
 
 static int fake_reboot(void)
 {
-	return -EIO;
+	return -RZI_ERR_IO;
 }
 
 static const struct rzi_lorawan_fuota_ops fake_fuota_ops = {
@@ -203,7 +203,7 @@ ZTEST(rzi_lorawan_fuota, test_session_and_image_access)
 	zassert_ok(rzi_fuota_read_image(0, image, sizeof(image)));
 	zassert_mem_equal(image, fake_image, sizeof(fake_image));
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_C));
-	zassert_equal(rzi_fuota_apply(), -ENOTSUP);
+	zassert_equal(rzi_fuota_apply(), -RZI_ERR_NOT_SUPPORTED);
 }
 
 ZTEST_SUITE(rzi_lorawan_fuota, NULL, NULL, NULL, NULL, NULL);

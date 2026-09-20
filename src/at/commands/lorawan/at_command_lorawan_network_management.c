@@ -20,13 +20,13 @@ static int class_supported(enum rzi_lorawan_class device_class)
 
 	switch (device_class) {
 	case RZI_LORAWAN_CLASS_A:
-		return (capabilities & RZI_LORAWAN_CAP_CLASS_A) != 0U ? 0 : -ENOTSUP;
+		return (capabilities & RZI_LORAWAN_CAP_CLASS_A) != 0U ? 0 : -RZI_ERR_NOT_SUPPORTED;
 	case RZI_LORAWAN_CLASS_B:
-		return (capabilities & RZI_LORAWAN_CAP_CLASS_B) != 0U ? 0 : -ENOTSUP;
+		return (capabilities & RZI_LORAWAN_CAP_CLASS_B) != 0U ? 0 : -RZI_ERR_NOT_SUPPORTED;
 	case RZI_LORAWAN_CLASS_C:
-		return (capabilities & RZI_LORAWAN_CAP_CLASS_C) != 0U ? 0 : -ENOTSUP;
+		return (capabilities & RZI_LORAWAN_CAP_CLASS_C) != 0U ? 0 : -RZI_ERR_NOT_SUPPORTED;
 	default:
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 }
 
@@ -72,11 +72,11 @@ static int handle_u32(const struct rzi_at_request *request, const char *name,
 		return rc != 0 ? rc : rzi_at_respond_value("AT+%s=%u", name, value / scale);
 	}
 	if (set == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed <= 0) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = set((uint32_t)parsed * scale);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -92,7 +92,7 @@ static int handle_band(const struct rzi_at_request *request, void *user_data)
 					    rzi_at_lorawan_region_to_band(context->region));
 	}
 	if (context->service_started) {
-		return -EBUSY;
+		return -RZI_ERR_BUSY;
 	}
 
 	char *end = NULL;
@@ -101,7 +101,7 @@ static int handle_band(const struct rzi_at_request *request, void *user_data)
 	int rc;
 
 	if (end == request->argument || *end != '\0') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_at_lorawan_band_to_region((int)band, &region);
 	if (rc != 0) {
@@ -142,7 +142,7 @@ static int handle_class(const struct rzi_at_request *request, void *user_data)
 	} else if (strcmp(request->argument, "C") == 0) {
 		device_class = RZI_LORAWAN_CLASS_C;
 	} else {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = class_supported(device_class);
 	if (rc != 0) {
@@ -196,7 +196,7 @@ static int handle_dr(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 15) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_set_data_rate((enum rzi_lorawan_data_rate)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -215,7 +215,7 @@ static int handle_txp(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 15) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_set_tx_power((uint8_t)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -262,7 +262,7 @@ static int handle_rx2dr(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 15) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_set_rx2_data_rate((enum rzi_lorawan_data_rate)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -332,7 +332,7 @@ static int handle_linkcheck(const struct rzi_at_request *request, void *user_dat
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 2) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_request_link_check((enum rzi_lorawan_link_check_mode)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);

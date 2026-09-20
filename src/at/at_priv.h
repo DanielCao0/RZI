@@ -30,7 +30,7 @@ struct rzi_at_extension {
  * @brief Add an internal extension before the registry is sealed.
  *
  * @param extension Static-lifetime extension descriptor.
- * @return Zero on success, otherwise a negative errno value.
+ * @return Zero on success, otherwise a negative RZI_ERR_* value.
  */
 void rzi_at_registry_seal(void);
 int rzi_at_registry_add_extension(const struct rzi_at_extension *extension);

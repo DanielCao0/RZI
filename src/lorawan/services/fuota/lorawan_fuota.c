@@ -157,7 +157,7 @@ static void keepalive_work_handler(struct k_work *work)
 	}
 	rc = rzi_lorawan_send(CONFIG_RZI_FUOTA_KEEPALIVE_PORT, payload, sizeof(payload),
 			      RZI_LORAWAN_MSG_UNCONFIRMED);
-	if (rc != 0 && rc != -EBUSY && rc != -EAGAIN) {
+	if (rc != 0 && rc != -RZI_ERR_BUSY && rc != -RZI_ERR_NOT_READY) {
 		LOG_WRN("FUOTA keepalive rejected: %d", rc);
 	}
 	schedule_keepalive();
@@ -219,7 +219,7 @@ static int detect_image_size(size_t reported)
 		}
 	}
 	if (ops == NULL || ops->read_image == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	rc = ops->read_image(0U, header, sizeof(header));
 	if (rc != 0) {
@@ -227,7 +227,7 @@ static int detect_image_size(size_t reported)
 	}
 	magic = sys_get_le32(&header[0]);
 	if (magic != IMAGE_MAGIC) {
-		return -ENODATA;
+		return -RZI_ERR_NO_DATA;
 	}
 	hdr_size = sys_get_le16(&header[8]);
 	payload_size = sys_get_le32(&header[12]);
@@ -253,11 +253,11 @@ static int copy_image_to_slot(void)
 	int rc;
 
 	if (ops == NULL || ops->read_image == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	rc = flash_img_init(&ctx);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	while (remaining > 0U) {
 		size_t request = MIN(remaining, sizeof(chunk));
@@ -269,12 +269,12 @@ static int copy_image_to_slot(void)
 		}
 		rc = flash_img_buffered_write(&ctx, chunk, request, flush);
 		if (rc != 0) {
-			return rc;
+			return rzi_err_from_errno(rc);
 		}
 		offset += request;
 		remaining -= request;
 	}
-	return boot_request_upgrade(BOOT_UPGRADE_TEST);
+	return rzi_err_from_errno(boot_request_upgrade(BOOT_UPGRADE_TEST));
 }
 #endif
 
@@ -331,7 +331,7 @@ static void handle_fuota_event(const struct rzi_lorawan_backend_event *event)
 			int rc = detect_image_size(event->fuota.image_size);
 
 			image_ready = true;
-			last_error = rc == -ENODATA ? 0 : rc;
+			last_error = rc == -RZI_ERR_NO_DATA ? 0 : rc;
 			if (rc == 0) {
 				LOG_INF("FUOTA image ready, %u bytes", (unsigned int)image_size);
 			} else {
@@ -345,9 +345,9 @@ static void handle_fuota_event(const struct rzi_lorawan_backend_event *event)
 #endif
 		} else {
 			image_ready = false;
-			last_error = -EIO;
+			last_error = -RZI_ERR_IO;
 			set_state_locked(RZI_FUOTA_STATE_FAILED);
-			notify_complete(-EIO);
+			notify_complete(-RZI_ERR_IO);
 			schedule_keepalive();
 		}
 		break;
@@ -366,10 +366,10 @@ static void handle_fuota_event(const struct rzi_lorawan_backend_event *event)
 int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *table)
 {
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (table == NULL || callbacks_empty(table)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
@@ -381,7 +381,7 @@ int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *table)
 int rzi_fuota_start(void)
 {
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
@@ -392,7 +392,7 @@ int rzi_fuota_start(void)
 	ops = resolve_ops();
 	if (ops == NULL && (rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_FUOTA) == 0U) {
 		k_mutex_unlock(&lock);
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	atomic_set(&started, 1);
 	k_mutex_unlock(&lock);
@@ -403,10 +403,10 @@ int rzi_fuota_start(void)
 int rzi_fuota_get_status(struct rzi_fuota_status *status)
 {
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (status == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
@@ -421,10 +421,10 @@ int rzi_fuota_get_status(struct rzi_fuota_status *status)
 int rzi_fuota_set_expected_size(size_t size)
 {
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (size == 0U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
@@ -441,17 +441,17 @@ int rzi_fuota_read_image(size_t offset, void *buffer, size_t size)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (buffer == NULL || size == 0U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
 	if (!image_ready) {
-		rc = -ENOENT;
+		rc = -RZI_ERR_NOT_FOUND;
 	} else if (ops == NULL || ops->read_image == NULL) {
-		rc = -ENOTSUP;
+		rc = -RZI_ERR_NOT_SUPPORTED;
 	} else {
 		rc = ops->read_image((uint32_t)offset, buffer, size);
 	}
@@ -462,24 +462,24 @@ int rzi_fuota_read_image(size_t offset, void *buffer, size_t size)
 int rzi_fuota_apply(void)
 {
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
 	if (!image_ready) {
 		k_mutex_unlock(&lock);
-		return -ENOENT;
+		return -RZI_ERR_NOT_FOUND;
 	}
 	if (image_size == 0U) {
 		k_mutex_unlock(&lock);
-		return -ENODATA;
+		return -RZI_ERR_NO_DATA;
 	}
 	set_state_locked(RZI_FUOTA_STATE_APPLYING);
 	k_mutex_unlock(&lock);
 
 #ifndef CONFIG_IMG_MANAGER
 	ARG_UNUSED(ops);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #else
 	int rc = copy_image_to_slot();
 
@@ -493,7 +493,7 @@ int rzi_fuota_apply(void)
 	if (ops != NULL && ops->reboot != NULL) {
 		return ops->reboot();
 	}
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #endif
 }
 

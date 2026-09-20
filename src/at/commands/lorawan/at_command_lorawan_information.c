@@ -61,7 +61,7 @@ static int handle_arssi(const struct rzi_at_request *request, void *user_data)
 		written = snprintf(line + used, sizeof(line) - used, "%s%u,%d",
 				   used == 0U ? "AT+ARSSI=" : " ", sample.channel, sample.rssi_dbm);
 		if (written < 0 || (size_t)written >= sizeof(line) - used) {
-			return -ENOMEM;
+			return -RZI_ERR_NO_RESOURCE;
 		}
 		used += (size_t)written;
 	}

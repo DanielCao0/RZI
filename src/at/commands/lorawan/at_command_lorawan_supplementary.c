@@ -23,14 +23,14 @@ static int handle_mask(const struct rzi_at_request *request, void *user_data)
 		return rc != 0 ? rc : rzi_at_respond_value("AT+MASK=%04X", mask[0]);
 	}
 	if (strlen(request->argument) != 4U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	char *end = NULL;
 	unsigned long value = strtoul(request->argument, &end, 16);
 
 	if (end == request->argument || *end != '\0' || value > 0xffffU) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	mask[0] = (uint16_t)value;
 	rc = rzi_lorawan_set_channel_mask(mask, ARRAY_SIZE(mask));
@@ -50,7 +50,7 @@ static int handle_che(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 8) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_set_sub_band((uint8_t)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -69,7 +69,7 @@ static int handle_chs(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_set_fixed_channel((uint32_t)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);

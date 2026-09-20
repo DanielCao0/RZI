@@ -55,7 +55,7 @@ static int usp_get_class(enum rzi_lorawan_class *device_class)
 			*device_class = RZI_LORAWAN_CLASS_C;
 			break;
 		default:
-			rc = -EINVAL;
+			rc = -RZI_ERR_INVALID;
 			break;
 		}
 	}
@@ -324,7 +324,7 @@ static int usp_query_tx_possible(size_t size)
 	rc = rzi_lorawan_usp_result(
 		smtc_modem_get_next_tx_max_payload(RZI_LORAWAN_USP_STACK_ID, &max_payload));
 	if (rc == 0 && size > max_payload) {
-		rc = -EMSGSIZE;
+		rc = -RZI_ERR_TOO_LARGE;
 	}
 	return rzi_lorawan_usp_finish(rc);
 }
@@ -413,7 +413,7 @@ static int usp_multicast_add(const struct rzi_lorawan_multicast_session *session
 	}
 	group = allocate_group(session->group_id);
 	if (group < 0) {
-		return rzi_lorawan_usp_finish(-ENOMEM);
+		return rzi_lorawan_usp_finish(-RZI_ERR_NO_RESOURCE);
 	}
 	rc = rzi_lorawan_usp_result(smtc_modem_multicast_set_grp_config(
 		RZI_LORAWAN_USP_STACK_ID, (smtc_modem_mc_grp_id_t)group, session->dev_addr,
@@ -465,7 +465,7 @@ static int usp_multicast_remove(uint32_t dev_addr)
 		}
 		return rzi_lorawan_usp_finish(rc);
 	}
-	return rzi_lorawan_usp_finish(-ENOENT);
+	return rzi_lorawan_usp_finish(-RZI_ERR_NOT_FOUND);
 }
 
 static int usp_multicast_count(size_t *count)
@@ -503,7 +503,7 @@ static int usp_multicast_get(size_t index, struct rzi_lorawan_multicast_session 
 		}
 		n++;
 	}
-	return rzi_lorawan_usp_finish(-EINVAL);
+	return rzi_lorawan_usp_finish(-RZI_ERR_INVALID);
 }
 
 static int usp_multicast_clear(void)

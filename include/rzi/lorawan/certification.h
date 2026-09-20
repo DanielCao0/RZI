@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,10 +25,10 @@ extern "C" {
  * @param[out] enabled True when certification mode is running.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support certification mode.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support certification mode.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -39,9 +41,9 @@ __must_check int rzi_lorawan_get_certification_mode(bool *enabled);
  * @param enabled True to enable certification mode.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support certification mode.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support certification mode.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -54,10 +56,10 @@ __must_check int rzi_lorawan_set_certification_mode(bool enabled);
  * @param[out] enabled True when the certification port is processed.
  *
  * @retval 0 Value stored.
- * @retval -EINVAL enabled is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -70,9 +72,9 @@ __must_check int rzi_lorawan_get_certification_port_enabled(bool *enabled);
  * @param enabled True to process the certification port.
  *
  * @retval 0 Setting applied.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support this setting.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

@@ -254,7 +254,7 @@ int rzi_power_init(void)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -268,10 +268,10 @@ int rzi_power_set_policy(enum rzi_power_policy next)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if ((unsigned int)next > RZI_POWER_POLICY_SHUTDOWN) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -289,10 +289,10 @@ int rzi_power_get_policy(enum rzi_power_policy *out_policy)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (out_policy == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -309,17 +309,17 @@ int rzi_power_block(enum rzi_power_blocker blocker)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if ((unsigned int)blocker >= RZI_POWER_BLOCK_COUNT) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
 	rc = ensure_ready();
 	if (rc == 0) {
 		if (blocker_count[blocker] == UINT8_MAX) {
-			rc = -ENOMEM;
+			rc = -RZI_ERR_NO_RESOURCE;
 		} else {
 			blocker_count[blocker]++;
 			refresh_constraint_locked();
@@ -334,17 +334,17 @@ int rzi_power_unblock(enum rzi_power_blocker blocker)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if ((unsigned int)blocker >= RZI_POWER_BLOCK_COUNT) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
 	rc = ensure_ready();
 	if (rc == 0) {
 		if (blocker_count[blocker] == 0U) {
-			rc = -EINVAL;
+			rc = -RZI_ERR_INVALID;
 		} else {
 			blocker_count[blocker]--;
 			refresh_constraint_locked();
@@ -359,10 +359,10 @@ int rzi_power_get_blockers(uint32_t *blockers)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (blockers == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -396,7 +396,7 @@ int rzi_power_set_wake_deadline(int64_t uptime_ms)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -414,10 +414,10 @@ int rzi_power_get_wake_deadline(int64_t *uptime_ms)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (uptime_ms == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -434,7 +434,7 @@ int rzi_power_set_wake_sources(uint32_t sources)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -451,10 +451,10 @@ int rzi_power_get_wake_sources(uint32_t *sources)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (sources == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -471,10 +471,10 @@ int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (reason == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -493,7 +493,7 @@ int rzi_power_sleep(int32_t timeout_ms)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -530,16 +530,16 @@ int rzi_power_shutdown(void)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
 	rc = ensure_ready();
 	if (rc == 0) {
 		if (policy != RZI_POWER_POLICY_SHUTDOWN || any_blocker_locked()) {
-			rc = -EBUSY;
+			rc = -RZI_ERR_BUSY;
 		} else if (!IS_ENABLED(CONFIG_POWEROFF) || !shutdown_wake_supported_locked()) {
-			rc = -ENOTSUP;
+			rc = -RZI_ERR_NOT_SUPPORTED;
 		}
 	}
 	k_mutex_unlock(&power_lock);
@@ -550,5 +550,5 @@ int rzi_power_shutdown(void)
 #ifdef CONFIG_POWEROFF
 	sys_poweroff();
 #endif
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 }

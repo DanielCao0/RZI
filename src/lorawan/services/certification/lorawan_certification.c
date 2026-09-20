@@ -32,11 +32,11 @@ int rzi_lorawan_get_certification_mode(bool *enabled)
 		return rc;
 	}
 	if (enabled == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = cert_ops();
 	if (ops == NULL || ops->get_mode == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get_mode(enabled);
 }
@@ -51,7 +51,7 @@ int rzi_lorawan_set_certification_mode(bool enabled)
 	}
 	ops = cert_ops();
 	if (ops == NULL || ops->set_mode == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->set_mode(enabled);
 }
@@ -65,11 +65,11 @@ int rzi_lorawan_get_certification_port_enabled(bool *enabled)
 		return rc;
 	}
 	if (enabled == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = cert_ops();
 	if (ops == NULL || ops->get_port_enabled == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get_port_enabled(enabled);
 }
@@ -84,7 +84,7 @@ int rzi_lorawan_set_certification_port_enabled(bool enabled)
 	}
 	ops = cert_ops();
 	if (ops == NULL || ops->set_port_enabled == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->set_port_enabled(enabled);
 }

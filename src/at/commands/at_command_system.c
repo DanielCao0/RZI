@@ -71,7 +71,7 @@ static int load_string(const char *key, char *dst, size_t max_len)
 		strncpy(dst, stored, max_len);
 		dst[max_len] = '\0';
 	}
-	return rc == -ENOENT ? 0 : rc;
+	return rc == -RZI_ERR_NOT_FOUND ? 0 : rc;
 #else
 	ARG_UNUSED(key);
 	ARG_UNUSED(dst);
@@ -99,7 +99,7 @@ static void fill_serial_from_hwinfo(void)
 {
 	uint8_t id[8] = {0};
 	static const char digits[] = "0123456789ABCDEF";
-	ssize_t n = -ENOTSUP;
+	ssize_t n = -RZI_ERR_NOT_SUPPORTED;
 	size_t count;
 
 #if defined(CONFIG_HWINFO)
@@ -182,7 +182,7 @@ static int handle_alias(const struct rzi_at_request *request, void *user_data)
 	}
 	len = strlen(request->argument);
 	if (len == 0U || len > ALIAS_MAX) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	memcpy(alias_name, request->argument, len + 1U);
 	rc = save_string("alias", alias_name, ALIAS_MAX);
@@ -267,7 +267,7 @@ static int handle_pword(const struct rzi_at_request *request, void *user_data)
 	}
 	if (rzi_at_is_locked()) {
 		if (!rzi_at_password_matches(request->argument)) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		rzi_at_set_locked(false);
 		return rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -295,14 +295,14 @@ static int handle_baud(const struct rzi_at_request *request, void *user_data)
 	}
 	parsed = strtoul(request->argument, &end, 10);
 	if (end == request->argument || *end != '\0' || parsed == 0UL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_at_uart_set_baud((uint32_t)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 #else
 	ARG_UNUSED(request);
 	ARG_UNUSED(user_data);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #endif
 }
 
@@ -322,14 +322,14 @@ static int handle_sleep(const struct rzi_at_request *request, void *user_data)
 	ARG_UNUSED(user_data);
 	parsed = strtol(request->argument, &end, 10);
 	if (end == request->argument || *end != '\0' || parsed <= 0 || parsed > INT32_MAX) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
 	return rzi_power_sleep((int32_t)parsed);
 #else
 	ARG_UNUSED(request);
 	ARG_UNUSED(user_data);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #endif
 }
 
@@ -346,7 +346,7 @@ static int handle_lpm(const struct rzi_at_request *request, void *user_data)
 	} else if (strcmp(request->argument, "1") == 0) {
 		lpm_enabled = 1U;
 	} else {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 #if defined(CONFIG_RZI_POWER)
 	rc = rzi_power_set_policy(lpm_enabled != 0U ? RZI_POWER_POLICY_SUSPEND
@@ -371,7 +371,7 @@ static int handle_lpmlvl(const struct rzi_at_request *request, void *user_data)
 	} else if (strcmp(request->argument, "2") == 0) {
 		lpm_level = 2U;
 	} else {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	return rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
@@ -380,7 +380,7 @@ static int handle_bat(const struct rzi_at_request *request, void *user_data)
 {
 	ARG_UNUSED(request);
 	ARG_UNUSED(user_data);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 }
 
 static int handle_blemac(const struct rzi_at_request *request, void *user_data)
@@ -393,13 +393,13 @@ static int handle_blemac(const struct rzi_at_request *request, void *user_data)
 
 	bt_id_get(addrs, &count);
 	if (count == 0U) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return rzi_at_respond_value("AT+BLEMAC=%02X:%02X:%02X:%02X:%02X:%02X", addrs[0].a.val[5],
 				    addrs[0].a.val[4], addrs[0].a.val[3], addrs[0].a.val[2],
 				    addrs[0].a.val[1], addrs[0].a.val[0]);
 #else
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #endif
 }
 

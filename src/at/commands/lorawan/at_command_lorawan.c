@@ -64,14 +64,14 @@ int rzi_at_lorawan_hex_to_bin(const char *hex, uint8_t *out, size_t out_len)
 	size_t len = strlen(hex);
 
 	if (len != out_len * 2U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	for (size_t i = 0; i < out_len; ++i) {
 		int high = hex_nibble(hex[i * 2U]);
 		int low = hex_nibble(hex[i * 2U + 1U]);
 
 		if (high < 0 || low < 0) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		out[i] = (uint8_t)((high << 4) | low);
 	}
@@ -94,11 +94,11 @@ int rzi_at_lorawan_parse_long(const char *argument, long *value)
 	char *end = NULL;
 
 	if (argument == NULL || value == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	*value = strtol(argument, &end, 10);
 	if (end == argument || *end != '\0') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	return 0;
 }
@@ -113,7 +113,7 @@ int rzi_at_lorawan_parse_bool(const char *argument, bool *value)
 		*value = true;
 		return 0;
 	}
-	return -EINVAL;
+	return -RZI_ERR_INVALID;
 }
 
 int rzi_at_lorawan_apply_class(void)
@@ -164,7 +164,7 @@ int rzi_at_lorawan_band_to_region(int band, enum rzi_lorawan_region *region)
 		return 0;
 	default:
 		/* 0 = EU433 and 12 = LA915 are unsupported. */
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 }
 
@@ -204,7 +204,7 @@ static int nvm_read(const char *key, void *dst, size_t len, bool *found)
 {
 	int rc = rzi_storage_read("rzi", key, dst, len);
 
-	if (rc == -ENOENT) {
+	if (rc == -RZI_ERR_NOT_FOUND) {
 		*found = false;
 		return 0;
 	}
@@ -247,7 +247,7 @@ static int nvm_load(void)
 		rc = nvm_read("join_interval", &join_value, sizeof(join_value), &found);
 		if (rc == 0 && found) {
 			if (join_value < RZI_AT_LORAWAN_JOIN_INTERVAL_MIN) {
-				return -EINVAL;
+				return -RZI_ERR_INVALID;
 			}
 			context->join_interval = join_value;
 		}
@@ -376,7 +376,7 @@ int rzi_at_lorawan_join_start(void)
 	int rc;
 
 	if (!atomic_cas(&context->join_sequence_active, 0, 1)) {
-		return -EBUSY;
+		return -RZI_ERR_BUSY;
 	}
 	atomic_set(&context->join_retries_remaining, context->join_attempts);
 
@@ -545,7 +545,7 @@ static int extension_factory_reset(void)
 		int rc;
 
 		rc = rzi_storage_delete("rzi", keys[i]);
-		if (rc != 0 && rc != -ENOENT && result == 0) {
+		if (rc != 0 && rc != -RZI_ERR_NOT_FOUND && result == 0) {
 			result = rc;
 		}
 	}

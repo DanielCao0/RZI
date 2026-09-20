@@ -33,23 +33,23 @@ static bool valid_name(const char *name)
 int rzi_at_register(const struct rzi_at_command *commands, size_t count)
 {
 	if (sealed) {
-		return -EACCES;
+		return -RZI_ERR_DENIED;
 	}
 	if ((commands == NULL && count != 0U) || command_count + count > ARRAY_SIZE(registered)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	for (size_t i = 0; i < count; ++i) {
 		if (!valid_name(commands[i].name) || commands[i].handler == NULL) {
-			return -EINVAL;
+			return -RZI_ERR_INVALID;
 		}
 		for (size_t j = 0; j < command_count; ++j) {
 			if (strcmp(commands[i].name, registered[j]->name) == 0) {
-				return -EALREADY;
+				return -RZI_ERR_ALREADY;
 			}
 		}
 		for (size_t j = 0; j < i; ++j) {
 			if (strcmp(commands[i].name, commands[j].name) == 0) {
-				return -EALREADY;
+				return -RZI_ERR_ALREADY;
 			}
 		}
 	}
@@ -67,7 +67,7 @@ void rzi_at_registry_seal(void)
 int rzi_at_registry_add_extension(const struct rzi_at_extension *extension)
 {
 	if (extension == NULL || extension_count >= ARRAY_SIZE(extensions)) {
-		return -ENOMEM;
+		return -RZI_ERR_NO_RESOURCE;
 	}
 	extensions[extension_count++] = extension;
 	return 0;
@@ -122,12 +122,12 @@ int rzi_at_dispatch(const char *name, enum rzi_at_operation operation, const cha
 		}
 		if (operation == RZI_AT_OP_HELP) {
 			return command->help == NULL
-				       ? -ENOTSUP
+				       ? -RZI_ERR_NOT_SUPPORTED
 				       : rzi_at_respond_value("AT+%s: %s", command->name,
 							      command->help);
 		}
 		if ((command->allowed_operations & (1U << operation)) == 0U) {
-			return -ENOTSUP;
+			return -RZI_ERR_NOT_SUPPORTED;
 		}
 		struct rzi_at_request request = {
 			.operation = operation,
@@ -136,7 +136,7 @@ int rzi_at_dispatch(const char *name, enum rzi_at_operation operation, const cha
 
 		return command->handler(&request, command->user_data);
 	}
-	return -ENOENT;
+	return -RZI_ERR_NOT_FOUND;
 }
 
 int rzi_at_registry_write_all_help(void)
@@ -159,7 +159,7 @@ int rzi_at_registry_write_all_help(void)
 		}
 		n = snprintk(line, sizeof(line), "AT+%s: %s\r\n", command->name, command->help);
 		if (n < 0 || n >= (int)sizeof(line)) {
-			return -ENOSPC;
+			return -RZI_ERR_OVERFLOW;
 		}
 		rc = rzi_at_write_raw(line);
 		if (rc != 0) {

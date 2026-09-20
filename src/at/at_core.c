@@ -67,11 +67,11 @@ int rzi_at_set_password(const char *value)
 	size_t len;
 
 	if (value == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	len = strlen(value);
 	if (len == 0U || len > 8U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	memcpy(password, value, len + 1U);
 	return 0;
@@ -101,7 +101,7 @@ static int write_all(const char *text)
 int rzi_at_write_raw(const char *text)
 {
 	if (!atomic_get(&started) || text == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	return write_all(text);
 }
@@ -119,7 +119,7 @@ int rzi_at_respond_status(enum rzi_at_status status)
 	char buffer[48];
 
 	if (!atomic_get(&started) || status < 0 || status >= ARRAY_SIZE(names)) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	(void)snprintk(buffer, sizeof(buffer), "\r\n%s\r\n", names[status]);
 	return write_all(buffer);
@@ -133,17 +133,17 @@ static int write_formatted(const char *prefix, const char *suffix, const char *f
 
 	head = snprintk(buffer, sizeof(buffer), "%s", prefix);
 	if (head < 0 || head >= sizeof(buffer)) {
-		return -ENOSPC;
+		return -RZI_ERR_OVERFLOW;
 	}
 	body = vsnprintk(buffer + head, sizeof(buffer) - head, format, args);
 	if (body < 0 || body >= sizeof(buffer) - head) {
-		return -ENOSPC;
+		return -RZI_ERR_OVERFLOW;
 	}
 	size_t used = (size_t)head + (size_t)body;
 	size_t suffix_size = strlen(suffix);
 
 	if (used + suffix_size >= sizeof(buffer)) {
-		return -ENOSPC;
+		return -RZI_ERR_OVERFLOW;
 	}
 	memcpy(buffer + used, suffix, suffix_size + 1U);
 	return write_all(buffer);
@@ -155,7 +155,7 @@ int rzi_at_respond_value(const char *format, ...)
 	int rc;
 
 	if (!atomic_get(&started) || format == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	va_start(args, format);
 	rc = write_formatted("\r\n", "\r\nOK\r\n", format, args);
@@ -169,7 +169,7 @@ int rzi_at_publish_event(const char *format, ...)
 	int rc;
 
 	if (!atomic_get(&started) || format == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	va_start(args, format);
 	rc = write_formatted("\r\n+EVT:", "\r\n", format, args);
@@ -182,17 +182,17 @@ int rzi_at_receive(const uint8_t *data, size_t size)
 	uint32_t written;
 
 	if (!atomic_get(&started)) {
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	}
 	if (data == NULL && size != 0U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	written = ring_buf_put(&rx_ring, data, size);
 	if (written != size) {
 		atomic_set(&rx_overflow, 1);
 	}
 	k_sem_give(&rx_ready);
-	return written == size ? 0 : -ENOSPC;
+	return written == size ? 0 : -RZI_ERR_OVERFLOW;
 }
 
 static void process_input(void)
@@ -229,13 +229,13 @@ int rzi_at_start(const struct rzi_at_io *io)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -EWOULDBLOCK;
+		return -RZI_ERR_WOULDBLOCK;
 	}
 	if (io == NULL || io->write == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (!atomic_cas(&started, 0, 1)) {
-		return -EALREADY;
+		return -RZI_ERR_ALREADY;
 	}
 	active_io = *io;
 	rc = rzi_at_builtin_register();

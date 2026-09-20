@@ -2,5 +2,6 @@
 
 zephyr_library_sources(
   rzi_capabilities.c
+  rzi_err.c
   rzi_version.c
 )

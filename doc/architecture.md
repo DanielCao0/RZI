@@ -125,7 +125,7 @@ must never control the same radio instance at runtime.
 
 ### RZI owns
 
-- public API semantics, validation, errno behavior, and events;
+- public API semantics, validation, `RZI_ERR_*` behavior, and events;
 - service lifecycle and application-visible state;
 - backend capability reporting and feature gating;
 - RAK-compatible AT behavior;
@@ -172,7 +172,7 @@ Zephyr types at I/O adapter boundaries.
 
 Public APIs:
 
-- return `0` or a negative errno value;
+- return `0` or a negative `enum rzi_err` value from `include/rzi/err.h`;
 - validate input before entering a backend;
 - never expose USP, LBM, or backend-private Zephyr types;
 - copy asynchronous request data or define its lifetime explicitly;
@@ -187,6 +187,7 @@ Public header groups are:
 
 ```text
 include/rzi/
+├── err.h                      Closed public error catalog
 ├── version.h                  SDK version and compatibility queries
 ├── capabilities.h             Service and backend capabilities
 ├── lorawan/lorawan.h          Backend-independent LoRaWAN service
@@ -240,7 +241,7 @@ DeviceTime / LinkCheck have public facades under `include/rzi/lorawan/`.
 Backend libraries own the LoRaWAN application-package implementations
 required by those services; RZI does not duplicate them. Core concerns such
 as class and network/channel management remain in the core service.
-Unsupported backend operations return `-ENOTSUP`. Raw LoRa P2P and FSK use
+Unsupported backend operations return `-RZI_ERR_NOT_SUPPORTED`. Raw LoRa P2P and FSK use
 `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
 ### Target capability model
@@ -254,7 +255,7 @@ certification support. Further candidate capabilities include:
 ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY
 ```
 
-An unsupported operation returns `-ENOTSUP`. C API clients should query
+An unsupported operation returns `-RZI_ERR_NOT_SUPPORTED`. C API clients should query
 `rzi_lorawan_get_capabilities()` instead of inferring support from the
 backend name. The AT package forwards class, ADR, data rate, channels,
 link-check, Class B, multicast, and certification to the same C API.
@@ -268,7 +269,7 @@ outside any backend mutex.
 
 AT and FUOTA subscribe through the same dispatcher. Applications may
 register additional subscribers. Queue overflow is reported with
-`error(-EOVERFLOW)`.
+`error(-RZI_ERR_OVERFLOW)`.
 
 ## 7. Backend strategy
 
@@ -593,7 +594,7 @@ pass does not replace RF and power measurements.
 
 | Area | Current state | Required work |
 |---|---|---|
-| Capabilities | SDK 0.3 LoRaWAN feature queries implemented | Stack-level `-ENOTSUP` where LBM/Zephyr expose no API |
+| Capabilities | SDK 0.3 LoRaWAN feature queries implemented | Stack-level `-RZI_ERR_NOT_SUPPORTED` where LBM/Zephyr expose no API |
 | Events | Multi-subscriber dispatcher implemented | Add overflow stress coverage |
 | AT | Core, commands, and adapters separated | Add command-package matrix |
 | Configuration | AT consumes RZI storage API | Add schema version and migrations |

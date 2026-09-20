@@ -32,6 +32,7 @@ switches, and limits that do not belong in a header comment.
 
 | Document | Status | Contents |
 |---|---|---|
+| [error-codes.md](./error-codes.md) | normative | Closed `RZI_ERR_*` catalog |
 | [lorawan-api.md](./lorawan-api.md) | normative | LoRaWAN public C contract |
 | [lora-api.md](./lora-api.md) | implemented | Raw LoRa / FSK P2P C contract |
 | [lorawan-backends.md](./lorawan-backends.md) | implemented | USP vs Zephyr build switch |

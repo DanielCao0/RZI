@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,7 +25,7 @@ extern "C" {
  *  image access, optional MCUboot installation and reboot.
  *
  *  @since 0.2
- *  @version 0.2.0
+ *  @version 0.4.0
  *  @{
  */
 
@@ -51,7 +53,7 @@ struct rzi_fuota_status {
 	bool image_ready;
 	/** Detected or configured image size, or zero when unknown. */
 	size_t image_size;
-	/** Zero, or the negative errno from the latest failure. */
+	/** Zero, or the negative RZI_ERR_* from the latest failure. */
 	int last_error;
 };
 
@@ -68,7 +70,7 @@ struct rzi_fuota_callbacks {
 	void (*state_changed)(enum rzi_fuota_state state, void *user_data);
 	/** Called when a multicast fragment session starts. */
 	void (*session_started)(void *user_data);
-	/** Called with zero after a successful transfer, otherwise errno. */
+	/** Called with zero after a successful transfer, otherwise a negative RZI_ERR_*. */
 	void (*complete)(int status, void *user_data);
 	/** Opaque pointer passed to every callback. */
 	void *user_data;
@@ -83,8 +85,8 @@ struct rzi_fuota_callbacks {
  * @param callbacks Callback table copied before this function returns.
  *
  * @retval 0 Callbacks stored.
- * @retval -EINVAL callbacks is NULL or empty.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID callbacks is NULL or empty.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -98,8 +100,8 @@ __must_check int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *
  * backend then accepts ChirpStack unicast setup and multicast fragments.
  *
  * @retval 0 Coordination started or already running.
- * @retval -ENOTSUP The selected backend does not advertise FUOTA.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not advertise FUOTA.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. rzi_lorawan_start() starts this service when
  *       CONFIG_RZI_LORAWAN_FUOTA is enabled.
@@ -113,8 +115,8 @@ __must_check int rzi_fuota_start(void);
  * @param[out] status Caller-owned status object.
  *
  * @retval 0 Status stored.
- * @retval -EINVAL status is NULL.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID status is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -131,8 +133,8 @@ __must_check int rzi_fuota_get_status(struct rzi_fuota_status *status);
  * @param size Image size in bytes.
  *
  * @retval 0 Size stored.
- * @retval -EINVAL size is zero.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID size is zero.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -147,10 +149,10 @@ __must_check int rzi_fuota_set_expected_size(size_t size);
  * @param size Number of bytes to copy.
  *
  * @retval 0 Bytes copied.
- * @retval -EINVAL buffer is NULL or size is zero.
- * @retval -ENOENT No reconstructed image is available.
- * @retval -ENOTSUP The backend cannot expose the stored image.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID buffer is NULL or size is zero.
+ * @retval -RZI_ERR_NOT_FOUND No reconstructed image is available.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend cannot expose the stored image.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -164,10 +166,11 @@ __must_check int rzi_fuota_read_image(size_t offset, void *buffer, size_t size);
  * secondary slot and a test upgrade is requested. The function does not
  * return on a successful reboot.
  *
- * @retval -ENOENT No reconstructed image is available.
- * @retval -ENODATA The image size is unknown.
- * @retval -ENOTSUP No installer is compiled into this firmware.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_FOUND No reconstructed image is available.
+ * @retval -RZI_ERR_NO_DATA The image size is unknown.
+ * @retval -RZI_ERR_NOT_SUPPORTED No installer is compiled into this firmware.
+ * @retval -RZI_ERR_IO Copying the image into the secondary slot failed.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @warning Must not be called from a FUOTA callback.
  * @note Thread context only.

@@ -10,6 +10,8 @@
 #include <zephyr/device.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,7 +28,7 @@ extern "C" {
  *  same baud change works if the driver reports line control.
  *
  *  @since 0.2
- *  @version 0.2.0
+ *  @version 0.4.0
  *  @{
  */
 
@@ -67,8 +69,11 @@ bool rzi_rsup_requested(void);
  * @param uart UART from @ref rzi_rsup_uart, or any UART device.
  *
  * @retval 0 Host did not send a frame; caller may continue.
- * @retval -EINVAL Bad header or unsupported type.
- * @retval -ENODEV @p uart is missing or not ready.
+ * @retval -RZI_ERR_INVALID Bad header or unsupported type.
+ * @retval -RZI_ERR_NO_DEVICE @p uart is missing or not ready.
+ * @retval -RZI_ERR_TIMEOUT The host stopped sending.
+ * @retval -RZI_ERR_BAD_MESSAGE The image CRC does not match.
+ * @retval -RZI_ERR_IO Flash or image-write failed.
  * @note Thread context only.
  * @since 0.2
  */

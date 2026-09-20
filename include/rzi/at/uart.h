@@ -10,6 +10,8 @@
 #include <zephyr/device.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -19,7 +21,7 @@ extern "C" {
  * @ingroup rzi_at
  * @brief UART binding for the RZI AT service.
  * @since 0.2
- * @version 0.2.0
+ * @version 0.4.0
  * @{
  */
 
@@ -31,7 +33,7 @@ extern "C" {
  *
  * @param uart Ready UART device with interrupt-driven API support.
  *
- * @return Zero when started, otherwise a negative errno value from device
+ * @return Zero when started, otherwise a negative RZI_ERR_* from device
  *         validation, the UART driver, or the AT service.
  *
  * @pre UART interrupt support is enabled.
@@ -46,8 +48,8 @@ __must_check int rzi_at_uart_start(const struct device *uart);
  * @param[out] baud_rate Destination.
  *
  * @retval 0 Baud rate stored.
- * @retval -ENODEV The UART adapter is not started.
- * @retval -EINVAL baud_rate is NULL.
+ * @retval -RZI_ERR_NO_DEVICE The UART adapter is not started.
+ * @retval -RZI_ERR_INVALID baud_rate is NULL.
  * @since 0.3
  */
 __must_check int rzi_at_uart_get_baud(uint32_t *baud_rate);
@@ -58,8 +60,8 @@ __must_check int rzi_at_uart_get_baud(uint32_t *baud_rate);
  * @param baud_rate Requested baud rate.
  *
  * @retval 0 Baud rate applied.
- * @retval -ENODEV The UART adapter is not started.
- * @retval -EINVAL baud_rate is zero.
+ * @retval -RZI_ERR_NO_DEVICE The UART adapter is not started.
+ * @retval -RZI_ERR_INVALID baud_rate is zero.
  * @since 0.3
  */
 __must_check int rzi_at_uart_set_baud(uint32_t baud_rate);

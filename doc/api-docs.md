@@ -10,7 +10,8 @@ See also: [coding-standards.md](./coding-standards.md).
 ## 1. Scope
 
 Layering, naming, errors, and concurrency are in
-[coding-standards.md](./coding-standards.md). This document applies to every
+[coding-standards.md](./coding-standards.md) and
+[error-codes.md](./error-codes.md). This document applies to every
 RZI production-library C source and header under `include/rzi/` and `src/`.
 The public C API includes functions, callbacks, structs, enums, constants,
 and public types. Adding or changing a public API must update the matching
@@ -93,9 +94,9 @@ Example:
  * @param config Activation configuration.
  *
  * @retval 0 Request accepted.
- * @retval -EINVAL Invalid configuration.
- * @retval -EAGAIN Backend not ready.
- * @retval -ENOTSUP Activation mode unsupported.
+ * @retval -RZI_ERR_INVALID Invalid configuration.
+ * @retval -RZI_ERR_NOT_READY Backend not ready.
+ * @retval -RZI_ERR_NOT_SUPPORTED Activation mode unsupported.
  *
  * @note Thread context only; this function must not be called from an ISR.
  * @since 0.2

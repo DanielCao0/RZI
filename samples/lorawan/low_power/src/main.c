@@ -50,7 +50,7 @@ static void send_uplink_counter(void)
 	rc = rzi_lorawan_send(UPLINK_PORT, buff, sizeof(buff), RZI_LORAWAN_MSG_UNCONFIRMED);
 	if (rc == 0) {
 		uplink_counter++;
-	} else if (rc != -EBUSY) {
+	} else if (rc != -RZI_ERR_BUSY) {
 		LOG_WRN("Uplink rejected: %d", rc);
 	}
 }

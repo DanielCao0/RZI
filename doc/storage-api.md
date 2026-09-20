@@ -6,7 +6,8 @@ Status: implemented
 used by RZI services. Service and AT code must not call Zephyr settings,
 NVS, or flash APIs directly.
 
-See also: [at-command-compatibility.md](./at-command-compatibility.md),
+See also: [error-codes.md](./error-codes.md),
+[at-command-compatibility.md](./at-command-compatibility.md),
 [architecture.md](./architecture.md) §10.
 
 The Zephyr adapter is `src/storage/storage_settings.c`.
@@ -18,19 +19,19 @@ when auto-block is on.
 
 - `rzi_storage_init()` is idempotent and thread-context only.
 - Keys are composed as `<namespace>/<key>`.
-- Read requires an exact stored-size match and returns `-EMSGSIZE`
+- Read requires an exact stored-size match and returns `-RZI_ERR_TOO_LARGE`
   otherwise.
 - Write replaces one complete value.
-- Delete returns `-ENOENT` when no value exists.
+- Delete returns `-RZI_ERR_NOT_FOUND` when no value exists.
 - Backend operations are serialized by the service.
 - Empty, absolute, trailing-slash, and double-slash paths are rejected.
-- Composed names longer than 63 characters return `-ENAMETOOLONG`.
+- Composed names longer than 63 characters return `-RZI_ERR_TOO_LARGE`.
+- Settings or flash failures are mapped to `-RZI_ERR_IO`.
 
 Namespaces belong to services. A service must not read, rewrite, or delete
 another service's namespace.
 
-The header does not return `-EWOULDBLOCK`; callers must stay in thread
-context.
+Callers must stay in thread context.
 
 ## AT keys
 

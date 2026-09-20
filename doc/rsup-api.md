@@ -6,7 +6,8 @@ Public C contract for RSUP (RZI Slot Update Protocol) type 1: write a signed
 MCUboot image into `image-1` over a Zephyr UART (USB CDC or hardware UART).
 Type 0 (Arduino LLEXT sketch) is rejected.
 
-See also: [boot.md](./boot.md), [power.md](./power.md).
+See also: [error-codes.md](./error-codes.md), [boot.md](./boot.md),
+[power.md](./power.md).
 
 The header is `include/rzi/rsup/rsup.h`. Enable with `CONFIG_RZI_RSUP=y`
 (requires `CONFIG_RZI_MCUBOOT_DUAL_SLOT`). Single-slot boards such as
@@ -20,7 +21,7 @@ wrappers around the same symbols.
 | Item | Value |
 |---|---|
 | Magic | ASCII `RSUP` (`RSUP_MAGIC`) |
-| Type 0 | Sketch payload; RZI returns `-EINVAL` |
+| Type 0 | Sketch payload; RZI returns `-RZI_ERR_INVALID` |
 | Type 1 | Signed MCUboot slot1 image (`RSUP_TYPE_SLOT1`) |
 | Dedicated-update flag | `RZI_RSUP_GPREGRET` (`0xA5`) |
 

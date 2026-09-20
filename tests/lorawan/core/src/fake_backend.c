@@ -66,6 +66,7 @@ static struct rzi_lorawan_channel_rssi channel_rssi[4] = {
 	{.channel = 0, .mask = 0x0001, .rssi_dbm = -20},
 };
 static size_t channel_rssi_count = 1;
+static bool session_joined;
 
 static int fake_start(enum rzi_lorawan_region region, bool join_backoff_bypass,
 		      rzi_lorawan_event_sink_t event_sink)
@@ -77,6 +78,7 @@ static int fake_start(enum rzi_lorawan_region region, bool join_backoff_bypass,
 	zassert_equal(region, RZI_LORAWAN_REGION_US_915);
 	zassert_true(join_backoff_bypass);
 	fake_sink = event_sink;
+	session_joined = false;
 	fake_sink(&event);
 	return 0;
 }
@@ -88,15 +90,17 @@ static int fake_join(const struct rzi_lorawan_join_config *config)
 	};
 
 	if (config->activation != RZI_LORAWAN_ACTIVATION_OTAA) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	zassert_equal(config->activation, RZI_LORAWAN_ACTIVATION_OTAA);
+	session_joined = true;
 	fake_sink(&event);
 	return 0;
 }
 
 static int fake_leave(void)
 {
+	session_joined = false;
 	return 0;
 }
 
@@ -129,7 +133,7 @@ static int fake_set_class(enum rzi_lorawan_class requested)
 
 static int fake_is_joined(bool *joined)
 {
-	*joined = true;
+	*joined = session_joined;
 	return 0;
 }
 
@@ -466,7 +470,7 @@ static int fake_set_dev_nonce(uint16_t value)
 
 static int fake_query_tx_possible(size_t size)
 {
-	return size <= 51U ? 0 : -EMSGSIZE;
+	return size <= 51U ? 0 : -RZI_ERR_TOO_LARGE;
 }
 
 static int fake_info_is_busy(bool *value)
@@ -535,7 +539,7 @@ static int fake_multicast_add(const struct rzi_lorawan_multicast_session *sessio
 		}
 	}
 	if (group < 0 || group > 3 || multicast_used[group]) {
-		return -ENOMEM;
+		return -RZI_ERR_NO_RESOURCE;
 	}
 	multicast[group] = *session;
 	multicast[group].group_id = group;
@@ -555,7 +559,7 @@ static int fake_multicast_remove(uint32_t dev_addr)
 			return 0;
 		}
 	}
-	return -ENOENT;
+	return -RZI_ERR_NOT_FOUND;
 }
 
 static int fake_multicast_count(size_t *count)
@@ -585,7 +589,7 @@ static int fake_multicast_get(size_t index, struct rzi_lorawan_multicast_session
 		}
 		n++;
 	}
-	return -EINVAL;
+	return -RZI_ERR_INVALID;
 }
 
 static int fake_multicast_clear(void)
@@ -611,7 +615,7 @@ static int fake_scan_count(size_t *count)
 static int fake_scan_get(size_t index, struct rzi_lorawan_channel_rssi *rssi)
 {
 	if (index >= channel_rssi_count) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	*rssi = channel_rssi[index];
 	return 0;

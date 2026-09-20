@@ -103,7 +103,7 @@ static const enum lorawan_region regions[] = {
 static int map_region(enum rzi_lorawan_region value, enum lorawan_region *out)
 {
 	if ((unsigned int)value >= ARRAY_SIZE(regions) || out == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	*out = regions[value];
@@ -125,7 +125,7 @@ int rzi_lorawan_zephyr_lock_started(void)
 	k_mutex_lock(&lock, K_FOREVER);
 	if (!started) {
 		k_mutex_unlock(&lock);
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	}
 	return 0;
 }
@@ -289,7 +289,7 @@ static void join_work_handler(struct k_work *work)
 		event.type = RZI_LORAWAN_BACKEND_JOINED;
 	} else {
 		event.type = RZI_LORAWAN_BACKEND_JOIN_FAILED;
-		event.error = rc;
+		event.error = rzi_err_from_errno(rc);
 	}
 	publish(&event);
 }
@@ -325,6 +325,7 @@ static void send_work_handler(struct k_work *work)
 
 	if (rc != 0) {
 		event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
+		event.error = rzi_err_from_errno(rc);
 	} else if (type == RZI_LORAWAN_MSG_CONFIRMED) {
 		event.tx_status = RZI_LORAWAN_TX_ACKED;
 	} else {
@@ -390,13 +391,13 @@ static int zephyr_fuota_start_clock_sync(void)
 	(void)lorawan_request_device_time(false);
 #endif
 #ifdef CONFIG_LORAWAN_APP_CLOCK_SYNC
-	rc = lorawan_clock_sync_run();
+	rc = rzi_err_from_errno(lorawan_clock_sync_run());
 	if (rc == 0) {
 		clock_poll_left = CLOCK_POLL_TRIES;
 		k_work_schedule_for_queue(&worker_q, &clock_poll_work, K_NO_WAIT);
 	}
 #else
-	rc = -ENOTSUP;
+	rc = -RZI_ERR_NOT_SUPPORTED;
 #endif
 #ifdef CONFIG_LORAWAN_FRAG_TRANSPORT
 	if (!fuota_services_started) {
@@ -405,7 +406,7 @@ static int zephyr_fuota_start_clock_sync(void)
 		lorawan_frag_transport_register_descriptor_callback(frag_descriptor);
 		frag_rc = lorawan_frag_transport_run(frag_finished);
 		if (frag_rc != 0 && rc == 0) {
-			rc = frag_rc;
+			rc = rzi_err_from_errno(frag_rc);
 		}
 		fuota_services_started = true;
 	}
@@ -420,7 +421,7 @@ static int zephyr_fuota_get_image_size(size_t *size)
 	 * Zephyr frag_transport does not publish the reconstructed length.
 	 * The FUOTA coordinator can recover it from the image header.
 	 */
-	return -ENODATA;
+	return -RZI_ERR_NO_DATA;
 }
 
 #ifdef CONFIG_FLASH_MAP
@@ -436,31 +437,31 @@ static int zephyr_fuota_read_image(uint32_t offset, uint8_t *buffer, size_t size
 	int rc;
 
 	if (buffer == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &area);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	if (((uint64_t)offset + size) > area->fa_size) {
 		flash_area_close(area);
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = flash_area_read(area, offset, buffer, size);
 	flash_area_close(area);
-	return rc;
+	return rzi_err_from_errno(rc);
 #else
 	ARG_UNUSED(offset);
 	ARG_UNUSED(buffer);
 	ARG_UNUSED(size);
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 #endif
 }
 
 static int zephyr_fuota_reboot(void)
 {
 	sys_reboot(SYS_REBOOT_COLD);
-	return -EIO;
+	return -RZI_ERR_IO;
 }
 
 static const struct rzi_lorawan_fuota_ops zephyr_fuota_ops = {
@@ -487,7 +488,7 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 	};
 
 	if (map_region(selected_region, &selected) != 0 || sink == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (join_backoff_bypass) {
 		LOG_DBG("join backoff bypass is ignored by the Zephyr backend");
@@ -495,7 +496,7 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 
 #ifndef CONFIG_LORAWAN_EMUL
 	if (!device_is_ready(DEVICE_DT_GET(DT_ALIAS(lora0)))) {
-		return -ENODEV;
+		return -RZI_ERR_NO_DEVICE;
 	}
 #endif
 
@@ -503,11 +504,11 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 	current_region = selected_region;
 	rc = apply_region(selected);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	rc = lorawan_start();
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	lorawan_register_downlink_callback(&downlink_cb);
 #ifndef CONFIG_LORAWAN_EMUL
@@ -540,9 +541,9 @@ static int zephyr_join(const struct rzi_lorawan_join_config *config)
 
 	k_mutex_lock(&lock, K_FOREVER);
 	if (!started) {
-		rc = -EAGAIN;
+		rc = -RZI_ERR_NOT_READY;
 	} else if (join_pending || tx_pending) {
-		rc = -EBUSY;
+		rc = -RZI_ERR_BUSY;
 	} else {
 		join_settings = *config;
 		join_pending = true;
@@ -560,9 +561,9 @@ static int zephyr_leave(void)
 {
 	/*
 	 * Zephyr's public LoRaWAN API has no leave or session-reset call.
-	 * Returning -ENOTSUP keeps the RZI session state honest.
+	 * Returning -RZI_ERR_NOT_SUPPORTED keeps the RZI session state honest.
 	 */
-	return -ENOTSUP;
+	return -RZI_ERR_NOT_SUPPORTED;
 }
 
 static int zephyr_send(uint8_t port, const uint8_t *data, size_t size,
@@ -571,10 +572,12 @@ static int zephyr_send(uint8_t port, const uint8_t *data, size_t size,
 	int rc = 0;
 
 	k_mutex_lock(&lock, K_FOREVER);
-	if (!started || !joined) {
-		rc = -EAGAIN;
+	if (!started) {
+		rc = -RZI_ERR_NOT_READY;
+	} else if (!joined) {
+		rc = -RZI_ERR_NOT_JOINED;
 	} else if (join_pending || tx_pending) {
-		rc = -EBUSY;
+		rc = -RZI_ERR_BUSY;
 	} else {
 		tx_port = port;
 		tx_size = (uint8_t)size;
@@ -606,28 +609,28 @@ static int zephyr_set_class(enum rzi_lorawan_class device_class)
 		mapped = LORAWAN_CLASS_C;
 		break;
 	case RZI_LORAWAN_CLASS_B:
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	default:
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	rc = lorawan_set_class(mapped);
 	if (rc == 0) {
 		rzi_lorawan_zephyr_set_class(device_class);
 	}
-	return rc;
+	return rzi_err_from_errno(rc);
 }
 
 static int zephyr_is_joined(bool *is_joined)
 {
 	if (is_joined == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
 	if (!started) {
 		k_mutex_unlock(&lock);
-		return -EAGAIN;
+		return -RZI_ERR_NOT_READY;
 	}
 	*is_joined = joined;
 	k_mutex_unlock(&lock);

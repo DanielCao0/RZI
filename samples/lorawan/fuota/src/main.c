@@ -121,7 +121,7 @@ static int request_join(void)
 	while (!joined && !join_failed) {
 		k_sleep(K_MSEC(10));
 	}
-	return joined ? 0 : -EAGAIN;
+	return joined ? 0 : -RZI_ERR_NOT_READY;
 }
 
 int main(void)
@@ -161,7 +161,7 @@ int main(void)
 
 	for (;;) {
 		rc = rzi_lorawan_send(1, payload, sizeof(payload) - 1, RZI_LORAWAN_MSG_UNCONFIRMED);
-		if (rc != 0 && rc != -EBUSY) {
+		if (rc != 0 && rc != -RZI_ERR_BUSY) {
 			LOG_WRN("Uplink rejected: %d", rc);
 		}
 		k_sleep(UPLINK_INTERVAL);

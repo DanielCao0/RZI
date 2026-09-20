@@ -147,8 +147,8 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_A));
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_C));
-	zassert_equal(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_B), -ENOTSUP);
-	zassert_equal(rzi_lorawan_leave(), -ENOTSUP);
+	zassert_equal(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_B), -RZI_ERR_NOT_SUPPORTED);
+	zassert_equal(rzi_lorawan_leave(), -RZI_ERR_NOT_SUPPORTED);
 	zassert_ok(rzi_lorawan_unregister_callbacks(handle));
 }
 

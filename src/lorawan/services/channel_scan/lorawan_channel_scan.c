@@ -32,11 +32,11 @@ int rzi_lorawan_get_channel_rssi_count(size_t *count)
 		return rc;
 	}
 	if (count == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = scan_ops();
 	if (ops == NULL || ops->get_count == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get_count(count);
 }
@@ -50,11 +50,11 @@ int rzi_lorawan_get_channel_rssi(size_t index, struct rzi_lorawan_channel_rssi *
 		return rc;
 	}
 	if (rssi == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	ops = scan_ops();
 	if (ops == NULL || ops->get == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return ops->get(index, rssi);
 }

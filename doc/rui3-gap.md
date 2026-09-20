@@ -107,8 +107,8 @@ Commands RUI3 registers on RAK4631 / RAK3372 application firmware.
 | General | `AT+FSN` | `FSN` | present | |
 | General | `AT+FACTORY` | `FACTORY` | present | |
 | General | `AT+SN` | `SN` | present | |
-| General | `AT+BAT` | `BAT` | limited | Returns `AT_ERROR` (`-ENOTSUP`) |
-| General | `AT+SYSV` | `SYSV` | limited | Returns `AT_ERROR` (`-ENOTSUP`) |
+| General | `AT+BAT` | `BAT` | limited | Returns `AT_ERROR` (`-RZI_ERR_NOT_SUPPORTED`) |
+| General | `AT+SYSV` | `SYSV` | limited | Returns `AT_ERROR` (`-RZI_ERR_NOT_SUPPORTED`) |
 | General | `AT+BUILDTIME` | `BUILDTIME` | present | |
 | General | `AT+REPOINFO` | `REPOINFO` | limited | Version stub, not git SHAs |
 | General | `AT+VER` | `VER` | present | |

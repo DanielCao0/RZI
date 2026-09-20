@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,7 +20,7 @@ extern "C" {
  * @defgroup rzi_at RZI AT service
  * @brief Transport-independent AT command processing.
  * @since 0.2
- * @version 0.2.0
+ * @version 0.4.0
  * @{
  */
 
@@ -71,7 +73,7 @@ struct rzi_at_request {
  * @param request Request valid only for the duration of this call.
  * @param user_data Opaque pointer from struct rzi_at_command.
  *
- * @return Zero on success or a negative errno value.
+ * @return Zero on success or a negative RZI_ERR_* value.
  *
  * @note Handlers execute serially in the AT thread and must not retain request
  *       or request->argument.
@@ -115,9 +117,9 @@ struct rzi_at_io {
  * @param count Number of entries in commands.
  *
  * @retval 0 Commands registered.
- * @retval -EACCES The registry is sealed because the service has started.
- * @retval -EALREADY A command name is already registered.
- * @retval -EINVAL The array, count, name, handler, or capacity is invalid.
+ * @retval -RZI_ERR_DENIED The registry is sealed because the service has started.
+ * @retval -RZI_ERR_ALREADY A command name is already registered.
+ * @retval -RZI_ERR_INVALID The array, count, name, handler, or capacity is invalid.
  *
  * @pre Call before rzi_at_start().
  * @note Thread context only.
@@ -134,7 +136,7 @@ __must_check int rzi_at_register(const struct rzi_at_command *commands, size_t c
  *
  * @param io Synchronous output binding.
  *
- * @return Zero when started, otherwise a negative errno value from validation,
+ * @return Zero when started, otherwise a negative RZI_ERR_* from validation,
  *         command registration, or extension startup.
  *
  * @note Thread context only. Runtime stop and restart are not supported.
@@ -152,9 +154,9 @@ __must_check int rzi_at_start(const struct rzi_at_io *io);
  * @param size Number of bytes to copy.
  *
  * @retval 0 All bytes accepted.
- * @retval -EAGAIN The AT service has not started.
- * @retval -EINVAL data is NULL while size is nonzero.
- * @retval -ENOSPC The ring buffer overflowed.
+ * @retval -RZI_ERR_NOT_READY The AT service has not started.
+ * @retval -RZI_ERR_INVALID data is NULL while size is nonzero.
+ * @retval -RZI_ERR_OVERFLOW The ring buffer overflowed.
  *
  * @note This function is ISR-safe and non-blocking.
  * @since 0.2
@@ -166,7 +168,7 @@ __must_check int rzi_at_receive(const uint8_t *data, size_t size);
  *
  * @param status Response status.
  *
- * @return Zero when written, otherwise a negative errno value from validation
+ * @return Zero when written, otherwise a negative RZI_ERR_* from validation
  *         or the active I/O binding.
  *
  * @note Thread context only.
@@ -180,7 +182,7 @@ __must_check int rzi_at_respond_status(enum rzi_at_status status);
  * @param format printf-style format string.
  * @param ... Values referenced by format.
  *
- * @return Zero when written, otherwise a negative errno value from validation,
+ * @return Zero when written, otherwise a negative RZI_ERR_* from validation,
  *         formatting, or the active I/O binding.
  *
  * @note Thread context only.
@@ -194,7 +196,7 @@ __printf_like(1, 2) __must_check int rzi_at_respond_value(const char *format, ..
  * @param format printf-style format string.
  * @param ... Values referenced by format.
  *
- * @return Zero when written, otherwise a negative errno value from validation,
+ * @return Zero when written, otherwise a negative RZI_ERR_* from validation,
  *         formatting, or the active I/O binding.
  *
  * @note Thread context only.

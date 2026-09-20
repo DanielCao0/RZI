@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <zephyr/toolchain.h>
 
+#include <rzi/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -34,10 +36,10 @@ struct rzi_lorawan_channel_rssi {
  * @param[out] count Stored sample count.
  *
  * @retval 0 Count stored.
- * @retval -EINVAL count is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support channel scanning.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID count is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support channel scanning.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -51,10 +53,10 @@ __must_check int rzi_lorawan_get_channel_rssi_count(size_t *count);
  * @param[out] rssi Stored sample.
  *
  * @retval 0 Sample stored.
- * @retval -EINVAL rssi is NULL or index is out of range.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support channel scanning.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID rssi is NULL or index is out of range.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support channel scanning.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

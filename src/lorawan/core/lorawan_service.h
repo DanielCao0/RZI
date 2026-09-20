@@ -25,7 +25,7 @@ struct rzi_lorawan_service {
  * @brief Attach one optional LoRaWAN service.
  *
  * @param service Static-lifetime hook table.
- * @return Zero on success, otherwise a negative errno value.
+ * @return Zero on success, otherwise a negative RZI_ERR_* value.
  */
 int rzi_lorawan_register_service(const struct rzi_lorawan_service *service);
 

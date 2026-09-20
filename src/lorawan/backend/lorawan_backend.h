@@ -61,9 +61,9 @@ enum rzi_lorawan_backend_fuota_kind {
 struct rzi_lorawan_backend_event {
 	/** Selects the active union member. */
 	enum rzi_lorawan_backend_event_type type;
+	/** Negative RZI_ERR_* for ERROR, JOIN_FAILED, DEVICE_TIME, and TX_DONE. */
+	int error;
 	union {
-		/** Negative errno for ERROR and JOIN_FAILED. */
-		int error;
 		/** Uplink result for RZI_LORAWAN_BACKEND_TX_DONE. */
 		enum rzi_lorawan_tx_status tx_status;
 		/** State for RZI_LORAWAN_BACKEND_STATE_CHANGED. */

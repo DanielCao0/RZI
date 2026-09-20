@@ -27,7 +27,7 @@ Compatibility is classified as follows:
 - **Compatible with limits**: the grammar is compatible, but RZI or the selected
   backend supports fewer values.
 - **Not implemented**: RUI3 defines the command, but RZI does not register
-  it. The parser returns `AT_ERROR` (`-ENOENT` from the registry). There is
+  it. The parser returns `AT_ERROR` (`-RZI_ERR_NOT_FOUND` from the registry). There is
   no `AT_COMMAND_NOT_FOUND` status in this tree.
 
 [rui3-manual]: https://docs.rakwireless.com/product-categories/software-apis-and-libraries/rui3/at-command-manual/
@@ -133,7 +133,7 @@ AT+APPKEY=00112233445566778899AABBCCDDEEFF
 - `AT+NJS=?` is compatible and returns `AT+NJS=0` or `AT+NJS=1`.
 - `AT+CLASS` is compatible with limits. `A`, `B`, and `C` are accepted when
   the selected backend advertises the matching class capability; otherwise
-  the write returns `AT_ERROR` (`-ENOTSUP`).
+  the write returns `AT_ERROR` (`-RZI_ERR_NOT_SUPPORTED`).
 
 ### Join
 
@@ -190,7 +190,7 @@ Asynchronous events are:
 
 These commands call the public `rzi_lorawan_*` APIs after the LoRaWAN service
 has started. A backend that does not implement the operation returns
-`AT_ERROR` (`-ENOTSUP`). Timing commands use seconds on the AT wire and
+`AT_ERROR` (`-RZI_ERR_NOT_SUPPORTED`). Timing commands use seconds on the AT wire and
 milliseconds in the C API.
 
 - `AT+ADR`, `AT+DR`, `AT+TXP`, `AT+DCS`, `AT+PNM`

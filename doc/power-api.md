@@ -78,7 +78,7 @@ Periodic uplinks come from a timer or a LoRaWAN callback calling
 `rzi_lorawan_send()`. The main thread uses `k_sleep(K_FOREVER)`. Do not
 `rzi_power_sleep(fixed duration)` over an in-flight Class A session.
 
-`rzi_power_shutdown()` returns `-EBUSY` / `-ENOTSUP` when the policy is not
+`rzi_power_shutdown()` returns `-RZI_ERR_BUSY` / `-RZI_ERR_NOT_SUPPORTED` when the policy is not
 shutdown, blockers remain, or the wake-source mask cannot return from
 power-off.
 

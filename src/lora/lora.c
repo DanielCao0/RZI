@@ -33,7 +33,7 @@ static atomic_t rx_active;
 
 static int check_thread(void)
 {
-	return k_is_in_isr() ? -EWOULDBLOCK : 0;
+	return k_is_in_isr() ? -RZI_ERR_WOULDBLOCK : 0;
 }
 
 static void apply_cipher(uint8_t *data, size_t size, const struct rzi_lora_config *settings)
@@ -76,7 +76,7 @@ int rzi_lora_register_callbacks(const struct rzi_lora_callbacks *table)
 		return rc;
 	}
 	if (table == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	k_mutex_lock(&lock, K_FOREVER);
 	callbacks = *table;
@@ -92,10 +92,10 @@ int rzi_lora_start(enum rzi_lora_modulation value)
 		return rc;
 	}
 	if (value != RZI_LORA_MOD_LORA && value != RZI_LORA_MOD_FSK) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (rzi_lora_backend.start == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	k_mutex_lock(&lock, K_FOREVER);
 	rc = rzi_lora_backend.start(value);
@@ -142,7 +142,7 @@ int rzi_lora_get_config(struct rzi_lora_config *out)
 		return rc;
 	}
 	if (out == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	k_mutex_lock(&lock, K_FOREVER);
 	*out = config;
@@ -160,7 +160,7 @@ int rzi_lora_set_config(const struct rzi_lora_config *in)
 	if (in == NULL || in->spreading_factor < 5U || in->spreading_factor > 12U ||
 	    in->tx_power_dbm < 5 || in->tx_power_dbm > 22 || in->preamble_length < 5U ||
 	    in->coding_rate > 3U) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	k_mutex_lock(&lock, K_FOREVER);
 	config = *in;
@@ -180,10 +180,10 @@ int rzi_lora_send(const uint8_t *data, size_t size)
 		return rc;
 	}
 	if (data == NULL || size == 0U || size > RZI_LORA_MAX_PAYLOAD) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (!atomic_get(&started) || rzi_lora_backend.send == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	memcpy(framed, data, size);
 	k_mutex_lock(&lock, K_FOREVER);
@@ -200,7 +200,7 @@ int rzi_lora_receive(uint32_t timeout_ms)
 		return rc;
 	}
 	if (!atomic_get(&started) || rzi_lora_backend.receive == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	rc = rzi_lora_backend.receive(timeout_ms);
 	if (rc == 0) {
@@ -233,7 +233,7 @@ static int call_test(int (*fn)(void))
 		return rc;
 	}
 	if (fn == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return fn();
 }
@@ -256,7 +256,7 @@ int rzi_lora_test_tx(uint32_t packet_count)
 		return rc;
 	}
 	if (rzi_lora_backend.test_tx == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return rzi_lora_backend.test_tx(packet_count);
 }
@@ -269,7 +269,7 @@ int rzi_lora_test_rx(uint32_t packet_count)
 		return rc;
 	}
 	if (rzi_lora_backend.test_rx == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return rzi_lora_backend.test_rx(packet_count);
 }
@@ -282,7 +282,7 @@ int rzi_lora_test_cw(uint32_t frequency_hz, int8_t power_dbm, uint32_t duration_
 		return rc;
 	}
 	if (rzi_lora_backend.test_cw == NULL) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	return rzi_lora_backend.test_cw(frequency_hz, power_dbm, duration_ms);
 }

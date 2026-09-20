@@ -11,6 +11,7 @@
 #include <zephyr/toolchain.h>
 
 #include <rzi/lorawan/lorawan.h>
+#include <rzi/err.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,11 +47,11 @@ struct rzi_lorawan_multicast_session {
  * @param session Session parameters copied before this function returns.
  *
  * @retval 0 Session started.
- * @retval -EINVAL session is NULL or contains an invalid class or group.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOMEM No group slot remains.
- * @retval -ENOTSUP The backend does not support multicast.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID session is NULL or contains an invalid class or group.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NO_RESOURCE No group slot remains.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -64,10 +65,10 @@ rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session *se
  * @param dev_addr Multicast device address in host byte order.
  *
  * @retval 0 Session removed.
- * @retval -ENOENT No session uses this address.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support multicast.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_FOUND No session uses this address.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -80,10 +81,10 @@ __must_check int rzi_lorawan_remove_multicast_session(uint32_t dev_addr);
  * @param[out] count Stored session count.
  *
  * @retval 0 Count stored.
- * @retval -EINVAL count is NULL.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support multicast.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID count is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -99,10 +100,10 @@ __must_check int rzi_lorawan_get_multicast_count(size_t *count);
  * @param[out] session Stored session without keys.
  *
  * @retval 0 Session stored.
- * @retval -EINVAL session is NULL or index is out of range.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support multicast.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_INVALID session is NULL or index is out of range.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -114,9 +115,9 @@ __must_check int rzi_lorawan_get_multicast_session(size_t index,
  * @brief Stop and remove every multicast session.
  *
  * @retval 0 Sessions cleared.
- * @retval -EAGAIN The service has not started.
- * @retval -ENOTSUP The backend does not support multicast.
- * @retval -EWOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

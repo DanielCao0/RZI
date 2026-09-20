@@ -25,7 +25,7 @@ static int handle_pgslot(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 7) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	rc = rzi_lorawan_set_ping_slot_periodicity((uint8_t)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);

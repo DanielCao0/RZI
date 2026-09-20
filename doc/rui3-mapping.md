@@ -13,7 +13,7 @@ See also: [lorawan-api.md](./lorawan-api.md),
 ## Purpose
 
 These signatures are the RZI LoRaWAN ABI. Unsupported backends return
-`-ENOTSUP`. The reference behavior is the RUI3 C service and C AT
+`-RZI_ERR_NOT_SUPPORTED`. The reference behavior is the RUI3 C service and C AT
 implementation, not `component/rui_v3_api/RAKLorawan.*`. Persistent
 OTAA/ABP credentials stay inputs to `rzi_lorawan_join()`. Join retry,
 confirm-default, and last-payload readback stay in the AT package.
@@ -157,24 +157,24 @@ FUOTA coordination stays Kconfig-gated (`CONFIG_RZI_LORAWAN_FUOTA`). See
 ## Backend coverage
 
 Public facades always compile except FUOTA. A capability bit means the
-backend implements that group. A NULL operation still returns `-ENOTSUP`.
+backend implements that group. A NULL operation still returns `-RZI_ERR_NOT_SUPPORTED`.
 
 | Group | USP / LBM | Zephyr `lorawan_*` |
 |---|---|---|
 | Join / send / class | OTAA, Class A/B/C | OTAA, ABP, Class A/C |
 | ADR, DR, public network, LBT | Yes | ADR, DR |
-| TX power, duty-cycle enable, RX / join windows | `-ENOTSUP` (not in `smtc_modem_*`) | `-ENOTSUP` |
-| Channel mask / sub-band / fixed channel | `-ENOTSUP` | Channel mask |
+| TX power, duty-cycle enable, RX / join windows | `-RZI_ERR_NOT_SUPPORTED` (not in `smtc_modem_*`) | `-RZI_ERR_NOT_SUPPORTED` |
+| Channel mask / sub-band / fixed channel | `-RZI_ERR_NOT_SUPPORTED` | Channel mask |
 | RSSI / SNR / protocol version | Core downlink cache / constant | Same |
 | `query_tx_possible` / `is_busy` / DevNonce | TX size and busy | TX size, busy, DevNonce |
-| Class B ping-slot / state | Yes; beacon fields `-ENOTSUP` | `-ENOTSUP` |
+| Class B ping-slot / state | Yes; beacon fields `-RZI_ERR_NOT_SUPPORTED` | `-RZI_ERR_NOT_SUPPORTED` |
 | LinkCheckReq / DeviceTimeReq | Yes | Yes (not under `CONFIG_LORAWAN_EMUL`) |
-| Multicast 0–3 | Yes | `-ENOTSUP` |
-| Channel RSSI scan | `-ENOTSUP` | `-ENOTSUP` |
-| Certification | Mode yes; FPort is local | `-ENOTSUP` |
+| Multicast 0–3 | Yes | `-RZI_ERR_NOT_SUPPORTED` |
+| Channel RSSI scan | `-RZI_ERR_NOT_SUPPORTED` | `-RZI_ERR_NOT_SUPPORTED` |
+| Certification | Mode yes; FPort is local | `-RZI_ERR_NOT_SUPPORTED` |
 | FUOTA | When `CONFIG_RZI_LORAWAN_FUOTA` | When enabled |
 
-AT commands wrap these APIs. `-ENOTSUP` becomes `AT_ERROR`.
+AT commands wrap these APIs. `-RZI_ERR_NOT_SUPPORTED` becomes `AT_ERROR`.
 
 ## Out of this ABI
 

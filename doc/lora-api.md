@@ -3,9 +3,10 @@
 Status: implemented
 
 Public C contract for P2P LoRa, P2P FSK, and radio certification tests.
-The ABI is `include/rzi/lora/lora.h` (group 0.3.0).
+The ABI is `include/rzi/lora/lora.h` (group 0.4.0).
 
-See also: [at-command-compatibility.md](./at-command-compatibility.md),
+See also: [error-codes.md](./error-codes.md),
+[at-command-compatibility.md](./at-command-compatibility.md),
 [lorawan-api.md](./lorawan-api.md).
 
 ## Purpose
@@ -34,4 +35,6 @@ with the stored key and IV, not RUI3 AES-CTR.
 - Spreading factor 5 through 12, TX power 5 through 22 dBm.
 - Payload up to `RZI_LORA_MAX_PAYLOAD` (255 bytes).
 - `timeout_ms` 0 stops receive, 65535 receives continuously.
-- Radio tests that the selected backend does not implement return `-ENOTSUP`.
+- Radio tests that the selected backend does not implement return
+  `-RZI_ERR_NOT_SUPPORTED`. Backend and driver codes are mapped at the
+  boundary and never forwarded as POSIX errno.

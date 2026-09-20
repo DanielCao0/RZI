@@ -13,7 +13,7 @@
 
 #define RZI_LORAWAN_NETWORK_OPS_VERSION 1U
 
-/** Optional network-management operations. NULL members return -ENOTSUP. */
+/** Optional network-management operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
 struct rzi_lorawan_network_ops {
 	int (*get_class)(enum rzi_lorawan_class *device_class);
 	int (*get_adr)(bool *enabled);

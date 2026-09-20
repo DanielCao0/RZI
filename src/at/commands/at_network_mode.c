@@ -31,11 +31,11 @@ static int parse_long(const char *argument, long *value)
 	char *end = NULL;
 
 	if (argument == NULL || value == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	*value = strtol(argument, &end, 10);
 	if (end == argument || *end != '\0') {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	return 0;
 }
@@ -57,7 +57,7 @@ static int load_mode(void)
 		return rc;
 	}
 	rc = rzi_storage_read("rzi", "nwm", &stored, sizeof(stored));
-	if (rc == -ENOENT) {
+	if (rc == -RZI_ERR_NOT_FOUND) {
 		return 0;
 	}
 	if (rc != 0) {
@@ -100,10 +100,10 @@ uint8_t rzi_at_network_mode_get(void)
 int rzi_at_network_mode_add_listener(rzi_at_network_mode_changed_t listener)
 {
 	if (listener == NULL) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if (listener_count >= ARRAY_SIZE(listeners)) {
-		return -ENOMEM;
+		return -RZI_ERR_NO_RESOURCE;
 	}
 	listeners[listener_count++] = listener;
 	return 0;
@@ -120,11 +120,11 @@ static int handle_nwm(const struct rzi_at_request *request, void *user_data)
 	}
 	rc = parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > (long)RZI_AT_NETWORK_MODE_P2P_FSK) {
-		return -EINVAL;
+		return -RZI_ERR_INVALID;
 	}
 	if ((uint8_t)parsed != RZI_AT_NETWORK_MODE_LORAWAN &&
 	    !IS_ENABLED(CONFIG_RZI_AT_COMMAND_LORA)) {
-		return -ENOTSUP;
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	if ((uint8_t)parsed == network_mode) {
 		return rzi_at_respond_status(RZI_AT_STATUS_OK);
@@ -154,7 +154,7 @@ static int extension_factory_reset(void)
 {
 	int rc = rzi_storage_delete("rzi", "nwm");
 
-	return (rc == 0 || rc == -ENOENT) ? 0 : rc;
+	return (rc == 0 || rc == -RZI_ERR_NOT_FOUND) ? 0 : rc;
 }
 
 static const struct rzi_at_extension extension = {
