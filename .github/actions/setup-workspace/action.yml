@@ -3,7 +3,8 @@ name: setup-workspace
 description: >-
   Create a west workspace around the checked-out RZI module: fetch the pinned
   Zephyr and USP revisions, apply the RZI backend patches, and mount RZI as an
-  extra Zephyr module.
+  extra Zephyr module. The GitHub workspace directory becomes the west
+  workspace topdir.
 inputs:
   zephyr-revision:
     description: Zephyr revision the CI manifest pins
@@ -19,11 +20,11 @@ runs:
       uses: actions/cache@v4
       with:
         path: |
-          ${{ github.workspace }}/workspace/zephyr
-          ${{ github.workspace }}/workspace/modules
-          ${{ github.workspace }}/workspace/bootloader
-          ${{ github.workspace }}/workspace/tools
-          ${{ github.workspace }}/workspace/usp_zephyr
+          ${{ github.workspace }}/zephyr
+          ${{ github.workspace }}/modules
+          ${{ github.workspace }}/bootloader
+          ${{ github.workspace }}/tools
+          ${{ github.workspace }}/usp_zephyr
         key: west-${{ inputs.zephyr-revision }}-${{ hashFiles('rzi/west.yml') }}
         restore-keys: west-${{ inputs.zephyr-revision }}-
 
@@ -33,7 +34,7 @@ runs:
         ZEPHYR_REVISION: ${{ inputs.zephyr-revision }}
       run: |
         set -eux
-        mkdir -p "${GITHUB_WORKSPACE}/workspace"
+        mkdir -p "${GITHUB_WORKSPACE}/manifest"
         python3 - <<'PY'
         import os
         import pathlib
@@ -56,24 +57,25 @@ runs:
             dep["clone-depth"] = 1
             projects.append(dep)
         manifest = {"manifest": {"version": "0.13", "projects": projects}}
-        (root / "workspace/west.yml").write_text(yaml.safe_dump(manifest, sort_keys=False))
+        (root / "manifest/west.yml").write_text(yaml.safe_dump(manifest, sort_keys=False))
         PY
-        cat "${GITHUB_WORKSPACE}/workspace/west.yml"
+        cat "${GITHUB_WORKSPACE}/manifest/west.yml"
 
     - name: Fetch the pinned dependencies
       shell: bash
       run: |
         set -eux
-        cd "${GITHUB_WORKSPACE}/workspace"
-        git init -q .
-        git add west.yml
-        git -c user.name=rzi-ci -c user.email=ci@localhost commit -qm "CI manifest"
-        west init -l .
+        git -C "${GITHUB_WORKSPACE}/manifest" init -q
+        git -C "${GITHUB_WORKSPACE}/manifest" add west.yml
+        git -C "${GITHUB_WORKSPACE}/manifest" \
+          -c user.name=rzi-ci -c user.email=ci@localhost commit -qm "CI manifest"
+        cd "${GITHUB_WORKSPACE}"
+        west init -l manifest
         west update --narrow
 
     - name: Apply the RZI backend patches
       shell: bash
-      working-directory: workspace/usp_zephyr
+      working-directory: usp_zephyr
       run: |
         set -eux
         for patch in "${GITHUB_WORKSPACE}"/rzi/zephyr/patches/usp_zephyr/*.patch; do

@@ -56,7 +56,7 @@ jobs:
         run: python3 -m pip install "clang-format==${CLANG_FORMAT_VERSION}"
 
       - name: Coding style
-        working-directory: workspace/rzi
+        working-directory: rzi
         env:
           BASE_REF: >-
             ${{ github.event_name == 'pull_request' &&
@@ -129,11 +129,10 @@ jobs:
       - name: Install the Zephyr Python requirements
         run: |
           python3 -m pip install \
-            -r workspace/zephyr/scripts/requirements-base.txt \
-            -r workspace/zephyr/scripts/requirements-build-test.txt
+            -r zephyr/scripts/requirements-base.txt \
+            -r zephyr/scripts/requirements-build-test.txt
 
       - name: Run the test suites
-        working-directory: workspace
         run: west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v -j "$(nproc)"
 
       - name: Upload the twister report on failure
@@ -141,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: twister-report
-          path: workspace/twister-out/
+          path: twister-out/
           if-no-files-found: ignore
 
   samples:
@@ -172,8 +171,8 @@ jobs:
       - name: Install the Zephyr Python requirements
         run: |
           python3 -m pip install \
-            -r workspace/zephyr/scripts/requirements-base.txt \
-            -r workspace/zephyr/scripts/requirements-build-test.txt \
+            -r zephyr/scripts/requirements-base.txt \
+            -r zephyr/scripts/requirements-build-test.txt \
             imgtool
 
       - name: Cache the Zephyr SDK
@@ -196,7 +195,6 @@ jobs:
             >> "${GITHUB_ENV}"
 
       - name: Build the samples
-        working-directory: workspace
         run: west twister -T "${GITHUB_WORKSPACE}/rzi/samples" --inline-logs -v -j "$(nproc)"
 
       - name: Upload the twister report on failure
@@ -204,7 +202,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: twister-samples-report
-          path: workspace/twister-out/
+          path: twister-out/
           if-no-files-found: ignore
 
   headers:
@@ -235,18 +233,17 @@ jobs:
       - name: Install the Zephyr Python requirements
         run: |
           python3 -m pip install \
-            -r workspace/zephyr/scripts/requirements-base.txt \
-            -r workspace/zephyr/scripts/requirements-build-test.txt
+            -r zephyr/scripts/requirements-base.txt \
+            -r zephyr/scripts/requirements-build-test.txt
 
       - name: Configure a reference build
-        working-directory: workspace
         run: >-
           west build -b native_sim/native/64
           "${GITHUB_WORKSPACE}/rzi/samples/lorawan/at"
           -d build-headers --pristine=always
 
       - name: Compile every public header as C and C++
-        run: python3 rzi/scripts/check-public-headers.py workspace/build-headers
+        run: python3 rzi/scripts/check-public-headers.py build-headers
 
   doc:
     name: Documentation (Doxygen)
@@ -267,7 +264,7 @@ jobs:
       - name: Install doxygen
         if: steps.doxygen.outputs.cache-hit != 'true'
         run: |
-          wget -q "https://www.doxygen.nl/files/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
+          wget -q "https://github.com/doxygen/doxygen/releases/download/Release_$(echo "${DOXYGEN_VERSION}" | tr . _)/doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
           mkdir -p "doxygen-${DOXYGEN_VERSION}"
           tar -xf "doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz" \
             -C "doxygen-${DOXYGEN_VERSION}" --strip-components=1
