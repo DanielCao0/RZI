@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/atomic.h>
@@ -20,8 +21,9 @@
 #include <rzi/power/power.h>
 #endif
 
-#include "lorawan_fuota.h"
 #include "../../backend/lorawan_feature.h"
+#include "../../backend/lorawan_fuota.h"
+#include "../../core/lorawan_service.h"
 
 static __maybe_unused void ignore_result(int result)
 {
@@ -495,7 +497,7 @@ int rzi_fuota_apply(void)
 #endif
 }
 
-void rzi_lorawan_fuota_on_backend_event(const struct rzi_lorawan_backend_event *event)
+static void fuota_on_event(const struct rzi_lorawan_backend_event *event)
 {
 	if (event == NULL || !atomic_get(&started)) {
 		return;
@@ -527,7 +529,19 @@ void rzi_lorawan_fuota_on_backend_event(const struct rzi_lorawan_backend_event *
 	k_mutex_unlock(&lock);
 }
 
-bool rzi_lorawan_fuota_has_image(void)
+static void fuota_on_started(void)
 {
-	return image_ready;
+	ignore_result(rzi_fuota_start());
 }
+
+static int fuota_register(void)
+{
+	static const struct rzi_lorawan_service service = {
+		.on_started = fuota_on_started,
+		.on_event = fuota_on_event,
+	};
+
+	return rzi_lorawan_register_service(&service);
+}
+
+SYS_INIT(fuota_register, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

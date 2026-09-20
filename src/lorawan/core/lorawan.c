@@ -19,21 +19,18 @@
 #include "../backend/lorawan_network.h"
 #include "../mac_commands/lorawan_mac_commands.h"
 #include "lorawan_priv.h"
+#include "lorawan_service.h"
 
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-#include <rzi/lorawan/fuota.h>
-#include "../services/fuota/lorawan_fuota.h"
-
-static void ignore_result(int result)
-{
-	ARG_UNUSED(result);
-}
-#endif
+#define SERVICE_MAX 2U
 
 K_MSGQ_DEFINE(events, sizeof(struct rzi_lorawan_backend_event), CONFIG_RZI_LORAWAN_EVENT_QUEUE_SIZE,
 	      4);
 K_MUTEX_DEFINE(callbacks_lock);
 K_MUTEX_DEFINE(config_lock);
+K_MUTEX_DEFINE(services_lock);
+
+static const struct rzi_lorawan_service *services[SERVICE_MAX];
+static size_t service_count;
 
 struct callback_slot {
 	bool active;
@@ -96,7 +93,9 @@ static void publish_state(enum rzi_lorawan_state state)
 static void dispatch(const struct rzi_lorawan_backend_event *event)
 {
 	struct callback_slot subscribers[CONFIG_RZI_LORAWAN_MAX_CALLBACKS] = {0};
+	const struct rzi_lorawan_service *attached[SERVICE_MAX];
 	size_t count = 0;
+	size_t attached_count;
 
 	k_mutex_lock(&callbacks_lock, K_FOREVER);
 	for (size_t i = 0; i < ARRAY_SIZE(callback_slots); ++i) {
@@ -185,9 +184,16 @@ static void dispatch(const struct rzi_lorawan_backend_event *event)
 			break;
 		}
 	}
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-	rzi_lorawan_fuota_on_backend_event(event);
-#endif
+
+	k_mutex_lock(&services_lock, K_FOREVER);
+	attached_count = service_count;
+	memcpy(attached, services, attached_count * sizeof(attached[0]));
+	k_mutex_unlock(&services_lock);
+	for (size_t i = 0; i < attached_count; ++i) {
+		if (attached[i]->on_event != NULL) {
+			attached[i]->on_event(event);
+		}
+	}
 }
 
 static void dispatcher(void *unused1, void *unused2, void *unused3)
@@ -367,11 +373,41 @@ int rzi_lorawan_start(void)
 	if (rc != 0) {
 		atomic_clear(&started);
 		publish_state(RZI_LORAWAN_STATE_STOPPED);
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
 	} else {
-		ignore_result(rzi_fuota_start());
-#endif
+		const struct rzi_lorawan_service *attached[SERVICE_MAX];
+		size_t attached_count;
+
+		k_mutex_lock(&services_lock, K_FOREVER);
+		attached_count = service_count;
+		memcpy(attached, services, attached_count * sizeof(attached[0]));
+		k_mutex_unlock(&services_lock);
+		for (size_t i = 0; i < attached_count; ++i) {
+			if (attached[i]->on_started != NULL) {
+				attached[i]->on_started();
+			}
+		}
 	}
+	return rc;
+}
+
+int rzi_lorawan_register_service(const struct rzi_lorawan_service *service)
+{
+	int rc = rzi_lorawan_check_thread();
+
+	if (rc != 0) {
+		return rc;
+	}
+	if (service == NULL) {
+		return -EINVAL;
+	}
+
+	k_mutex_lock(&services_lock, K_FOREVER);
+	if (service_count >= ARRAY_SIZE(services)) {
+		rc = -ENOMEM;
+	} else {
+		services[service_count++] = service;
+	}
+	k_mutex_unlock(&services_lock);
 	return rc;
 }
 

@@ -20,7 +20,6 @@
 #include "lorawan_backend_usp_priv.h"
 
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
-#include "../../services/fuota/lorawan_fuota.h"
 #ifdef CONFIG_LORA_BASICS_MODEM_FUOTA_V2
 void lorawan_fragmentation_package_get_file_size(uint8_t stack_id, uint32_t *file_size);
 #endif
@@ -48,6 +47,9 @@ static bool join_backoff_bypass;
 static smtc_modem_region_t region;
 static rzi_lorawan_event_sink_t event_sink;
 static enum rzi_lorawan_class_b_state class_b_state = RZI_LORAWAN_CLASS_B_IDLE;
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+static bool fuota_image_ready;
+#endif
 
 int rzi_lorawan_usp_result(smtc_modem_return_code_t rc)
 {
@@ -174,6 +176,9 @@ static void modem_event_callback(void)
 
 			ready = false;
 			tx_pending = false;
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+			fuota_image_ready = false;
+#endif
 			error = configure_service();
 			if (error == 0 && credentials_valid) {
 				error = configure_credentials();
@@ -188,6 +193,9 @@ static void modem_event_callback(void)
 			break;
 		}
 		case SMTC_MODEM_EVENT_JOINED:
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+			fuota_image_ready = false;
+#endif
 			event.type = RZI_LORAWAN_BACKEND_JOINED;
 			rzi_lorawan_usp_publish(&event);
 			break;
@@ -295,6 +303,7 @@ static void modem_event_callback(void)
 			event.type = RZI_LORAWAN_BACKEND_FUOTA;
 			event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_TRANSFER_DONE;
 			event.fuota.successful = source.event_data.fuota_status.successful;
+			fuota_image_ready = event.fuota.successful;
 #ifdef CONFIG_LORA_BASICS_MODEM_FUOTA_V2
 			if (event.fuota.successful) {
 				lorawan_fragmentation_package_get_file_size(
@@ -382,6 +391,9 @@ static int usp_leave(void)
 	if (tx_pending) {
 		return rzi_lorawan_usp_finish(-EBUSY);
 	}
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	fuota_image_ready = false;
+#endif
 	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(smtc_modem_leave_network(STACK_ID)));
 }
 
@@ -463,7 +475,7 @@ static uint32_t usp_fuota_fw_version(void)
 
 static uint8_t usp_fuota_fw_status(void)
 {
-	return rzi_lorawan_fuota_has_image() ? FMP_IMAGE_VALID : 0U;
+	return fuota_image_ready ? FMP_IMAGE_VALID : 0U;
 }
 
 static uint32_t usp_fuota_next_fw_version(void)

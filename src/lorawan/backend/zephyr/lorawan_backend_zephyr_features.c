@@ -14,10 +14,6 @@
 #include "../../mac_commands/lorawan_mac_commands.h"
 #include "lorawan_backend_zephyr_priv.h"
 
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-#include "../../services/fuota/lorawan_fuota.h"
-#endif
-
 static enum rzi_lorawan_class device_class = RZI_LORAWAN_CLASS_A;
 static bool adr_enabled = true;
 static enum rzi_lorawan_data_rate data_rate = RZI_LORAWAN_DR_0;

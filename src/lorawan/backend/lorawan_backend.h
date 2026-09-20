@@ -12,6 +12,7 @@
 #include "lorawan_network.h"
 #include "lorawan_channel.h"
 #include "lorawan_info.h"
+#include "lorawan_fuota.h"
 
 /** Events published by a backend and consumed by the service dispatcher. */
 enum rzi_lorawan_backend_event_type {

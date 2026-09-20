@@ -11,7 +11,6 @@
 #include <rzi/lorawan/lorawan.h>
 
 #include "backend/lorawan_backend.h"
-#include "services/fuota/lorawan_fuota.h"
 
 K_SEM_DEFINE(fuota_sem, 0, 8);
 
@@ -198,7 +197,6 @@ ZTEST(rzi_lorawan_fuota, test_session_and_image_access)
 	wait_for(2);
 	zassert_equal(atomic_get(&stats.state), RZI_FUOTA_STATE_COMPLETE);
 	zassert_ok(atomic_get(&stats.complete));
-	zassert_true(rzi_lorawan_fuota_has_image());
 	zassert_ok(rzi_fuota_get_status(&status));
 	zassert_true(status.image_ready);
 	zassert_equal(status.image_size, sizeof(fake_image));

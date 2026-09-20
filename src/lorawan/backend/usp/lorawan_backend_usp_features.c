@@ -15,10 +15,6 @@
 #include "../../services/multicast/lorawan_multicast.h"
 #include "lorawan_backend_usp_priv.h"
 
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-#include "../../services/fuota/lorawan_fuota.h"
-#endif
-
 #define LBT_DEFAULT_DURATION_MS 5U
 #define LBT_DEFAULT_THRESHOLD   (-80)
 #define LBT_DEFAULT_BW_HZ       200000U

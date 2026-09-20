@@ -67,7 +67,7 @@ LoRaWAN implementation is split by responsibility:
 
 ```text
 src/lorawan/
-├── core/           Public API implementation and event dispatch
+├── core/           Public API implementation, event dispatch, service hooks
 ├── backend/        Private contract plus USP / Zephyr implementations
 ├── mac_commands/   DeviceTime / LinkCheck
 └── services/       Optional packages such as FUOTA and multicast

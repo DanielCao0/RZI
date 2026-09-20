@@ -28,7 +28,6 @@
 #ifdef CONFIG_FLASH_MAP
 #include <zephyr/storage/flash_map.h>
 #endif
-#include "../../services/fuota/lorawan_fuota.h"
 #endif
 
 #include "../lorawan_backend.h"
