@@ -134,7 +134,14 @@ jobs:
             -r zephyr/scripts/requirements-run-test.txt
 
       - name: Run the test suites
-        run: west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v -j "$(nproc)"
+        run: |
+          set -o pipefail
+          if ! west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v -j "$(nproc)" 2>&1 | tee twister-console.log; then
+            grep -aE "ERROR|error:|FAILED" twister-console.log | head -40 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          fi
 
       - name: Upload the twister report on failure
         if: failure()
@@ -240,10 +247,16 @@ jobs:
             -r zephyr/scripts/requirements-run-test.txt
 
       - name: Configure a reference build
-        run: >-
-          west build -b native_sim/native/64
-          "${GITHUB_WORKSPACE}/rzi/tests/lorawan/core"
-          -d build-headers --pristine=always
+        run: |
+          set -o pipefail
+          if ! west build -b native_sim/native/64 \
+              "${GITHUB_WORKSPACE}/rzi/tests/lorawan/core" \
+              -d build-headers --pristine=always 2>&1 | tee build-headers.log; then
+            tail -30 build-headers.log | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          fi
 
       - name: Compile every public header as C and C++
         run: python3 rzi/scripts/check-public-headers.py build-headers
@@ -288,8 +301,9 @@ jobs:
           export PATH="${DOXYGEN_BINDIR}:${PATH}"
           scripts/generate-doxygen.sh
           if [[ -s doc/doxygen/warnings.log ]]; then
-            echo "::error::doxygen warnings:"
-            cat doc/doxygen/warnings.log
+            while IFS= read -r line; do
+              echo "::error::${line}"
+            done < doc/doxygen/warnings.log
             exit 1
           fi
 

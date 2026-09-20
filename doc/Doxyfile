@@ -79,6 +79,7 @@ INPUT                  = ../include/rzi \
                          rui3-mapping.md \
                          rui3-gap.md \
                          sbom.md \
+                         ci.md \
                          coding-standards.md \
                          naming-conventions.md \
                          api-docs.md
