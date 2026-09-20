@@ -13,13 +13,13 @@ choice RZI_LORA_BACKEND
 	default RZI_LORA_BACKEND_TEST if ZTEST
 	default RZI_LORA_BACKEND_USP if RZI_LORAWAN_BACKEND_USP
 	default RZI_LORA_BACKEND_ZEPHYR if LORA
-	default RZI_LORA_BACKEND_TEST
 
 config RZI_LORA_BACKEND_TEST
 	bool "In-process test backend"
+	depends on ZTEST
 	help
-	  Software loopback used by host tests and as a fallback when no radio
-	  backend is available. Do not use this option in production firmware.
+	  Software loopback used by host tests. Do not use this option in
+	  production firmware.
 
 config RZI_LORA_BACKEND_USP
 	bool "Semtech USP LoRa Basics Modem test API"

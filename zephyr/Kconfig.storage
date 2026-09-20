@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_STORAGE
+	bool "RZI storage service"
+	select SETTINGS
+	help
+	  Enable the backend-neutral RZI key-value storage API. The current
+	  Zephyr integration uses the settings subsystem.

@@ -49,7 +49,7 @@ endchoice
 
 if RZI_LORAWAN_BACKEND_ZEPHYR
 
-config RZI_LORAWAN_ZEPHYR_WORKER_STACK_SIZE
+config RZI_LORAWAN_BACKEND_ZEPHYR_WORKER_STACK_SIZE
 	int "Zephyr backend worker stack size"
 	range 1024 8192
 	default 2048
@@ -57,7 +57,7 @@ config RZI_LORAWAN_ZEPHYR_WORKER_STACK_SIZE
 	  Stack for the thread that runs blocking Zephyr lorawan_join()
 	  and lorawan_send() calls.
 
-config RZI_LORAWAN_ZEPHYR_WORKER_PRIORITY
+config RZI_LORAWAN_BACKEND_ZEPHYR_WORKER_PRIORITY
 	int "Zephyr backend worker preemptive priority"
 	range 0 15
 	default 11
@@ -84,20 +84,6 @@ config RZI_LORAWAN_DISPATCHER_PRIORITY
 	range 0 15
 	default 10
 
-menu "Optional LoRaWAN backend capabilities"
-
-config RZI_LORAWAN_MULTICAST
-	bool "Advertise historical multicast Kconfig (no compile gate)"
-	help
-	  The multicast C API is always compiled. Unsupported backends return
-	  -ENOTSUP. This option is retained for existing extra_configs.
-
-config RZI_LORAWAN_LINK_CHECK
-	bool "Advertise historical LinkCheckReq Kconfig (no compile gate)"
-	help
-	  The LinkCheckReq C API is always compiled. Unsupported backends
-	  return -ENOTSUP.
-
 config RZI_LORAWAN_FUOTA
 	bool "LoRaWAN FUOTA coordination"
 	depends on RZI_MCUBOOT_DUAL_SLOT || !RZI_MCUBOOT
@@ -111,11 +97,13 @@ config RZI_LORAWAN_FUOTA
 	  other LoRaWAN FUOTA servers. Clock Synchronization, Remote
 	  Multicast Setup and Fragmentation stay inside the selected
 	  backend. RZI owns session state, image access and optional
-	  MCUboot installation.
+	  MCUboot installation. Multicast, LinkCheckReq, DeviceTimeReq,
+	  channel scan and certification C APIs are always compiled;
+	  unsupported backends return -RZI_ERR_NOT_SUPPORTED.
 
 if RZI_LORAWAN_FUOTA
 
-config RZI_FUOTA_KEEPALIVE_INTERVAL_S
+config RZI_LORAWAN_FUOTA_KEEPALIVE_INTERVAL_S
 	int "Unicast keepalive interval in seconds"
 	range 0 86400
 	default 0
@@ -125,20 +113,20 @@ config RZI_FUOTA_KEEPALIVE_INTERVAL_S
 	  keepalive automatically. Zero disables the timer so the
 	  application can send its own periodic uplinks.
 
-config RZI_FUOTA_KEEPALIVE_PORT
+config RZI_LORAWAN_FUOTA_KEEPALIVE_PORT
 	int "Keepalive LoRaWAN port"
 	range 1 223
 	default 2
-	depends on RZI_FUOTA_KEEPALIVE_INTERVAL_S > 0
+	depends on RZI_LORAWAN_FUOTA_KEEPALIVE_INTERVAL_S > 0
 
-config RZI_FUOTA_AUTO_APPLY
+config RZI_LORAWAN_FUOTA_AUTO_APPLY
 	bool "Apply a completed image automatically"
 	depends on IMG_MANAGER
 	help
 	  Copy a reconstructed MCUboot image to the secondary slot and
 	  reboot after a successful transfer or an FMP reboot request.
 
-config RZI_FUOTA_HW_VERSION
+config RZI_LORAWAN_FUOTA_HW_VERSION
 	hex "Hardware version reported to FMP"
 	default 0x1
 	help
@@ -146,25 +134,5 @@ config RZI_FUOTA_HW_VERSION
 	  Package. ChirpStack FUOTA does not require FMP.
 
 endif # RZI_LORAWAN_FUOTA
-
-config RZI_LORAWAN_DEVICE_TIME
-	bool "Advertise historical DeviceTimeReq Kconfig (no compile gate)"
-	help
-	  The DeviceTimeReq C API is always compiled. Unsupported backends
-	  return -ENOTSUP.
-
-config RZI_LORAWAN_CHANNEL_SCAN
-	bool "Advertise historical channel-scan Kconfig (no compile gate)"
-	help
-	  The channel-scan C API is always compiled. Unsupported backends
-	  return -ENOTSUP.
-
-config RZI_LORAWAN_CERTIFICATION
-	bool "Advertise historical certification Kconfig (no compile gate)"
-	help
-	  The certification C API is always compiled. Unsupported backends
-	  return -ENOTSUP.
-
-endmenu
 
 endif # RZI_LORAWAN

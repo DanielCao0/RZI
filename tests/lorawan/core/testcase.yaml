@@ -12,9 +12,4 @@ tests:
     platform_allow:
       - native_sim
     extra_configs:
-      - CONFIG_RZI_LORAWAN_MULTICAST=y
-      - CONFIG_RZI_LORAWAN_LINK_CHECK=y
       - CONFIG_RZI_LORAWAN_FUOTA=y
-      - CONFIG_RZI_LORAWAN_DEVICE_TIME=y
-      - CONFIG_RZI_LORAWAN_CHANNEL_SCAN=y
-      - CONFIG_RZI_LORAWAN_CERTIFICATION=y

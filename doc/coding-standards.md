@@ -214,7 +214,12 @@ include/rzi/power/power.h      -> RZI_POWER_POWER_H
 
 ### 3.6 Kconfig, Devicetree, and build
 
-- Kconfig: `RZI_<SERVICE>_<OPTION>`.
+- Kconfig: `RZI_<SERVICE>_<OPTION>`. One `zephyr/Kconfig.<service>` file
+  per service (`storage`, `lorawan`, `lora`, `at`, `rsup`, `power`). The
+  MCUboot contract lives in `zephyr/Kconfig.boot`. Child options keep
+  the full parent prefix, for example `RZI_LORAWAN_FUOTA_*` under
+  `RZI_LORAWAN_FUOTA`, and `RZI_LORAWAN_BACKEND_ZEPHYR_*` under
+  `RZI_LORAWAN_BACKEND_ZEPHYR`.
 - Internal CMake variables should be uppercase `RZI_<NAME>`.
 - RZI-owned DTS properties use lowercase kebab-case. Bindings should carry
   an appropriate vendor prefix.

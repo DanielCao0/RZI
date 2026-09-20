@@ -466,7 +466,7 @@ static int usp_set_class(enum rzi_lorawan_class device_class)
 
 static uint32_t usp_fuota_hw_version(void)
 {
-	return CONFIG_RZI_FUOTA_HW_VERSION;
+	return CONFIG_RZI_LORAWAN_FUOTA_HW_VERSION;
 }
 
 static uint32_t usp_fuota_fw_version(void)

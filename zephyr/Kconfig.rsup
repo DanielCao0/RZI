@@ -17,13 +17,15 @@ config RZI_SLOT_UPDATE
 	bool
 	select RZI_RSUP
 	help
-	  Deprecated alias for CONFIG_RZI_RSUP.
+	  Deprecated alias for CONFIG_RZI_RSUP. Do not use in new
+	  configuration files.
 
 config RZI_USB_UPDATE
 	bool
 	select RZI_RSUP
 	help
-	  Deprecated alias for CONFIG_RZI_RSUP.
+	  Deprecated alias for CONFIG_RZI_RSUP. Do not use in new
+	  configuration files.
 
 if RZI_RSUP
 

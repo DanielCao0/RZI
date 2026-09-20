@@ -39,11 +39,11 @@ UART / future RUI3 BLE UART adapter
 `CONFIG_RZI_AT` enables only the core framework. It does not enable LoRaWAN or
 UART. The current optional pieces are:
 
-- `CONFIG_RZI_AT_ADAPTER_UART`: interrupt-driven UART I/O adapter;
 - `CONFIG_RZI_AT_COMMAND_LORAWAN`: RUI3 LoRaWAN command package;
 - `CONFIG_RZI_AT_COMMAND_LORA`: RUI3 P2P LoRa/FSK and radio-test package;
-- `CONFIG_RZI_AT_NVM`: persistence through the public RZI storage service;
-- `CONFIG_RZI_AT_ECHO`: terminal input echo.
+- `CONFIG_RZI_AT_ADAPTER_UART`: interrupt-driven UART I/O adapter;
+- `CONFIG_RZI_AT_ECHO`: terminal input echo;
+- `CONFIG_RZI_AT_NVM`: persistence through the public RZI storage service.
 
 Buffer sizes, registry capacity, thread stack, priority, and extension polling
 interval are separate Kconfig settings. Future command packages and I/O

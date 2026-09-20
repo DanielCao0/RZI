@@ -34,6 +34,26 @@ config RZI_AT_ADAPTER_UART
 	help
 	  Bind the AT framework to one application-selected interrupt UART.
 
+config RZI_AT_ECHO
+	bool "Echo AT input characters"
+	default y
+	help
+	  Echo printable input and line editing characters using RUI3-style
+	  terminal behavior. Disable this when the host performs local echo.
+
+config RZI_AT_NVM
+	bool "Persist AT parameters in flash"
+	depends on RZI_AT_COMMAND_LORAWAN
+	select RZI_STORAGE
+	select NVS
+	select FLASH_MAP
+	help
+	  Persist AT parameters (NWM, DEVEUI, APPEUI, APPKEY, BAND, CFM and
+	  JOIN auto-join settings) through the RZI storage service, and
+	  enable ATR to restore the devicetree defaults. The application
+	  selects the Zephyr settings backend itself (CONFIG_SETTINGS_NVS=y
+	  recommended). RZI never hardcodes flash addresses.
+
 config RZI_AT_MAX_COMMANDS
 	int "Maximum registered AT commands"
 	range 8 256
@@ -73,25 +93,5 @@ config RZI_AT_PROCESS_INTERVAL_MS
 	int "AT extension processing interval in milliseconds"
 	range 1 1000
 	default 20
-
-config RZI_AT_ECHO
-	bool "Echo AT input characters"
-	default y
-	help
-	  Echo printable input and line editing characters using RUI3-style
-	  terminal behavior. Disable this when the host performs local echo.
-
-config RZI_AT_NVM
-	bool "Persist LoRaWAN AT parameters in flash"
-	depends on RZI_AT_COMMAND_LORAWAN
-	select RZI_STORAGE
-	select NVS
-	select FLASH_MAP
-	help
-	  Persist the AT parameters (DEVEUI, APPEUI, APPKEY, BAND, CFM and
-	  JOIN auto-join settings) through the RZI storage service, and
-	  enable ATR to restore the devicetree defaults. The application
-	  selects the Zephyr settings backend itself (CONFIG_SETTINGS_NVS=y
-	  recommended). RZI never hardcodes flash addresses.
 
 endif # RZI_AT

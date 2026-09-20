@@ -601,7 +601,7 @@ pass does not replace RF and power measurements.
 | Backend context | USP HAL owns it | Preserve backend ownership |
 | Zephyr LBM | Open upstream PR | Evaluate without release dependency |
 | Power | Coordinator and auto-blockers implemented | Hardware current targets and Class B |
-| FUOTA | Coordination API and USP/LBM packages | Optional `CONFIG_RZI_FUOTA_AUTO_APPLY` / signed CI |
+| FUOTA | Coordination API and USP/LBM packages | Optional `CONFIG_RZI_LORAWAN_FUOTA_AUTO_APPLY` / signed CI |
 | C++ RUI | Arduino Core has an OTAA facade | ADR / P2P / full system API still pending |
 | API/ABI version | Canonical SDK version API exists | Define ABI policy before 1.0 |
 

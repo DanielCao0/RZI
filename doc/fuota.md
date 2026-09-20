@@ -62,11 +62,15 @@ CONFIG_LORA_BASICS_MODEM_FUOTA_V1=y
 
 Optional RZI knobs (see `zephyr/Kconfig.lorawan`):
 
-- `CONFIG_RZI_FUOTA_KEEPALIVE_INTERVAL_S` — automatic one-byte unicast
-  keepalive. Default `0` (off); the application should send its own
-  periodic uplinks.
-- `CONFIG_RZI_FUOTA_AUTO_APPLY` — copy a completed image to slot1 and
-  reboot. Requires `CONFIG_IMG_MANAGER`.
+- `CONFIG_RZI_LORAWAN_FUOTA_KEEPALIVE_INTERVAL_S` — automatic one-byte
+  unicast keepalive. Default `0` (off); the application should send its
+  own periodic uplinks.
+- `CONFIG_RZI_LORAWAN_FUOTA_KEEPALIVE_PORT` — LoRaWAN port used by the
+  keepalive uplink when the interval is non-zero.
+- `CONFIG_RZI_LORAWAN_FUOTA_AUTO_APPLY` — copy a completed image to slot1
+  and reboot. Requires `CONFIG_IMG_MANAGER`.
+- `CONFIG_RZI_LORAWAN_FUOTA_HW_VERSION` — 32-bit hardware version reported
+  to FMP.
 
 If the ChirpStack device profile uses v2, switch to
 `CONFIG_LORA_BASICS_MODEM_FUOTA_V2=y`.
