@@ -98,8 +98,8 @@ config RZI_LORAWAN_FUOTA
 	  Multicast Setup and Fragmentation stay inside the selected
 	  backend. RZI owns session state, image access and optional
 	  MCUboot installation. Multicast, LinkCheckReq, DeviceTimeReq,
-	  channel scan and certification C APIs are always compiled;
-	  unsupported backends return -RZI_ERR_NOT_SUPPORTED.
+	  and certification C APIs are always compiled; unsupported
+	  backends return -RZI_ERR_NOT_SUPPORTED.
 
 if RZI_LORAWAN_FUOTA
 

@@ -9,8 +9,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RZI_LORAWAN_FUOTA_OPS_VERSION 1U
-
 /** Optional FUOTA operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
 struct rzi_lorawan_fuota_ops {
 	/** Start ALCSync and optionally request MAC DeviceTime. */

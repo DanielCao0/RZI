@@ -8,8 +8,6 @@
 
 #include <zephyr/sys/util.h>
 
-#include <rzi/lorawan/mac_commands.h>
-
 #include "at_command_lorawan_priv.h"
 
 static int handle_pgslot(const struct rzi_at_request *request, void *user_data)

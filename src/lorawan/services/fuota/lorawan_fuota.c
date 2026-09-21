@@ -21,8 +21,7 @@
 #include <rzi/power/power.h>
 #endif
 
-#include "../../backend/lorawan_feature.h"
-#include "../../backend/lorawan_fuota.h"
+#include "../../backend/lorawan_backend.h"
 #include "../../core/lorawan_service.h"
 
 static __maybe_unused void ignore_result(int result)
@@ -74,14 +73,7 @@ static bool callbacks_empty(const struct rzi_fuota_callbacks *table)
 
 static const struct rzi_lorawan_fuota_ops *resolve_ops(void)
 {
-	const struct rzi_lorawan_backend_extension *extension;
-
-	extension = rzi_lorawan_feature_get(RZI_LORAWAN_FEATURE_FUOTA);
-	if (extension == NULL || extension->version != RZI_LORAWAN_FUOTA_OPS_VERSION ||
-	    extension->size < sizeof(struct rzi_lorawan_fuota_ops)) {
-		return NULL;
-	}
-	return extension->api;
+	return rzi_lorawan_backend.fuota;
 }
 
 static void set_state_locked(enum rzi_fuota_state next)

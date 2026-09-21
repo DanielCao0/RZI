@@ -10,9 +10,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
-#include "../../mac_commands/lorawan_mac_commands.h"
-#include "../../services/certification/lorawan_certification.h"
-#include "../../services/multicast/lorawan_multicast.h"
 #include "lorawan_backend_usp_priv.h"
 
 #define LBT_DEFAULT_DURATION_MS 5U
@@ -34,7 +31,7 @@ static int apply_custom_adr(enum rzi_lorawan_data_rate data_rate)
 		RZI_LORAWAN_USP_STACK_ID, SMTC_MODEM_ADR_PROFILE_CUSTOM, custom));
 }
 
-static int usp_get_class(enum rzi_lorawan_class *device_class)
+int usp_get_class(enum rzi_lorawan_class *device_class)
 {
 	smtc_modem_class_t mapped;
 	int rc = rzi_lorawan_usp_enter();
@@ -293,8 +290,7 @@ static int usp_stop_class_b(void)
 	return rzi_lorawan_usp_finish(rc);
 }
 
-static const struct rzi_lorawan_network_ops usp_network_ops = {
-	.get_class = usp_get_class,
+const struct rzi_lorawan_network_ops usp_network_ops = {
 	.get_adr = usp_get_adr,
 	.set_adr = usp_set_adr,
 	.get_data_rate = usp_get_data_rate,
@@ -307,13 +303,16 @@ static const struct rzi_lorawan_network_ops usp_network_ops = {
 	.set_lbt_rssi = usp_set_lbt_rssi,
 	.get_lbt_scan_time = usp_get_lbt_scan_time,
 	.set_lbt_scan_time = usp_set_lbt_scan_time,
-	.get_ping_slot_periodicity = usp_get_ping_slot,
-	.set_ping_slot_periodicity = usp_set_ping_slot,
-	.get_class_b_state = usp_get_class_b_state,
-	.stop_class_b = usp_stop_class_b,
 };
 
-static int usp_query_tx_possible(size_t size)
+const struct rzi_lorawan_class_b_ops usp_class_b_ops = {
+	.get_ping_slot_periodicity = usp_get_ping_slot,
+	.set_ping_slot_periodicity = usp_set_ping_slot,
+	.get_state = usp_get_class_b_state,
+	.stop = usp_stop_class_b,
+};
+
+int usp_query_tx_possible(size_t size)
 {
 	uint8_t max_payload = 0;
 	int rc = rzi_lorawan_usp_enter();
@@ -329,7 +328,7 @@ static int usp_query_tx_possible(size_t size)
 	return rzi_lorawan_usp_finish(rc);
 }
 
-static int usp_info_is_busy(bool *busy)
+int usp_is_busy(bool *busy)
 {
 	int rc = rzi_lorawan_usp_enter();
 
@@ -339,11 +338,6 @@ static int usp_info_is_busy(bool *busy)
 	*busy = rzi_lorawan_usp_tx_pending();
 	return rzi_lorawan_usp_finish(0);
 }
-
-static const struct rzi_lorawan_info_ops usp_info_ops = {
-	.query_tx_possible = usp_query_tx_possible,
-	.is_busy = usp_info_is_busy,
-};
 
 static int usp_link_check_request(void)
 {
@@ -379,12 +373,9 @@ static int usp_get_network_time(struct rzi_lorawan_network_time *time)
 	return rzi_lorawan_usp_finish(rc);
 }
 
-static const struct rzi_lorawan_link_check_ops usp_link_check_ops = {
-	.request = usp_link_check_request,
-};
-
-static const struct rzi_lorawan_device_time_ops usp_device_time_ops = {
-	.request = usp_device_time_request,
+const struct rzi_lorawan_mac_ops usp_mac_ops = {
+	.request_link_check = usp_link_check_request,
+	.request_device_time = usp_device_time_request,
 	.get_network_time = usp_get_network_time,
 };
 
@@ -525,7 +516,7 @@ static int usp_multicast_clear(void)
 	return rzi_lorawan_usp_finish(rc);
 }
 
-static const struct rzi_lorawan_multicast_ops usp_multicast_ops = {
+const struct rzi_lorawan_multicast_ops usp_multicast_ops = {
 	.add = usp_multicast_add,
 	.remove = usp_multicast_remove,
 	.get_count = usp_multicast_count,
@@ -577,74 +568,9 @@ static int usp_set_cert_port(bool enabled)
 	return rzi_lorawan_usp_finish(0);
 }
 
-static const struct rzi_lorawan_certification_ops usp_cert_ops = {
+const struct rzi_lorawan_certification_ops usp_cert_ops = {
 	.get_mode = usp_get_cert_mode,
 	.set_mode = usp_set_cert_mode,
 	.get_port_enabled = usp_get_cert_port,
 	.set_port_enabled = usp_set_cert_port,
 };
-
-static const struct rzi_lorawan_backend_extension usp_network_ext = {
-	.size = sizeof(usp_network_ops),
-	.version = RZI_LORAWAN_NETWORK_OPS_VERSION,
-	.api = &usp_network_ops,
-};
-
-static const struct rzi_lorawan_backend_extension usp_info_ext = {
-	.size = sizeof(usp_info_ops),
-	.version = RZI_LORAWAN_INFO_OPS_VERSION,
-	.api = &usp_info_ops,
-};
-
-static const struct rzi_lorawan_backend_extension usp_link_check_ext = {
-	.size = sizeof(usp_link_check_ops),
-	.version = RZI_LORAWAN_LINK_CHECK_OPS_VERSION,
-	.api = &usp_link_check_ops,
-};
-
-static const struct rzi_lorawan_backend_extension usp_device_time_ext = {
-	.size = sizeof(usp_device_time_ops),
-	.version = RZI_LORAWAN_DEVICE_TIME_OPS_VERSION,
-	.api = &usp_device_time_ops,
-};
-
-static const struct rzi_lorawan_backend_extension usp_multicast_ext = {
-	.size = sizeof(usp_multicast_ops),
-	.version = RZI_LORAWAN_MULTICAST_OPS_VERSION,
-	.api = &usp_multicast_ops,
-};
-
-static const struct rzi_lorawan_backend_extension usp_cert_ext = {
-	.size = sizeof(usp_cert_ops),
-	.version = RZI_LORAWAN_CERTIFICATION_OPS_VERSION,
-	.api = &usp_cert_ops,
-};
-
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-extern const struct rzi_lorawan_backend_extension rzi_lorawan_usp_fuota_extension;
-#endif
-
-const struct rzi_lorawan_backend_extension *
-rzi_lorawan_usp_get_extension(enum rzi_lorawan_feature_id feature)
-{
-	switch (feature) {
-	case RZI_LORAWAN_FEATURE_NETWORK_MANAGEMENT:
-		return &usp_network_ext;
-	case RZI_LORAWAN_FEATURE_INFORMATION:
-		return &usp_info_ext;
-	case RZI_LORAWAN_FEATURE_LINK_CHECK:
-		return &usp_link_check_ext;
-	case RZI_LORAWAN_FEATURE_DEVICE_TIME:
-		return &usp_device_time_ext;
-	case RZI_LORAWAN_FEATURE_MULTICAST:
-		return &usp_multicast_ext;
-	case RZI_LORAWAN_FEATURE_CERTIFICATION:
-		return &usp_cert_ext;
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-	case RZI_LORAWAN_FEATURE_FUOTA:
-		return &rzi_lorawan_usp_fuota_extension;
-#endif
-	default:
-		return NULL;
-	}
-}

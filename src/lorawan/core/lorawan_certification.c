@@ -9,18 +9,12 @@
 #include <rzi/lorawan/certification.h>
 #include <rzi/lorawan/lorawan.h>
 
-#include "../../backend/lorawan_feature.h"
-#include "../../core/lorawan_priv.h"
-#include "lorawan_certification.h"
+#include "../backend/lorawan_backend.h"
+#include "lorawan_priv.h"
 
 static const struct rzi_lorawan_certification_ops *cert_ops(void)
 {
-	if ((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_CERTIFICATION) == 0U) {
-		return NULL;
-	}
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_CERTIFICATION,
-				       RZI_LORAWAN_CERTIFICATION_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_certification_ops));
+	return rzi_lorawan_backend.certification;
 }
 
 int rzi_lorawan_get_certification_mode(bool *enabled)

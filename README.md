@@ -38,9 +38,8 @@ rzi/
 │   ├── rsup/            Slot update protocol
 │   ├── lora/            Raw LoRa private .c/.h scaffold
 │   ├── lorawan/
-│   │   ├── core/lorawan.c     Backend-independent service
+│   │   ├── core/              Backend-independent service and thin facades
 │   │   ├── backend/           Contract, feature extensions, USP / Zephyr
-│   │   ├── mac_commands/      DeviceTimeReq and LinkCheckReq boundary
 │   │   ├── services/fuota/    ChirpStack-compatible FUOTA coordinator
 │   └── at/
 │       ├── at_core.c          Lifecycle, RX queue and output

@@ -29,9 +29,8 @@ void lorawan_fragmentation_package_get_file_size(uint8_t stack_id, uint32_t *fil
 
 #define USP_CAPABILITIES                                                                           \
 	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CLASS_B |                \
-	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_MULTICAST | RZI_LORAWAN_CAP_LINK_CHECK |        \
-	 RZI_LORAWAN_CAP_INFORMATION | RZI_LORAWAN_CAP_NETWORK_MANAGEMENT |                        \
-	 RZI_LORAWAN_CAP_DEVICE_TIME | RZI_LORAWAN_CAP_CERTIFICATION |                             \
+	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_NETWORK | RZI_LORAWAN_CAP_MAC |                 \
+	 RZI_LORAWAN_CAP_MULTICAST | RZI_LORAWAN_CAP_CERTIFICATION |                               \
 	 (IS_ENABLED(CONFIG_RZI_LORAWAN_FUOTA) ? RZI_LORAWAN_CAP_FUOTA : 0U))
 /* usp_zephyr currently leaves registration to its integrating application. */
 LOG_MODULE_REGISTER(usp, CONFIG_USP_LOG_LEVEL);
@@ -557,11 +556,6 @@ static const struct rzi_lorawan_fuota_ops usp_fuota_ops = {
 	.reboot = usp_fuota_reboot,
 };
 
-const struct rzi_lorawan_backend_extension rzi_lorawan_usp_fuota_extension = {
-	.size = sizeof(usp_fuota_ops),
-	.version = RZI_LORAWAN_FUOTA_OPS_VERSION,
-	.api = &usp_fuota_ops,
-};
 #endif
 
 static int usp_start(enum rzi_lorawan_region selected_region, bool bypass,
@@ -594,6 +588,16 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.leave = usp_leave,
 	.send = usp_send,
 	.set_class = usp_set_class,
+	.get_class = usp_get_class,
 	.is_joined = usp_is_joined,
-	.get_extension = rzi_lorawan_usp_get_extension,
+	.query_tx_possible = usp_query_tx_possible,
+	.is_busy = usp_is_busy,
+	.network = &usp_network_ops,
+	.class_b = &usp_class_b_ops,
+	.mac = &usp_mac_ops,
+	.multicast = &usp_multicast_ops,
+	.certification = &usp_cert_ops,
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	.fuota = &usp_fuota_ops,
+#endif
 };

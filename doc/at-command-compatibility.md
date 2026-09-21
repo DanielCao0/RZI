@@ -200,7 +200,7 @@ milliseconds in the C API.
 - `AT+LINKCHECK` (`0` disabled, `1` once, `2` every uplink)
 - `AT+TIMEREQ`
 - `AT+MASK`, `AT+CHE`, `AT+CHS`
-- `AT+RSSI`, `AT+SNR`, `AT+ARSSI`
+- `AT+RSSI`, `AT+SNR`
 - `AT+PGSLOT`, `AT+BFREQ`, `AT+BTIME`, `AT+BGW`
 - `AT+LTIME` reports GPS seconds (`LTIME: GPS <seconds>`), not RUI3 UTC text
 - `AT+ADDMULC`, `AT+RMVMULC`, `AT+LSTMULC` (listed sessions omit keys)

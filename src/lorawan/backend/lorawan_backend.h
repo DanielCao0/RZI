@@ -8,11 +8,14 @@
 
 #include <rzi/lorawan/lorawan.h>
 
-#include "lorawan_feature.h"
-#include "lorawan_network.h"
+#include "lorawan_certification.h"
 #include "lorawan_channel.h"
-#include "lorawan_info.h"
+#include "lorawan_class_b.h"
 #include "lorawan_fuota.h"
+#include "lorawan_mac_commands.h"
+#include "lorawan_multicast.h"
+#include "lorawan_network.h"
+#include "lorawan_session.h"
 
 /** Events published by a backend and consumed by the service dispatcher. */
 enum rzi_lorawan_backend_event_type {
@@ -110,7 +113,8 @@ typedef void (*rzi_lorawan_event_sink_t)(const struct rzi_lorawan_backend_event 
  *
  * Operation arguments must be consumed or copied before returning. A zero
  * return from join() or send() means accepted; completion is asynchronous
- * through the event sink.
+ * through the event sink. A NULL ops pointer means the whole group is
+ * unsupported. A NULL member inside a table returns -RZI_ERR_NOT_SUPPORTED.
  */
 struct rzi_lorawan_backend_api {
 	/** Bitwise OR of enum rzi_lorawan_capability values. */
@@ -127,14 +131,32 @@ struct rzi_lorawan_backend_api {
 		    enum rzi_lorawan_message_type type);
 	/** Select a device class supported by capabilities. */
 	int (*set_class)(enum rzi_lorawan_class device_class);
+	/** Read the current device class from the stack, or NULL. */
+	int (*get_class)(enum rzi_lorawan_class *device_class);
 	/** Store the current network-session state in joined. */
 	int (*is_joined)(bool *joined);
-	/**
-	 * Return a versioned optional feature contract, or NULL when the
-	 * feature is unsupported.
-	 */
-	const struct rzi_lorawan_backend_extension *(*get_extension)(
-		enum rzi_lorawan_feature_id feature);
+	/** Return whether the next uplink of this size can be sent, or NULL. */
+	int (*query_tx_possible)(size_t size);
+	/** Store whether the radio or MAC is busy, or NULL. */
+	int (*is_busy)(bool *busy);
+	/** MAC-parameter table, or NULL. */
+	const struct rzi_lorawan_network_ops *network;
+	/** Channel-plan table, or NULL. */
+	const struct rzi_lorawan_channel_ops *channel;
+	/** Class B table, or NULL. */
+	const struct rzi_lorawan_class_b_ops *class_b;
+	/** Session-identity table, or NULL. */
+	const struct rzi_lorawan_session_ops *session;
+	/** LinkCheckReq / DeviceTimeReq table, or NULL. */
+	const struct rzi_lorawan_mac_ops *mac;
+	/** Multicast-session table, or NULL. */
+	const struct rzi_lorawan_multicast_ops *multicast;
+	/** Certification-mode table, or NULL. */
+	const struct rzi_lorawan_certification_ops *certification;
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	/** FUOTA image-access table, or NULL. */
+	const struct rzi_lorawan_fuota_ops *fuota;
+#endif
 };
 
 /** Backend implementation selected by the RZI Kconfig choice. */

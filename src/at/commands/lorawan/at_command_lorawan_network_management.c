@@ -10,8 +10,6 @@
 
 #include <zephyr/sys/util.h>
 
-#include <rzi/lorawan/mac_commands.h>
-
 #include "at_command_lorawan_priv.h"
 
 static int class_supported(enum rzi_lorawan_class device_class)

@@ -41,15 +41,13 @@ LOG_MODULE_REGISTER(rzi_lw_zephyr, CONFIG_LORAWAN_LOG_LEVEL);
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 #define ZEPHYR_CAPABILITIES                                                                        \
 	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_ABP | RZI_LORAWAN_CAP_CLASS_A |                    \
-	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_FUOTA | RZI_LORAWAN_CAP_DEVICE_TIME |           \
-	 RZI_LORAWAN_CAP_LINK_CHECK | RZI_LORAWAN_CAP_INFORMATION |                                \
-	 RZI_LORAWAN_CAP_NETWORK_MANAGEMENT | RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT)
+	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_NETWORK | RZI_LORAWAN_CAP_CHANNEL |             \
+	 RZI_LORAWAN_CAP_SESSION | RZI_LORAWAN_CAP_MAC | RZI_LORAWAN_CAP_FUOTA)
 #else
 #define ZEPHYR_CAPABILITIES                                                                        \
 	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_ABP | RZI_LORAWAN_CAP_CLASS_A |                    \
-	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_DEVICE_TIME | RZI_LORAWAN_CAP_LINK_CHECK |      \
-	 RZI_LORAWAN_CAP_INFORMATION | RZI_LORAWAN_CAP_NETWORK_MANAGEMENT |                        \
-	 RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT)
+	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_NETWORK | RZI_LORAWAN_CAP_CHANNEL |             \
+	 RZI_LORAWAN_CAP_SESSION | RZI_LORAWAN_CAP_MAC)
 #endif
 
 #define WORKER_STACK_SIZE CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR_WORKER_STACK_SIZE
@@ -425,7 +423,7 @@ static int zephyr_fuota_get_image_size(size_t *size)
 }
 
 #ifdef CONFIG_FLASH_MAP
-#if FIXED_PARTITION_EXISTS(slot1_partition)
+#if PARTITION_EXISTS(slot1_partition)
 #define RZI_ZEPHYR_HAS_SLOT1 1
 #endif
 #endif
@@ -439,7 +437,7 @@ static int zephyr_fuota_read_image(uint32_t offset, uint8_t *buffer, size_t size
 	if (buffer == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	rc = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &area);
+	rc = flash_area_open(PARTITION_ID(slot1_partition), &area);
 	if (rc != 0) {
 		return rzi_err_from_errno(rc);
 	}
@@ -471,11 +469,6 @@ static const struct rzi_lorawan_fuota_ops zephyr_fuota_ops = {
 	.reboot = zephyr_fuota_reboot,
 };
 
-const struct rzi_lorawan_backend_extension rzi_lorawan_zephyr_fuota_extension = {
-	.size = sizeof(zephyr_fuota_ops),
-	.version = RZI_LORAWAN_FUOTA_OPS_VERSION,
-	.api = &zephyr_fuota_ops,
-};
 #endif
 
 static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backoff_bypass,
@@ -644,6 +637,15 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.leave = zephyr_leave,
 	.send = zephyr_send,
 	.set_class = zephyr_set_class,
+	.get_class = zephyr_get_class,
 	.is_joined = zephyr_is_joined,
-	.get_extension = rzi_lorawan_zephyr_get_extension,
+	.query_tx_possible = zephyr_query_tx_possible,
+	.is_busy = zephyr_is_busy,
+	.network = &zephyr_network_ops,
+	.channel = &zephyr_channel_ops,
+	.session = &zephyr_session_ops,
+	.mac = &zephyr_mac_ops,
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	.fuota = &zephyr_fuota_ops,
+#endif
 };

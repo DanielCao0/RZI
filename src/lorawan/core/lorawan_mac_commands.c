@@ -6,53 +6,38 @@
 
 #include <errno.h>
 
-#include <rzi/lorawan/mac_commands.h>
+#include <rzi/lorawan/lorawan.h>
 
-#include "../backend/lorawan_feature.h"
-#include "../core/lorawan_priv.h"
+#include "../backend/lorawan_backend.h"
 #include "lorawan_mac_commands.h"
+#include "lorawan_priv.h"
 
 static enum rzi_lorawan_link_check_mode link_check_mode = RZI_LORAWAN_LINK_CHECK_DISABLED;
 static bool device_time_enabled;
 
-static const struct rzi_lorawan_link_check_ops *link_check_ops(void)
+static const struct rzi_lorawan_mac_ops *mac_ops(void)
 {
-	if ((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_LINK_CHECK) == 0U) {
-		return NULL;
-	}
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_LINK_CHECK,
-				       RZI_LORAWAN_LINK_CHECK_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_link_check_ops));
-}
-
-static const struct rzi_lorawan_device_time_ops *device_time_ops(void)
-{
-	if ((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_DEVICE_TIME) == 0U) {
-		return NULL;
-	}
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_DEVICE_TIME,
-				       RZI_LORAWAN_DEVICE_TIME_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_device_time_ops));
+	return rzi_lorawan_backend.mac;
 }
 
 static int trig_link_check(void)
 {
-	const struct rzi_lorawan_link_check_ops *ops = link_check_ops();
+	const struct rzi_lorawan_mac_ops *ops = mac_ops();
 
-	if (ops == NULL || ops->request == NULL) {
+	if (ops == NULL || ops->request_link_check == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	return ops->request();
+	return ops->request_link_check();
 }
 
 static int trig_device_time(void)
 {
-	const struct rzi_lorawan_device_time_ops *ops = device_time_ops();
+	const struct rzi_lorawan_mac_ops *ops = mac_ops();
 
-	if (ops == NULL || ops->request == NULL) {
+	if (ops == NULL || ops->request_device_time == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	return ops->request();
+	return ops->request_device_time();
 }
 
 int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mode *mode)
@@ -65,7 +50,7 @@ int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mode *mode)
 	if (mode == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	if (link_check_ops() == NULL) {
+	if (mac_ops() == NULL || mac_ops()->request_link_check == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	*mode = link_check_mode;
@@ -82,7 +67,7 @@ int rzi_lorawan_request_link_check(enum rzi_lorawan_link_check_mode mode)
 	if ((unsigned int)mode > RZI_LORAWAN_LINK_CHECK_EVERY_UPLINK) {
 		return -RZI_ERR_INVALID;
 	}
-	if (link_check_ops() == NULL) {
+	if (mac_ops() == NULL || mac_ops()->request_link_check == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	link_check_mode = mode;
@@ -106,7 +91,7 @@ int rzi_lorawan_get_device_time_enabled(bool *enabled)
 	if (enabled == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	if (device_time_ops() == NULL) {
+	if (mac_ops() == NULL || mac_ops()->request_device_time == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	*enabled = device_time_enabled;
@@ -120,7 +105,7 @@ int rzi_lorawan_request_device_time(bool enabled)
 	if (rc != 0) {
 		return rc;
 	}
-	if (device_time_ops() == NULL) {
+	if (mac_ops() == NULL || mac_ops()->request_device_time == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	device_time_enabled = enabled;
@@ -132,7 +117,7 @@ int rzi_lorawan_request_device_time(bool enabled)
 
 int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time)
 {
-	const struct rzi_lorawan_device_time_ops *ops;
+	const struct rzi_lorawan_mac_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -141,7 +126,7 @@ int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time)
 	if (time == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = device_time_ops();
+	ops = mac_ops();
 	if (ops == NULL || ops->get_network_time == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}

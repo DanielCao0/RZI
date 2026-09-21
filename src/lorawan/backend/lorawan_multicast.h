@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief Internal backend operations for LoRaWAN multicast.
+ * @brief Backend operations for LoRaWAN multicast.
  */
-#ifndef RZI_LORAWAN_MULTICAST_INTERNAL_H
-#define RZI_LORAWAN_MULTICAST_INTERNAL_H
+#ifndef RZI_LORAWAN_BACKEND_MULTICAST_H
+#define RZI_LORAWAN_BACKEND_MULTICAST_H
 
 #include <rzi/lorawan/multicast.h>
 
-#define RZI_LORAWAN_MULTICAST_OPS_VERSION 1U
-
-/** Optional multicast operations. */
+/** Optional multicast operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
 struct rzi_lorawan_multicast_ops {
 	int (*add)(const struct rzi_lorawan_multicast_session *session);
 	int (*remove)(uint32_t dev_addr);
@@ -19,4 +17,4 @@ struct rzi_lorawan_multicast_ops {
 	int (*clear)(void);
 };
 
-#endif /* RZI_LORAWAN_MULTICAST_INTERNAL_H */
+#endif /* RZI_LORAWAN_BACKEND_MULTICAST_H */

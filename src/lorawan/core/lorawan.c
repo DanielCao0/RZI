@@ -15,9 +15,7 @@
 #endif
 
 #include "../backend/lorawan_backend.h"
-#include "../backend/lorawan_info.h"
-#include "../backend/lorawan_network.h"
-#include "../mac_commands/lorawan_mac_commands.h"
+#include "lorawan_mac_commands.h"
 #include "lorawan_priv.h"
 #include "lorawan_service.h"
 
@@ -542,7 +540,6 @@ int rzi_lorawan_get_region(enum rzi_lorawan_region *region)
 
 int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class)
 {
-	const struct rzi_lorawan_network_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -551,10 +548,8 @@ int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class)
 	if (device_class == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_NETWORK_MANAGEMENT,
-				      RZI_LORAWAN_NETWORK_OPS_VERSION, sizeof(*ops));
-	if (ops != NULL && ops->get_class != NULL) {
-		rc = ops->get_class(device_class);
+	if (rzi_lorawan_backend.get_class != NULL) {
+		rc = rzi_lorawan_backend.get_class(device_class);
 		if (rc == 0) {
 			configured_class = *device_class;
 			return 0;
@@ -617,7 +612,6 @@ int rzi_lorawan_get_protocol_version(const char **version)
 
 int rzi_lorawan_is_busy(bool *busy)
 {
-	const struct rzi_lorawan_info_ops *ops;
 	int rc = rzi_lorawan_check_thread();
 
 	if (rc != 0) {
@@ -626,10 +620,8 @@ int rzi_lorawan_is_busy(bool *busy)
 	if (busy == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_INFORMATION, RZI_LORAWAN_INFO_OPS_VERSION,
-				      sizeof(*ops));
-	if (ops != NULL && ops->is_busy != NULL) {
-		rc = ops->is_busy(busy);
+	if (rzi_lorawan_backend.is_busy != NULL) {
+		rc = rzi_lorawan_backend.is_busy(busy);
 		if (rc == 0) {
 			return 0;
 		}

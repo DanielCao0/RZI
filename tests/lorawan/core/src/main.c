@@ -9,9 +9,7 @@
 
 #include <rzi/capabilities.h>
 #include <rzi/lorawan/certification.h>
-#include <rzi/lorawan/channel_scan.h>
 #include <rzi/lorawan/lorawan.h>
-#include <rzi/lorawan/mac_commands.h>
 #include <rzi/lorawan/multicast.h>
 #include <rzi/version.h>
 
@@ -121,8 +119,8 @@ ZTEST(rzi_lorawan_core, test_sdk_metadata_and_feature_discovery)
 {
 	zassert_equal(strcmp(rzi_version_get_string(), RZI_VERSION_STRING), 0);
 	zassert_equal(rzi_get_capabilities(), RZI_CAP_LORAWAN);
-	zassert_not_null(rzi_lorawan_feature_get(RZI_LORAWAN_FEATURE_MULTICAST));
-	zassert_true((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_NETWORK_MANAGEMENT) != 0U);
+	zassert_not_null(rzi_lorawan_backend.multicast);
+	zassert_true((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_NETWORK) != 0U);
 }
 
 ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
@@ -215,11 +213,10 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 			.device_class = RZI_LORAWAN_CLASS_C,
 			.dev_addr = 0x11223344,
 			.frequency_hz = 869525000,
-			.data_rate = RZI_LORAWAN_DR_0,
+			.data_rate = RZI_LORAWAN_DR_8,
 			.group_id = -1,
 		};
 		struct rzi_lorawan_multicast_session listed;
-		struct rzi_lorawan_channel_rssi rssi_sample;
 		struct rzi_lorawan_network_time time;
 		enum rzi_lorawan_link_check_mode link_mode;
 
@@ -228,9 +225,13 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 		zassert_ok(rzi_lorawan_set_adr(false));
 		zassert_ok(rzi_lorawan_get_adr(&flag));
 		zassert_false(flag);
+		zassert_equal(rzi_lorawan_set_data_rate(RZI_LORAWAN_DR_8), -RZI_ERR_INVALID);
+		zassert_equal(rzi_lorawan_set_data_rate(RZI_LORAWAN_DR_14), -RZI_ERR_INVALID);
 		zassert_ok(rzi_lorawan_set_data_rate(RZI_LORAWAN_DR_3));
 		zassert_ok(rzi_lorawan_get_data_rate(&data_rate));
 		zassert_equal(data_rate, RZI_LORAWAN_DR_3);
+		zassert_equal(rzi_lorawan_set_rx2_data_rate(RZI_LORAWAN_DR_0), -RZI_ERR_INVALID);
+		zassert_ok(rzi_lorawan_set_rx2_data_rate(RZI_LORAWAN_DR_8));
 		zassert_ok(rzi_lorawan_set_tx_power(4));
 		zassert_ok(rzi_lorawan_get_tx_power(&tx_power));
 		zassert_equal(tx_power, 4);
@@ -268,10 +269,6 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 		zassert_ok(rzi_lorawan_get_multicast_session(0, &listed));
 		zassert_equal(listed.dev_addr, 0x11223344);
 		zassert_ok(rzi_lorawan_remove_multicast_session(0x11223344));
-		zassert_ok(rzi_lorawan_get_channel_rssi_count(&count));
-		zassert_equal(count, 1);
-		zassert_ok(rzi_lorawan_get_channel_rssi(0, &rssi_sample));
-		zassert_equal(rssi_sample.channel, 0);
 		zassert_ok(rzi_lorawan_set_certification_mode(true));
 		zassert_ok(rzi_lorawan_get_certification_mode(&flag));
 		zassert_true(flag);

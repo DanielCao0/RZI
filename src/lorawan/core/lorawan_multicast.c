@@ -8,18 +8,12 @@
 
 #include <rzi/lorawan/multicast.h>
 
-#include "../../backend/lorawan_feature.h"
-#include "../../core/lorawan_priv.h"
-#include "lorawan_multicast.h"
+#include "../backend/lorawan_backend.h"
+#include "lorawan_priv.h"
 
 static const struct rzi_lorawan_multicast_ops *multicast_ops(void)
 {
-	if ((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_MULTICAST) == 0U) {
-		return NULL;
-	}
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_MULTICAST,
-				       RZI_LORAWAN_MULTICAST_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_multicast_ops));
+	return rzi_lorawan_backend.multicast;
 }
 
 int rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session *session)
@@ -33,7 +27,7 @@ int rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session
 	if (session == NULL ||
 	    (session->device_class != RZI_LORAWAN_CLASS_B &&
 	     session->device_class != RZI_LORAWAN_CLASS_C) ||
-	    (unsigned int)session->data_rate > RZI_LORAWAN_DR_15 || session->frequency_hz == 0U ||
+	    !rzi_lorawan_rx_data_rate_valid(session->data_rate) || session->frequency_hz == 0U ||
 	    session->group_id < -1 || session->group_id > 3) {
 		return -RZI_ERR_INVALID;
 	}

@@ -107,18 +107,6 @@ static const struct rzi_lorawan_fuota_ops fake_fuota_ops = {
 	.reboot = fake_reboot,
 };
 
-static const struct rzi_lorawan_backend_extension fake_fuota_extension = {
-	.size = sizeof(fake_fuota_ops),
-	.version = RZI_LORAWAN_FUOTA_OPS_VERSION,
-	.api = &fake_fuota_ops,
-};
-
-static const struct rzi_lorawan_backend_extension *
-fake_get_extension(enum rzi_lorawan_feature_id feature)
-{
-	return feature == RZI_LORAWAN_FEATURE_FUOTA ? &fake_fuota_extension : NULL;
-}
-
 const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.capabilities = RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CLASS_C |
 			RZI_LORAWAN_CAP_FUOTA,
@@ -128,7 +116,7 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.send = fake_send,
 	.set_class = fake_set_class,
 	.is_joined = fake_is_joined,
-	.get_extension = fake_get_extension,
+	.fuota = &fake_fuota_ops,
 };
 
 static void on_state_changed(enum rzi_fuota_state next, void *user_data)

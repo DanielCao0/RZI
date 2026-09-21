@@ -3,11 +3,9 @@
 zephyr_library_sources(
   core/lorawan.c
   core/lorawan_config.c
-  backend/lorawan_feature.c
-  mac_commands/lorawan_mac_commands.c
-  services/multicast/lorawan_multicast.c
-  services/channel_scan/lorawan_channel_scan.c
-  services/certification/lorawan_certification.c
+  core/lorawan_mac_commands.c
+  core/lorawan_multicast.c
+  core/lorawan_certification.c
 )
 
 zephyr_library_sources_ifdef(

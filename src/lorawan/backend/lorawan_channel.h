@@ -9,8 +9,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RZI_LORAWAN_CHANNEL_OPS_VERSION 1U
-
 /** Optional channel-plan operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
 struct rzi_lorawan_channel_ops {
 	int (*get_channel_mask)(uint16_t *mask, size_t words);

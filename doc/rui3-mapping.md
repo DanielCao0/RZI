@@ -105,7 +105,7 @@ int rzi_lorawan_stop_class_b(void);
 `get_last_rssi` / `get_last_snr` are filled from the last application
 downlink. `get_protocol_version` is `"LoRaWAN 1.0.4"`.
 
-## `include/rzi/lorawan/mac_commands.h`
+## LinkCheck and DeviceTime (`lorawan.h`)
 
 ```c
 int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mode *mode);
@@ -132,13 +132,6 @@ int rzi_lorawan_clear_multicast_sessions(void);
 
 Groups are 0–3. `group_id` of `-1` allocates the next free slot. Listed
 sessions omit keys.
-
-## `include/rzi/lorawan/channel_scan.h`
-
-```c
-int rzi_lorawan_get_channel_rssi_count(size_t *count);
-int rzi_lorawan_get_channel_rssi(size_t index, struct rzi_lorawan_channel_rssi *rssi);
-```
 
 ## `include/rzi/lorawan/certification.h`
 
@@ -170,7 +163,6 @@ backend implements that group. A NULL operation still returns `-RZI_ERR_NOT_SUPP
 | Class B ping-slot / state | Yes; beacon fields `-RZI_ERR_NOT_SUPPORTED` | `-RZI_ERR_NOT_SUPPORTED` |
 | LinkCheckReq / DeviceTimeReq | Yes | Yes (not under `CONFIG_LORAWAN_EMUL`) |
 | Multicast 0–3 | Yes | `-RZI_ERR_NOT_SUPPORTED` |
-| Channel RSSI scan | `-RZI_ERR_NOT_SUPPORTED` | `-RZI_ERR_NOT_SUPPORTED` |
 | Certification | Mode yes; FPort is local | `-RZI_ERR_NOT_SUPPORTED` |
 | FUOTA | When `CONFIG_RZI_LORAWAN_FUOTA` | When enabled |
 

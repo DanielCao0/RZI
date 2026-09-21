@@ -83,7 +83,14 @@ enum rzi_lorawan_class {
 	RZI_LORAWAN_CLASS_C,
 };
 
-/** LoRaWAN data-rate index. Region tables decide which values are valid. */
+/**
+ * LoRaWAN MAC data-rate index (4-bit field).
+ *
+ * These names are the protocol index, not a promise that every value is
+ * legal. `rzi_lorawan_set_data_rate()` uses the current region's uplink
+ * table; `rzi_lorawan_set_rx2_data_rate()` and multicast use the RX2 /
+ * downlink table. Other indexes return `-RZI_ERR_INVALID`.
+ */
 enum rzi_lorawan_data_rate {
 	RZI_LORAWAN_DR_0 = 0,
 	RZI_LORAWAN_DR_1,
@@ -143,36 +150,56 @@ struct rzi_lorawan_link_check_result {
 	int8_t snr_quarter_db;
 };
 
-/** Backend capabilities returned by @ref rzi_lorawan_get_capabilities. */
+/** LinkCheckReq scheduling policy. */
+enum rzi_lorawan_link_check_mode {
+	/** Do not append LinkCheckReq. */
+	RZI_LORAWAN_LINK_CHECK_DISABLED,
+	/** Append LinkCheckReq to the next uplink only. */
+	RZI_LORAWAN_LINK_CHECK_ONCE,
+	/** Append LinkCheckReq to every uplink. */
+	RZI_LORAWAN_LINK_CHECK_EVERY_UPLINK,
+};
+
+/** Network time from DeviceTimeAns, GPS epoch. */
+struct rzi_lorawan_network_time {
+	/** Whole GPS seconds. */
+	uint32_t gps_seconds;
+	/** Fractional GPS seconds as reported by the stack. */
+	uint32_t gps_subseconds;
+};
+
+/**
+ * @brief Backend capabilities returned by @ref rzi_lorawan_get_capabilities.
+ *
+ * Join-mode and class bits describe what start/join/set_class accept. The
+ * remaining bits match optional ops tables on the backend contract: a bit
+ * is set only when the corresponding pointer is non-NULL.
+ */
 enum rzi_lorawan_capability {
-	/** Backend supports OTAA. */
+	/** Backend accepts OTAA join. */
 	RZI_LORAWAN_CAP_OTAA = (1U << 0),
-	/** Backend supports ABP. */
+	/** Backend accepts ABP join. */
 	RZI_LORAWAN_CAP_ABP = (1U << 1),
-	/** Backend supports Class A. */
+	/** Backend accepts Class A. */
 	RZI_LORAWAN_CAP_CLASS_A = (1U << 2),
-	/** Backend supports Class B. */
+	/** Backend accepts Class B. */
 	RZI_LORAWAN_CAP_CLASS_B = (1U << 3),
-	/** Backend supports Class C. */
+	/** Backend accepts Class C. */
 	RZI_LORAWAN_CAP_CLASS_C = (1U << 4),
-	/** Backend supports multicast-session management. */
-	RZI_LORAWAN_CAP_MULTICAST = (1U << 5),
-	/** Backend supports LinkCheckReq operations. */
-	RZI_LORAWAN_CAP_LINK_CHECK = (1U << 6),
-	/** Backend supports the complete RZI FUOTA coordination contract. */
-	RZI_LORAWAN_CAP_FUOTA = (1U << 7),
-	/** Backend supports session-information queries. */
-	RZI_LORAWAN_CAP_INFORMATION = (1U << 8),
-	/** Backend supports channel-plan management. */
-	RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT = (1U << 9),
-	/** Backend supports network and MAC parameter management. */
-	RZI_LORAWAN_CAP_NETWORK_MANAGEMENT = (1U << 10),
-	/** Backend supports network-provided device time. */
-	RZI_LORAWAN_CAP_DEVICE_TIME = (1U << 11),
-	/** Backend supports channel scanning. */
-	RZI_LORAWAN_CAP_CHANNEL_SCAN = (1U << 12),
-	/** Backend supports certification mode. */
-	RZI_LORAWAN_CAP_CERTIFICATION = (1U << 13),
+	/** Backend provides the MAC-parameter table. */
+	RZI_LORAWAN_CAP_NETWORK = (1U << 5),
+	/** Backend provides the channel-plan table. */
+	RZI_LORAWAN_CAP_CHANNEL = (1U << 6),
+	/** Backend provides session-identity queries (NetID / DevNonce). */
+	RZI_LORAWAN_CAP_SESSION = (1U << 7),
+	/** Backend provides LinkCheckReq and DeviceTimeReq. */
+	RZI_LORAWAN_CAP_MAC = (1U << 8),
+	/** Backend provides multicast-session management. */
+	RZI_LORAWAN_CAP_MULTICAST = (1U << 9),
+	/** Backend provides certification mode. */
+	RZI_LORAWAN_CAP_CERTIFICATION = (1U << 10),
+	/** Backend provides the RZI FUOTA coordination contract. */
+	RZI_LORAWAN_CAP_FUOTA = (1U << 11),
 };
 
 /** OTAA credentials. They are copied before @ref rzi_lorawan_join returns. */
@@ -465,6 +492,91 @@ __must_check int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size
 				  enum rzi_lorawan_message_type type);
 
 /**
+ * @brief Read the current LinkCheckReq mode.
+ *
+ * @param[out] mode Stored mode.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID mode is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support LinkCheckReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.3
+ */
+__must_check int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mode *mode);
+
+/**
+ * @brief Request LinkCheckReq according to mode.
+ *
+ * Completion is reported through link_check_done(). A return of zero means
+ * the mode was stored. ONCE and EVERY_UPLINK trigger a request immediately;
+ * EVERY_UPLINK also piggybacks on later uplinks.
+ *
+ * @param mode Scheduling policy.
+ *
+ * @retval 0 Mode stored.
+ * @retval -RZI_ERR_INVALID mode is invalid.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support LinkCheckReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.3
+ */
+__must_check int rzi_lorawan_request_link_check(enum rzi_lorawan_link_check_mode mode);
+
+/**
+ * @brief Read whether DeviceTimeReq is enabled.
+ *
+ * @param[out] enabled True when DeviceTimeReq is scheduled.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support DeviceTimeReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.3
+ */
+__must_check int rzi_lorawan_get_device_time_enabled(bool *enabled);
+
+/**
+ * @brief Enable or disable DeviceTimeReq on subsequent uplinks.
+ *
+ * Completion is reported through device_time_done().
+ *
+ * @param enabled True to request network time.
+ *
+ * @retval 0 Setting stored.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support DeviceTimeReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.3
+ */
+__must_check int rzi_lorawan_request_device_time(bool enabled);
+
+/**
+ * @brief Read the last DeviceTimeAns.
+ *
+ * @param[out] time Stored GPS time.
+ *
+ * @retval 0 Time stored.
+ * @retval -RZI_ERR_INVALID time is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started or the clock is unsynchronized.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support DeviceTimeReq.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.3
+ */
+__must_check int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time);
+
+/**
  * @brief Change the LoRaWAN device class.
  *
  * @param device_class Requested Class A, B, or C operation.
@@ -584,7 +696,7 @@ __must_check int rzi_lorawan_get_data_rate(enum rzi_lorawan_data_rate *data_rate
 /**
  * @brief Set the uplink data rate used when ADR is off.
  *
- * @param data_rate Data-rate index.
+ * @param data_rate Uplink data-rate index legal for the current region.
  *
  * @retval 0 Setting applied.
  * @retval -RZI_ERR_INVALID The data-rate value is invalid.
@@ -743,7 +855,7 @@ __must_check int rzi_lorawan_get_rx2_data_rate(enum rzi_lorawan_data_rate *data_
 /**
  * @brief Set the RX2 data rate.
  *
- * @param data_rate Data-rate index.
+ * @param data_rate RX2 data-rate index legal for the current region.
  *
  * @retval 0 Setting applied.
  * @retval -RZI_ERR_INVALID The data-rate value is invalid.

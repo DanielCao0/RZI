@@ -66,7 +66,8 @@ auto-join, last payload, and network-work-mode are AT-only by ABI policy.
 | Network | `get/set_DevNonce` | `get/set_dev_nonce` | present | |
 | Network | `systemMaxRxError` | — | missing | Internal RX-window calibration |
 | Channels | mask, CHE, CHS | `channel_mask`, `sub_band`, `fixed_channel` | present | |
-| Info | RSSI, SNR, ARSSI, version | matching getters | present | SNR is quarter-dB in C, AT prints dB |
+| Info | RSSI, SNR, version | matching getters | present | SNR is quarter-dB in C, AT prints dB |
+| Info | ARSSI | — | missing | Channel RSSI scan not provided |
 | Class B | ping slot, beacon freq/time/DR, BGW, state, force stop | matching getters/setters | present | |
 | Class B | `get_local_time` UTC text | `get_network_time` / AT `LTIME` | limited | GPS seconds, not RUI UTC string |
 | MAC | recv/join/send/linkcheck/timereq callbacks | `rzi_lorawan_register_callbacks` | present | |
@@ -146,7 +147,8 @@ Commands RUI3 registers on RAK4631 / RAK3372 application firmware.
 | Network | `LBT` `LBTRSSI` `LBTSCANTIME` | same | present | |
 | Class B | `PGSLOT` `BFREQ` `BTIME` `BGW` | same | present | |
 | Class B | `LTIME` | `LTIME` | limited | GPS time, not RUI UTC text |
-| Info | `RSSI` `SNR` `ARSSI` | same | present | |
+| Info | `RSSI` `SNR` | same | present | |
+| Info | `ARSSI` | — | missing | Channel RSSI scan not provided |
 | Channel | `MASK` `CHE` `CHS` | same | present | |
 | Multicast | `ADDMULC` `RMVMULC` `LSTMULC` | same | present | |
 | Cert | `CERTIF` | `CERTIF` | present | |

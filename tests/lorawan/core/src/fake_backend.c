@@ -6,26 +6,16 @@
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
 
-#include <rzi/lorawan/channel_scan.h>
 #include <rzi/lorawan/lorawan.h>
-#include <rzi/lorawan/mac_commands.h>
 #include <rzi/lorawan/multicast.h>
 
 #include "backend/lorawan_backend.h"
-#include "backend/lorawan_channel.h"
-#include "backend/lorawan_info.h"
-#include "backend/lorawan_network.h"
-#include "mac_commands/lorawan_mac_commands.h"
-#include "services/certification/lorawan_certification.h"
-#include "services/channel_scan/lorawan_channel_scan.h"
-#include "services/multicast/lorawan_multicast.h"
 
 #define FAKE_CAPABILITIES                                                                          \
 	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CLASS_B |                \
-	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_MULTICAST | RZI_LORAWAN_CAP_LINK_CHECK |        \
-	 RZI_LORAWAN_CAP_INFORMATION | RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT |                        \
-	 RZI_LORAWAN_CAP_NETWORK_MANAGEMENT | RZI_LORAWAN_CAP_DEVICE_TIME |                        \
-	 RZI_LORAWAN_CAP_CHANNEL_SCAN | RZI_LORAWAN_CAP_CERTIFICATION)
+	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_NETWORK | RZI_LORAWAN_CAP_CHANNEL |             \
+	 RZI_LORAWAN_CAP_SESSION | RZI_LORAWAN_CAP_MAC | RZI_LORAWAN_CAP_MULTICAST |               \
+	 RZI_LORAWAN_CAP_CERTIFICATION)
 
 rzi_lorawan_event_sink_t fake_sink;
 
@@ -62,10 +52,6 @@ static bool cert_mode;
 static bool cert_port = true;
 static struct rzi_lorawan_multicast_session multicast[4];
 static bool multicast_used[4];
-static struct rzi_lorawan_channel_rssi channel_rssi[4] = {
-	{.channel = 0, .mask = 0x0001, .rssi_dbm = -20},
-};
-static size_t channel_rssi_count = 1;
 static bool session_joined;
 
 static int fake_start(enum rzi_lorawan_region region, bool join_backoff_bypass,
@@ -361,7 +347,6 @@ static int fake_stop_class_b(void)
 }
 
 static const struct rzi_lorawan_network_ops fake_network_ops = {
-	.get_class = fake_get_class,
 	.get_adr = fake_get_adr,
 	.set_adr = fake_set_adr,
 	.get_data_rate = fake_get_data_rate,
@@ -390,14 +375,17 @@ static const struct rzi_lorawan_network_ops fake_network_ops = {
 	.set_lbt_rssi = fake_set_lbt_rssi,
 	.get_lbt_scan_time = fake_get_lbt_scan_time,
 	.set_lbt_scan_time = fake_set_lbt_scan_time,
+};
+
+static const struct rzi_lorawan_class_b_ops fake_class_b_ops = {
 	.get_ping_slot_periodicity = fake_get_ping_slot,
 	.set_ping_slot_periodicity = fake_set_ping_slot,
 	.get_beacon_frequency = fake_get_beacon_frequency,
 	.get_beacon_time = fake_get_beacon_time,
 	.get_beacon_data_rate = fake_get_beacon_data_rate,
 	.get_beacon_gateway = fake_get_beacon_gateway,
-	.get_class_b_state = fake_get_class_b_state,
-	.stop_class_b = fake_stop_class_b,
+	.get_state = fake_get_class_b_state,
+	.stop = fake_stop_class_b,
 };
 
 static int fake_get_channel_mask(uint16_t *mask, size_t words)
@@ -479,12 +467,10 @@ static int fake_info_is_busy(bool *value)
 	return 0;
 }
 
-static const struct rzi_lorawan_info_ops fake_info_ops = {
+static const struct rzi_lorawan_session_ops fake_session_ops = {
 	.get_net_id = fake_get_net_id,
 	.get_dev_nonce = fake_get_dev_nonce,
 	.set_dev_nonce = fake_set_dev_nonce,
-	.query_tx_possible = fake_query_tx_possible,
-	.is_busy = fake_info_is_busy,
 };
 
 static int fake_link_check_request(void)
@@ -518,12 +504,9 @@ static int fake_get_network_time(struct rzi_lorawan_network_time *time)
 	return 0;
 }
 
-static const struct rzi_lorawan_link_check_ops fake_link_check_ops = {
-	.request = fake_link_check_request,
-};
-
-static const struct rzi_lorawan_device_time_ops fake_device_time_ops = {
-	.request = fake_device_time_request,
+static const struct rzi_lorawan_mac_ops fake_mac_ops = {
+	.request_link_check = fake_link_check_request,
+	.request_device_time = fake_device_time_request,
 	.get_network_time = fake_get_network_time,
 };
 
@@ -606,26 +589,6 @@ static const struct rzi_lorawan_multicast_ops fake_multicast_ops = {
 	.clear = fake_multicast_clear,
 };
 
-static int fake_scan_count(size_t *count)
-{
-	*count = channel_rssi_count;
-	return 0;
-}
-
-static int fake_scan_get(size_t index, struct rzi_lorawan_channel_rssi *rssi)
-{
-	if (index >= channel_rssi_count) {
-		return -RZI_ERR_INVALID;
-	}
-	*rssi = channel_rssi[index];
-	return 0;
-}
-
-static const struct rzi_lorawan_channel_scan_ops fake_scan_ops = {
-	.get_count = fake_scan_count,
-	.get = fake_scan_get,
-};
-
 static int fake_get_cert_mode(bool *enabled)
 {
 	*enabled = cert_mode;
@@ -657,79 +620,6 @@ static const struct rzi_lorawan_certification_ops fake_cert_ops = {
 	.set_port_enabled = fake_set_cert_port,
 };
 
-static const struct rzi_lorawan_backend_extension fake_network_ext = {
-	.size = sizeof(fake_network_ops),
-	.version = RZI_LORAWAN_NETWORK_OPS_VERSION,
-	.api = &fake_network_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_channel_ext = {
-	.size = sizeof(fake_channel_ops),
-	.version = RZI_LORAWAN_CHANNEL_OPS_VERSION,
-	.api = &fake_channel_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_info_ext = {
-	.size = sizeof(fake_info_ops),
-	.version = RZI_LORAWAN_INFO_OPS_VERSION,
-	.api = &fake_info_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_link_check_ext = {
-	.size = sizeof(fake_link_check_ops),
-	.version = RZI_LORAWAN_LINK_CHECK_OPS_VERSION,
-	.api = &fake_link_check_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_device_time_ext = {
-	.size = sizeof(fake_device_time_ops),
-	.version = RZI_LORAWAN_DEVICE_TIME_OPS_VERSION,
-	.api = &fake_device_time_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_multicast_ext = {
-	.size = sizeof(fake_multicast_ops),
-	.version = RZI_LORAWAN_MULTICAST_OPS_VERSION,
-	.api = &fake_multicast_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_scan_ext = {
-	.size = sizeof(fake_scan_ops),
-	.version = RZI_LORAWAN_CHANNEL_SCAN_OPS_VERSION,
-	.api = &fake_scan_ops,
-};
-
-static const struct rzi_lorawan_backend_extension fake_cert_ext = {
-	.size = sizeof(fake_cert_ops),
-	.version = RZI_LORAWAN_CERTIFICATION_OPS_VERSION,
-	.api = &fake_cert_ops,
-};
-
-static const struct rzi_lorawan_backend_extension *
-fake_get_extension(enum rzi_lorawan_feature_id feature)
-{
-	switch (feature) {
-	case RZI_LORAWAN_FEATURE_NETWORK_MANAGEMENT:
-		return &fake_network_ext;
-	case RZI_LORAWAN_FEATURE_CHANNEL_MANAGEMENT:
-		return &fake_channel_ext;
-	case RZI_LORAWAN_FEATURE_INFORMATION:
-		return &fake_info_ext;
-	case RZI_LORAWAN_FEATURE_LINK_CHECK:
-		return &fake_link_check_ext;
-	case RZI_LORAWAN_FEATURE_DEVICE_TIME:
-		return &fake_device_time_ext;
-	case RZI_LORAWAN_FEATURE_MULTICAST:
-		return &fake_multicast_ext;
-	case RZI_LORAWAN_FEATURE_CHANNEL_SCAN:
-		return &fake_scan_ext;
-	case RZI_LORAWAN_FEATURE_CERTIFICATION:
-		return &fake_cert_ext;
-	default:
-		return NULL;
-	}
-}
-
 const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.capabilities = FAKE_CAPABILITIES,
 	.start = fake_start,
@@ -737,6 +627,15 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.leave = fake_leave,
 	.send = fake_send,
 	.set_class = fake_set_class,
+	.get_class = fake_get_class,
 	.is_joined = fake_is_joined,
-	.get_extension = fake_get_extension,
+	.query_tx_possible = fake_query_tx_possible,
+	.is_busy = fake_info_is_busy,
+	.network = &fake_network_ops,
+	.channel = &fake_channel_ops,
+	.class_b = &fake_class_b_ops,
+	.session = &fake_session_ops,
+	.mac = &fake_mac_ops,
+	.multicast = &fake_multicast_ops,
+	.certification = &fake_cert_ops,
 };

@@ -47,7 +47,7 @@ struct rzi_lorawan_multicast_session {
  * @param session Session parameters copied before this function returns.
  *
  * @retval 0 Session started.
- * @retval -RZI_ERR_INVALID session is NULL or contains an invalid class or group.
+ * @retval -RZI_ERR_INVALID session is NULL or contains an invalid class, group, or data rate.
  * @retval -RZI_ERR_NOT_READY The service has not started.
  * @retval -RZI_ERR_NO_RESOURCE No group slot remains.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.

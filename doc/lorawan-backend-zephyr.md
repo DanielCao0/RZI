@@ -16,7 +16,7 @@ different path from the planned Zephyr LBM LoRaWAN backend
 
 This adapter exists to test whether the RZI contract holds against a
 second real stack. Conclusion: **asynchronous join/send, the event sink,
-and the FUOTA extension table hold**. A few fields and capabilities were
+and the FUOTA ops table hold**. A few fields and capabilities were
 biased toward the LBM shape; those now have comments or small fields in
 the public header. The rest is absorbed by the backend.
 
@@ -26,7 +26,7 @@ the public header. The rest is absorbed by the backend.
 | --- | --- | --- |
 | `join()` / `send()` return immediately; completion is an event | Both calls block until finished | Dedicated work queue |
 | `READY` / `JOINED` / `JOIN_FAILED` / `TX_DONE` / `DOWNLINK` | No peer events; success is the return value | Publish events after the worker finishes |
-| `start_clock_sync` / image read-write / reboot | `lorawan_clock_sync_run()`, slot1 flash, `sys_reboot()` | FUOTA ops extension |
+| `start_clock_sync` / image read-write / reboot | `lorawan_clock_sync_run()`, slot1 flash, `sys_reboot()` | FUOTA ops table |
 | Runtime `set_region()` | `lorawan_set_region()`, also trimmed by Kconfig | `start()` fails if the mapping fails |
 
 ## Friction exposed by the second backend

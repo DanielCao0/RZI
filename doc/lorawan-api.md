@@ -4,8 +4,7 @@ Status: normative
 
 Public C contract between applications and the selected protocol backend.
 The precise ABI is `include/rzi/lorawan/lorawan.h` (group 0.4.0) plus
-`mac_commands.h`, `multicast.h`, `channel_scan.h`, `certification.h`, and
-`fuota.h`.
+`multicast.h`, `certification.h`, and `fuota.h`.
 
 See also: [error-codes.md](./error-codes.md),
 [lorawan-backends.md](./lorawan-backends.md),
@@ -28,10 +27,10 @@ concrete protocol stack. Public interfaces follow these rules:
 - API return values only say whether a request was accepted. Final results
   arrive through callbacks.
 
-Class B, network/channel management, and information stay in LoRaWAN Core.
-DeviceTimeReq and LinkCheckReq stay together under
-`src/lorawan/mac_commands/`. Channel scan, multicast, certification, and
-FUOTA live under `src/lorawan/services/`. Clock Synchronization, Remote
+Class B, network/channel management, information, DeviceTimeReq, and
+LinkCheckReq stay in LoRaWAN Core. Multicast and certification are also
+core facades with dedicated public headers. FUOTA
+lives under `src/lorawan/services/fuota/`. Clock Synchronization, Remote
 Multicast Setup, Fragmentation, and the Firmware Management Package
 required by FUOTA come from the selected backend. RZI does not copy those
 package implementations.
@@ -148,6 +147,23 @@ duration of the callback:
 Metadata and payload pointers in the downlink callback are valid only until
 that callback returns. Subscribers that need the data later must copy it.
 
+`enum rzi_lorawan_data_rate` names the 4-bit MAC index (0-15). Core rejects
+values that the current region does not define:
+
+| Region | Uplink (`set_data_rate`) | RX2 / multicast |
+|---|---|---|
+| EU868 | 0-11 | 0-7 |
+| US915 | 0-6 | 8-13 |
+| AU915 | 0-7 | 8-13 |
+| CN470 | 0-7 | 0-7 |
+| AS923 groups 1-4 | 0-7 | 0-7 |
+| IN865 | 0-5, 7 | 0-5, 7 |
+| KR920 | 0-5 | 0-5 |
+| RU864 | 0-7 | 0-7 |
+
+DR14 and DR15 are unused in every region RZI exposes. EU868 uplink 8-11
+and US915/AU915 uplink 5-7 are LR-FHSS indexes from RP2 1.0.3.
+
 ## 6. Callbacks and concurrency
 
 A backend event callback only copies a complete event into a fixed-size RZI
@@ -218,17 +234,15 @@ and the internal event envelope. A backend:
 - does not leak vendor objects, enums, or thread models into public
   headers.
 
-`src/lorawan/backend/lorawan_feature.h` defines versioned extension
-descriptors for optional capabilities. Each feature defines a typed
-operations table in its own private header and obtains it from the backend
-by feature ID. `size` and `version` are used for compatibility checks. A
-public capability bit means runtime support. Core public APIs are always
-compiled except FUOTA, which remains Kconfig-gated. Neither replaces the
-other.
+`src/lorawan/backend/lorawan_backend.h` hangs typed ops tables on the
+backend contract. A NULL table means the backend does not implement that
+group; a NULL member still returns `-RZI_ERR_NOT_SUPPORTED`. A public
+capability bit advertises runtime support and must stay aligned with the
+non-NULL pointers. Core public APIs are always compiled except FUOTA, which
+remains Kconfig-gated.
 
-A new backend only needs to implement the core contract and provide
-extensions for the capabilities it actually has. Applications should not
-have to change the public call flow.
+A new backend implements the lifecycle operations and fills in the tables it
+has. Applications should not have to change the public call flow.
 
 ## 9. Compatibility policy
 

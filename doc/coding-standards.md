@@ -55,6 +55,8 @@ include/rzi/
 ├── capabilities.h
 ├── lorawan/lorawan.h
 ├── lorawan/fuota.h
+├── lorawan/multicast.h
+├── lorawan/certification.h
 ├── lora/lora.h
 ├── power/power.h
 ├── storage/storage.h
@@ -67,10 +69,9 @@ LoRaWAN implementation is split by responsibility:
 
 ```text
 src/lorawan/
-├── core/           Public API implementation, event dispatch, service hooks
+├── core/           Public API, event dispatch, LinkCheck / DeviceTime / thin facades
 ├── backend/        Private contract plus USP / Zephyr implementations
-├── mac_commands/   DeviceTime / LinkCheck
-└── services/       Optional packages such as FUOTA and multicast
+└── services/fuota/ Optional FUOTA coordinator
 ```
 
 Private headers must sit next to the implementation. They must not enter

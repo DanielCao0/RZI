@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief Backend operations for LoRaWAN network and Class B parameters.
+ * @brief Backend operations for LoRaWAN MAC parameters.
  */
 #ifndef RZI_LORAWAN_NETWORK_H
 #define RZI_LORAWAN_NETWORK_H
@@ -11,11 +11,8 @@
 
 #include <rzi/lorawan/lorawan.h>
 
-#define RZI_LORAWAN_NETWORK_OPS_VERSION 1U
-
-/** Optional network-management operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
+/** Optional MAC-parameter operations. NULL members return -RZI_ERR_NOT_SUPPORTED. */
 struct rzi_lorawan_network_ops {
-	int (*get_class)(enum rzi_lorawan_class *device_class);
 	int (*get_adr)(bool *enabled);
 	int (*set_adr)(bool enabled);
 	int (*get_data_rate)(enum rzi_lorawan_data_rate *data_rate);
@@ -44,14 +41,6 @@ struct rzi_lorawan_network_ops {
 	int (*set_lbt_rssi)(int16_t rssi_dbm);
 	int (*get_lbt_scan_time)(uint32_t *time_ms);
 	int (*set_lbt_scan_time)(uint32_t time_ms);
-	int (*get_ping_slot_periodicity)(uint8_t *periodicity);
-	int (*set_ping_slot_periodicity)(uint8_t periodicity);
-	int (*get_beacon_frequency)(uint32_t *frequency_hz);
-	int (*get_beacon_time)(uint32_t *gps_time);
-	int (*get_beacon_data_rate)(enum rzi_lorawan_data_rate *data_rate);
-	int (*get_beacon_gateway)(struct rzi_lorawan_beacon_gateway *gateway);
-	int (*get_class_b_state)(enum rzi_lorawan_class_b_state *state);
-	int (*stop_class_b)(void);
 };
 
 #endif /* RZI_LORAWAN_NETWORK_H */

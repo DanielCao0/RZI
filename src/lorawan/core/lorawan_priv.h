@@ -6,7 +6,13 @@
 #ifndef RZI_LORAWAN_PRIV_H
 #define RZI_LORAWAN_PRIV_H
 
+#include <stdbool.h>
+
+#include <rzi/lorawan/lorawan.h>
+
 int rzi_lorawan_check_thread(void);
 int rzi_lorawan_check_started(void);
+bool rzi_lorawan_uplink_data_rate_valid(enum rzi_lorawan_data_rate data_rate);
+bool rzi_lorawan_rx_data_rate_valid(enum rzi_lorawan_data_rate data_rate);
 
 #endif /* RZI_LORAWAN_PRIV_H */

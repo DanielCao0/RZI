@@ -191,6 +191,8 @@ include/rzi/
 ├── version.h                  SDK version and compatibility queries
 ├── capabilities.h             Service and backend capabilities
 ├── lorawan/lorawan.h          Backend-independent LoRaWAN service
+├── lorawan/multicast.h        Multicast-session facade
+├── lorawan/certification.h    Certification-mode facade
 ├── lorawan/fuota.h            Update state and control
 ├── at/at.h                    AT lifecycle and I/O binding
 ├── at/uart.h                  UART adapter
@@ -223,33 +225,32 @@ The current `include/rzi/lorawan/lorawan.h` supports:
 `src/lorawan/core/lorawan.c` validates requests and dispatches copied backend events
 to subscribers outside the modem callback context. The private contract in
 `src/lorawan/backend/lorawan_backend.h` is implemented by one source under
-`src/lorawan/backend/`. Optional capabilities are resolved through the
-versioned private extension descriptor in `src/lorawan/backend/lorawan_feature.h`;
-each implemented feature owns its typed private operation table. This keeps
-the core backend vtable stable while allowing features to evolve separately.
-Optional services attach through `rzi_lorawan_register_service()` in
+`src/lorawan/backend/`. Optional capability groups are typed ops tables hung
+directly on that contract; a NULL pointer means the backend does not implement
+the group. Optional services attach through `rzi_lorawan_register_service()` in
 `src/lorawan/core/lorawan_service.h`. Core fans those hooks out after start and
 on every dispatched event; it does not name FUOTA or include service headers.
 FUOTA operations live in `src/lorawan/backend/lorawan_fuota.h` with the other
-backend feature contracts.
+backend ops tables.
 See [lorawan-api.md](./lorawan-api.md) for the normative API and concurrency
 contract.
 
 FUOTA coordination is implemented under `src/lorawan/services/fuota/` and
-`include/rzi/lorawan/fuota.h`. Channel scan, multicast, certification, and
-DeviceTime / LinkCheck have public facades under `include/rzi/lorawan/`.
+`include/rzi/lorawan/fuota.h`. LinkCheck, DeviceTime, multicast, channel
+scan, and certification are core facades: the first two live in
+`include/rzi/lorawan/lorawan.h`, the others keep dedicated public headers.
 Backend libraries own the LoRaWAN application-package implementations
-required by those services; RZI does not duplicate them. Core concerns such
-as class and network/channel management remain in the core service.
+required by FUOTA; RZI does not duplicate them. Class and network/channel
+management remain in the core service.
 Unsupported backend operations return `-RZI_ERR_NOT_SUPPORTED`. Raw LoRa P2P and FSK use
 `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
 ### Target capability model
 
 Backends will not always provide the same features. The common service exposes
-a capability bitset covering activation, device classes, multicast, link
-check, FUOTA, channel/network management, device time, channel scan, and
-certification support. Further candidate capabilities include:
+a capability bitset covering join mode, device class, and the optional
+backend tables (network, channel, session, MAC requests, multicast,
+certification, FUOTA). Further candidate capabilities include:
 
 ```text
 ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY
@@ -525,15 +526,16 @@ rzi/
 │   ├── lorawan/
 │   │   ├── core/lorawan.c
 │   │   ├── core/lorawan_service.h
+│   │   ├── core/lorawan_mac_commands.c
+│   │   ├── core/lorawan_multicast.c
+│   │   ├── core/lorawan_certification.c
 │   │   ├── backend/
 │   │   │   ├── lorawan_backend.h
-│   │   │   ├── lorawan_feature.h
 │   │   │   ├── lorawan_fuota.h
 │   │   │   ├── usp/lorawan_backend_usp.c
 │   │   │   ├── zephyr/lorawan_backend_zephyr.c
 │   │   │   └── zephyr_lbm.c                       planned
-│   │   ├── mac_commands/
-│   │   └── services/        fuota, multicast, channel scan, certification
+│   │   └── services/fuota/  Optional FUOTA coordinator
 │   ├── at/
 │   ├── storage/             Namespaced settings adapter
 │   ├── power/

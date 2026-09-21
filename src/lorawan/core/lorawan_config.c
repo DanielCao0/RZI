@@ -8,43 +8,103 @@
 
 #include <rzi/lorawan/lorawan.h>
 
-#include "../backend/lorawan_channel.h"
-#include "../backend/lorawan_feature.h"
-#include "../backend/lorawan_info.h"
-#include "../backend/lorawan_network.h"
+#include "../backend/lorawan_backend.h"
 #include "lorawan_priv.h"
 
 static const struct rzi_lorawan_network_ops *network_ops(void)
 {
-	if ((rzi_lorawan_get_capabilities() &
-	     (RZI_LORAWAN_CAP_NETWORK_MANAGEMENT | RZI_LORAWAN_CAP_CLASS_B)) == 0U) {
-		return NULL;
-	}
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_NETWORK_MANAGEMENT,
-				       RZI_LORAWAN_NETWORK_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_network_ops));
+	return rzi_lorawan_backend.network;
 }
 
 static const struct rzi_lorawan_channel_ops *channel_ops(void)
 {
-	if ((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_CHANNEL_MANAGEMENT) == 0U) {
-		return NULL;
+	return rzi_lorawan_backend.channel;
+}
+
+static const struct rzi_lorawan_class_b_ops *class_b_ops(void)
+{
+	return rzi_lorawan_backend.class_b;
+}
+
+static const struct rzi_lorawan_session_ops *session_ops(void)
+{
+	return rzi_lorawan_backend.session;
+}
+
+/* RP2 / LBM region tables. Index is the 4-bit MAC DR; bits are legal values. */
+static uint16_t uplink_data_rate_mask(enum rzi_lorawan_region region)
+{
+	switch (region) {
+	case RZI_LORAWAN_REGION_EU_868:
+		return 0x0fffU; /* DR0-11 (DR8-11 are LR-FHSS) */
+	case RZI_LORAWAN_REGION_US_915:
+		return 0x007fU; /* DR0-6 */
+	case RZI_LORAWAN_REGION_AU_915:
+		return 0x00ffU; /* DR0-7 */
+	case RZI_LORAWAN_REGION_CN_470:
+	case RZI_LORAWAN_REGION_AS_923_GRP1:
+	case RZI_LORAWAN_REGION_AS_923_GRP2:
+	case RZI_LORAWAN_REGION_AS_923_GRP3:
+	case RZI_LORAWAN_REGION_AS_923_GRP4:
+	case RZI_LORAWAN_REGION_RU_864:
+		return 0x00ffU; /* DR0-7 */
+	case RZI_LORAWAN_REGION_IN_865:
+		return 0x00bfU; /* DR0-5, DR7 (DR6 is RFU) */
+	case RZI_LORAWAN_REGION_KR_920:
+		return 0x003fU; /* DR0-5 */
+	default:
+		return 0U;
 	}
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_CHANNEL_MANAGEMENT,
-				       RZI_LORAWAN_CHANNEL_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_channel_ops));
 }
 
-static const struct rzi_lorawan_info_ops *info_ops(void)
+static uint16_t rx_data_rate_mask(enum rzi_lorawan_region region)
 {
-	return rzi_lorawan_feature_ops(RZI_LORAWAN_FEATURE_INFORMATION,
-				       RZI_LORAWAN_INFO_OPS_VERSION,
-				       sizeof(struct rzi_lorawan_info_ops));
+	switch (region) {
+	case RZI_LORAWAN_REGION_US_915:
+	case RZI_LORAWAN_REGION_AU_915:
+		return 0x3f00U; /* DR8-13 */
+	case RZI_LORAWAN_REGION_IN_865:
+		return 0x00bfU; /* DR0-5, DR7 */
+	case RZI_LORAWAN_REGION_KR_920:
+		return 0x003fU; /* DR0-5 */
+	case RZI_LORAWAN_REGION_EU_868:
+	case RZI_LORAWAN_REGION_CN_470:
+	case RZI_LORAWAN_REGION_AS_923_GRP1:
+	case RZI_LORAWAN_REGION_AS_923_GRP2:
+	case RZI_LORAWAN_REGION_AS_923_GRP3:
+	case RZI_LORAWAN_REGION_AS_923_GRP4:
+	case RZI_LORAWAN_REGION_RU_864:
+		return 0x00ffU; /* DR0-7 */
+	default:
+		return 0U;
+	}
 }
 
-static bool data_rate_valid(enum rzi_lorawan_data_rate data_rate)
+static bool data_rate_in_mask(enum rzi_lorawan_data_rate data_rate, uint16_t mask)
 {
-	return (unsigned int)data_rate <= RZI_LORAWAN_DR_15;
+	unsigned int index = (unsigned int)data_rate;
+
+	return index <= (unsigned int)RZI_LORAWAN_DR_15 && (mask & (1U << index)) != 0U;
+}
+
+bool rzi_lorawan_uplink_data_rate_valid(enum rzi_lorawan_data_rate data_rate)
+{
+	enum rzi_lorawan_region region;
+
+	if (rzi_lorawan_get_region(&region) != 0) {
+		return false;
+	}
+	return data_rate_in_mask(data_rate, uplink_data_rate_mask(region));
+}
+
+bool rzi_lorawan_rx_data_rate_valid(enum rzi_lorawan_data_rate data_rate)
+{
+	enum rzi_lorawan_region region;
+
+	if (rzi_lorawan_get_region(&region) != 0) {
+		return false;
+	}
+	return data_rate_in_mask(data_rate, rx_data_rate_mask(region));
 }
 
 int rzi_lorawan_get_adr(bool *enabled)
@@ -106,7 +166,7 @@ int rzi_lorawan_set_data_rate(enum rzi_lorawan_data_rate data_rate)
 	if (rc != 0) {
 		return rc;
 	}
-	if (!data_rate_valid(data_rate)) {
+	if (!rzi_lorawan_uplink_data_rate_valid(data_rate)) {
 		return -RZI_ERR_INVALID;
 	}
 	ops = network_ops();
@@ -283,7 +343,7 @@ int rzi_lorawan_set_rx2_data_rate(enum rzi_lorawan_data_rate data_rate)
 	if (rc != 0) {
 		return rc;
 	}
-	if (!data_rate_valid(data_rate)) {
+	if (!rzi_lorawan_rx_data_rate_valid(data_rate)) {
 		return -RZI_ERR_INVALID;
 	}
 	ops = network_ops();
@@ -643,7 +703,7 @@ int rzi_lorawan_set_fixed_channel(uint32_t frequency_hz)
 
 int rzi_lorawan_get_net_id(uint32_t *net_id)
 {
-	const struct rzi_lorawan_info_ops *ops;
+	const struct rzi_lorawan_session_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -652,7 +712,7 @@ int rzi_lorawan_get_net_id(uint32_t *net_id)
 	if (net_id == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = info_ops();
+	ops = session_ops();
 	if (ops == NULL || ops->get_net_id == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -661,7 +721,7 @@ int rzi_lorawan_get_net_id(uint32_t *net_id)
 
 int rzi_lorawan_get_dev_nonce(uint16_t *dev_nonce)
 {
-	const struct rzi_lorawan_info_ops *ops;
+	const struct rzi_lorawan_session_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -670,7 +730,7 @@ int rzi_lorawan_get_dev_nonce(uint16_t *dev_nonce)
 	if (dev_nonce == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = info_ops();
+	ops = session_ops();
 	if (ops == NULL || ops->get_dev_nonce == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -679,13 +739,13 @@ int rzi_lorawan_get_dev_nonce(uint16_t *dev_nonce)
 
 int rzi_lorawan_set_dev_nonce(uint16_t dev_nonce)
 {
-	const struct rzi_lorawan_info_ops *ops;
+	const struct rzi_lorawan_session_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
 		return rc;
 	}
-	ops = info_ops();
+	ops = session_ops();
 	if (ops == NULL || ops->set_dev_nonce == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -694,22 +754,20 @@ int rzi_lorawan_set_dev_nonce(uint16_t dev_nonce)
 
 int rzi_lorawan_query_tx_possible(size_t size)
 {
-	const struct rzi_lorawan_info_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
 		return rc;
 	}
-	ops = info_ops();
-	if (ops == NULL || ops->query_tx_possible == NULL) {
+	if (rzi_lorawan_backend.query_tx_possible == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	return ops->query_tx_possible(size);
+	return rzi_lorawan_backend.query_tx_possible(size);
 }
 
 int rzi_lorawan_get_ping_slot_periodicity(uint8_t *periodicity)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -718,7 +776,7 @@ int rzi_lorawan_get_ping_slot_periodicity(uint8_t *periodicity)
 	if (periodicity == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
+	ops = class_b_ops();
 	if (ops == NULL || ops->get_ping_slot_periodicity == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -727,7 +785,7 @@ int rzi_lorawan_get_ping_slot_periodicity(uint8_t *periodicity)
 
 int rzi_lorawan_set_ping_slot_periodicity(uint8_t periodicity)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -736,7 +794,7 @@ int rzi_lorawan_set_ping_slot_periodicity(uint8_t periodicity)
 	if (periodicity > 7U) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
+	ops = class_b_ops();
 	if (ops == NULL || ops->set_ping_slot_periodicity == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -745,7 +803,7 @@ int rzi_lorawan_set_ping_slot_periodicity(uint8_t periodicity)
 
 int rzi_lorawan_get_beacon_frequency(uint32_t *frequency_hz)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -754,7 +812,7 @@ int rzi_lorawan_get_beacon_frequency(uint32_t *frequency_hz)
 	if (frequency_hz == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
+	ops = class_b_ops();
 	if (ops == NULL || ops->get_beacon_frequency == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -763,7 +821,7 @@ int rzi_lorawan_get_beacon_frequency(uint32_t *frequency_hz)
 
 int rzi_lorawan_get_beacon_time(uint32_t *gps_time)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -772,7 +830,7 @@ int rzi_lorawan_get_beacon_time(uint32_t *gps_time)
 	if (gps_time == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
+	ops = class_b_ops();
 	if (ops == NULL || ops->get_beacon_time == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -781,7 +839,7 @@ int rzi_lorawan_get_beacon_time(uint32_t *gps_time)
 
 int rzi_lorawan_get_beacon_data_rate(enum rzi_lorawan_data_rate *data_rate)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -790,7 +848,7 @@ int rzi_lorawan_get_beacon_data_rate(enum rzi_lorawan_data_rate *data_rate)
 	if (data_rate == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
+	ops = class_b_ops();
 	if (ops == NULL || ops->get_beacon_data_rate == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -799,7 +857,7 @@ int rzi_lorawan_get_beacon_data_rate(enum rzi_lorawan_data_rate *data_rate)
 
 int rzi_lorawan_get_beacon_gateway(struct rzi_lorawan_beacon_gateway *gateway)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -808,7 +866,7 @@ int rzi_lorawan_get_beacon_gateway(struct rzi_lorawan_beacon_gateway *gateway)
 	if (gateway == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
+	ops = class_b_ops();
 	if (ops == NULL || ops->get_beacon_gateway == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
@@ -817,7 +875,7 @@ int rzi_lorawan_get_beacon_gateway(struct rzi_lorawan_beacon_gateway *gateway)
 
 int rzi_lorawan_get_class_b_state(enum rzi_lorawan_class_b_state *state)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
@@ -826,24 +884,24 @@ int rzi_lorawan_get_class_b_state(enum rzi_lorawan_class_b_state *state)
 	if (state == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	ops = network_ops();
-	if (ops == NULL || ops->get_class_b_state == NULL) {
+	ops = class_b_ops();
+	if (ops == NULL || ops->get_state == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	return ops->get_class_b_state(state);
+	return ops->get_state(state);
 }
 
 int rzi_lorawan_stop_class_b(void)
 {
-	const struct rzi_lorawan_network_ops *ops;
+	const struct rzi_lorawan_class_b_ops *ops;
 	int rc = rzi_lorawan_check_started();
 
 	if (rc != 0) {
 		return rc;
 	}
-	ops = network_ops();
-	if (ops == NULL || ops->stop_class_b == NULL) {
+	ops = class_b_ops();
+	if (ops == NULL || ops->stop == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	return ops->stop_class_b();
+	return ops->stop();
 }
