@@ -11,7 +11,7 @@
 #include <st/wl/stm32wle5Xc.dtsi>
 #include <st/wl/stm32wle5ccux-pinctrl.dtsi>
 #include <arm/rakwireless/rak3172.dtsi>
-#include <rzi-stm32wle5-mcuboot-partition.dtsi>
+#include "rzi_rak3372-partitions.dtsi"
 
 / {
 	model = "RZI RAK3372 (STM32WLE5)";

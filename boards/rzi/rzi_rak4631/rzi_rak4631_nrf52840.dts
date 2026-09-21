@@ -2,7 +2,7 @@
 
 /dts-v1/;
 #include <nordic/nrf52840_qiaa.dtsi>
-#include <rzi-nrf52840-mcuboot-partition.dtsi>
+#include "rzi_rak4631-partitions.dtsi"
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/lora/sx126x.h>
 #include <zephyr/dt-bindings/usp/sx126x.h>

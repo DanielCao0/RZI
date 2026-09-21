@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * RZI product-board flash map for STM32WLE5 (256 KiB), used by rzi_rak3372.
+ * rzi_rak3372 flash map (STM32WLE5, 256 KiB).
  *
  * Single slot: 256 KB cannot hold two signed images plus storage. There is
  * no image-1, so LoRaWAN FUOTA and RSUP type-1 slot update are not

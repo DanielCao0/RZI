@@ -6,7 +6,6 @@ build:
   kconfig: zephyr/Kconfig
   settings:
     board_root: .
-    dts_root: .
 samples:
   - samples
 tests:

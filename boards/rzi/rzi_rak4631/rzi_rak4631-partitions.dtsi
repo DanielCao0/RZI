@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * Shared nRF52840 flash map for native RZI and ArduinoCore-zephyr.
+ * rzi_rak4631 flash map (nRF52840, 1 MB).
  * MCUboot boots slot0. Slot1 is the FUOTA / swap image. user_sketch
  * holds the Arduino LLEXT; native Zephyr apps ignore that node.
  *
- * 1 MB total: 48K boot + 304K slot0 + 304K slot1 + 336K sketch + 32K storage.
+ * 48K boot + 304K slot0 + 304K slot1 + 336K sketch + 32K storage.
  */
 
 / {
