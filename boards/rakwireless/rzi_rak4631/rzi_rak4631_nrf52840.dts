@@ -10,7 +10,7 @@
 
 / {
 	model = "RZI RAK4631 (nRF52840 + SX1262)";
-	compatible = "rzi,rzi-rak4631-nrf52840";
+	compatible = "rakwireless,rzi-rak4631-nrf52840";
 
 	chosen {
 		zephyr,console = &uart1;

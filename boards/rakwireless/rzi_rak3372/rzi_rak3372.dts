@@ -15,7 +15,7 @@
 
 / {
 	model = "RZI RAK3372 (STM32WLE5)";
-	compatible = "rzi,rzi-rak3372-stm32wl";
+	compatible = "rakwireless,rzi-rak3372-stm32wl";
 
 	chosen {
 		zephyr,console = &usart1;

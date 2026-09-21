@@ -17,4 +17,4 @@ supported:
   - usb_device
   - watchdog
   - lora
-vendor: rzi
+vendor: rakwireless

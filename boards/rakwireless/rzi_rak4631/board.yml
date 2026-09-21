@@ -1,6 +1,6 @@
 board:
   name: rzi_rak4631
   full_name: RZI RAK4631
-  vendor: rzi
+  vendor: rakwireless
   socs:
   - name: nrf52840
