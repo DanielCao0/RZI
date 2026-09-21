@@ -38,6 +38,12 @@ static int custom_handler(const struct rzi_at_request *request, void *user_data)
 	if (request->operation == RZI_AT_OP_WRITE) {
 		strncpy(last_argument, request->argument, sizeof(last_argument) - 1U);
 		last_argument[sizeof(last_argument) - 1U] = '\0';
+		if (strcmp(request->argument, "LARGE") == 0) {
+			return -RZI_ERR_TOO_LARGE;
+		}
+		if (strcmp(request->argument, "OVER") == 0) {
+			return -RZI_ERR_OVERFLOW;
+		}
 		return rzi_at_respond_status(RZI_AT_STATUS_OK);
 	}
 	return rzi_at_respond_value("AT+CUSTOM=value");
@@ -115,6 +121,12 @@ ZTEST(rzi_at_core, test_argument_case_is_preserved)
 	send_command("AT+CUSTOM=AbCd12\r");
 	zassert_equal(strcmp(last_argument, "AbCd12"), 0);
 	zassert_not_null(strstr(output, "\r\nOK\r\n"));
+}
+
+ZTEST(rzi_at_core, test_size_errors_map_to_rui3_overflow)
+{
+	send_command_until("AT+CUSTOM=LARGE\r", "\r\nAT_TEST_PARAM_OVERFLOW\r\n");
+	send_command_until("AT+CUSTOM=OVER\r", "\r\nAT_TEST_PARAM_OVERFLOW\r\n");
 }
 
 ZTEST(rzi_at_core, test_operation_validation)

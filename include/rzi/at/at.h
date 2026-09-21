@@ -136,10 +136,14 @@ __must_check int rzi_at_register(const struct rzi_at_command *commands, size_t c
  *
  * @param io Synchronous output binding.
  *
- * @return Zero when started, otherwise a negative RZI_ERR_* from validation,
- *         command registration, or extension startup.
+ * @retval 0 Started.
+ * @retval -RZI_ERR_INVALID io or write is NULL.
+ * @retval -RZI_ERR_ALREADY The service has already started.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. Runtime stop and restart are not supported.
+ *       Command-package or extension startup may also return a negative
+ *       RZI_ERR_* from that package.
  * @since 0.2
  */
 __must_check int rzi_at_start(const struct rzi_at_io *io);

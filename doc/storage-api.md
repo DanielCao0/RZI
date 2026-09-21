@@ -17,7 +17,8 @@ when auto-block is on.
 
 ## Contract
 
-- `rzi_storage_init()` is idempotent and thread-context only.
+- `rzi_storage_init()` is idempotent and thread-context only. An ISR
+  caller returns `-RZI_ERR_WOULDBLOCK`.
 - Keys are composed as `<namespace>/<key>`.
 - Read requires an exact stored-size match and returns `-RZI_ERR_TOO_LARGE`
   otherwise.

@@ -65,7 +65,7 @@ int rzi_lorawan_usp_result(smtc_modem_return_code_t rc)
 		return -RZI_ERR_BUSY;
 	case SMTC_MODEM_RC_NO_TIME:
 	case SMTC_MODEM_RC_NO_EVENT:
-		return -RZI_ERR_NOT_READY;
+		return -RZI_ERR_NO_DATA;
 	case SMTC_MODEM_RC_FAIL:
 		return -RZI_ERR_IO;
 	default:
@@ -200,6 +200,10 @@ static void modem_event_callback(void)
 			rzi_lorawan_usp_publish(&event);
 			break;
 		case SMTC_MODEM_EVENT_JOINFAIL:
+			/*
+			 * USP reports join failure without a subclass. The
+			 * catalog value is timeout: the MAC exhausted retries.
+			 */
 			event.type = RZI_LORAWAN_BACKEND_JOIN_FAILED;
 			event.error = -RZI_ERR_TIMEOUT;
 			rzi_lorawan_usp_publish(&event);

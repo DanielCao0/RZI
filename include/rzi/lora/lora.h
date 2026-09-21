@@ -198,7 +198,8 @@ __must_check int rzi_lora_set_config(const struct rzi_lora_config *config);
  * @param size Number of bytes in data, 1 through RZI_LORA_MAX_PAYLOAD.
  *
  * @retval 0 Request accepted.
- * @retval -RZI_ERR_INVALID data is NULL or size is out of range.
+ * @retval -RZI_ERR_INVALID data is NULL or size is zero.
+ * @retval -RZI_ERR_TOO_LARGE size exceeds RZI_LORA_MAX_PAYLOAD.
  * @retval -RZI_ERR_NOT_SUPPORTED The service has not started or the backend cannot send.
  * @retval -RZI_ERR_BUSY The radio is busy.
  * @retval -RZI_ERR_NOT_READY The backend is not initialized.

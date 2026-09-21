@@ -179,8 +179,11 @@ int rzi_lora_send(const uint8_t *data, size_t size)
 	if (rc != 0) {
 		return rc;
 	}
-	if (data == NULL || size == 0U || size > RZI_LORA_MAX_PAYLOAD) {
+	if (data == NULL || size == 0U) {
 		return -RZI_ERR_INVALID;
+	}
+	if (size > RZI_LORA_MAX_PAYLOAD) {
+		return -RZI_ERR_TOO_LARGE;
 	}
 	if (!atomic_get(&started) || rzi_lora_backend.send == NULL) {
 		return -RZI_ERR_NOT_SUPPORTED;

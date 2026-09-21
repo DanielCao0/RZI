@@ -54,6 +54,8 @@ static void respond_for_error(int rc)
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_BUSY_ERROR));
 	} else if (rc == -RZI_ERR_NOT_JOINED) {
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_NO_NETWORK_JOINED));
+	} else if (rc == -RZI_ERR_TOO_LARGE || rc == -RZI_ERR_OVERFLOW) {
+		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_TEST_PARAM_OVERFLOW));
 	} else if (rc != 0) {
 		ignore_result(rzi_at_respond_status(RZI_AT_STATUS_ERROR));
 	}

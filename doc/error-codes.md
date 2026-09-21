@@ -59,7 +59,10 @@ vendor errno. Unknown vendor codes become `-RZI_ERR_IO`.
 is not a substitute for explicit argument checks. Because `EAGAIN` and
 `EWOULDBLOCK` are aliases on Zephyr, that helper maps both to
 `-RZI_ERR_NOT_READY`. ISR rejection stays `-RZI_ERR_WOULDBLOCK` and is
-decided by RZI before a backend is entered.
+decided by RZI before a backend is entered. `ENOSYS` becomes
+`-RZI_ERR_NOT_SUPPORTED`, `EEXIST` becomes `-RZI_ERR_ALREADY`,
+`EPERM`/`EACCES` become `-RZI_ERR_DENIED`, and `ENOSPC` becomes
+`-RZI_ERR_NO_RESOURCE`.
 
 ## AT mapping
 
@@ -72,8 +75,10 @@ The parser maps them to unchanged RUI3 status names:
 | `-RZI_ERR_INVALID` | `AT_PARAM_ERROR` |
 | `-RZI_ERR_BUSY` | `AT_BUSY_ERROR` |
 | `-RZI_ERR_NOT_JOINED` | `AT_NO_NETWORK_JOINED` |
+| `-RZI_ERR_TOO_LARGE` | `AT_TEST_PARAM_OVERFLOW` |
+| `-RZI_ERR_OVERFLOW` | `AT_TEST_PARAM_OVERFLOW` |
 | any other non-zero | `AT_ERROR` |
 
-`AT_TEST_PARAM_OVERFLOW` is written by the line parser when input exceeds
-`CONFIG_RZI_AT_LINE_MAX`. It is not produced from this table. Asynchronous
-AT events keep their RUI3 names, including `+EVT:JOIN_FAILED_RX_TIMEOUT`.
+The line parser also writes `AT_TEST_PARAM_OVERFLOW` when input exceeds
+`CONFIG_RZI_AT_LINE_MAX`. Asynchronous AT events keep their RUI3 names,
+including `+EVT:JOIN_FAILED_RX_TIMEOUT`.

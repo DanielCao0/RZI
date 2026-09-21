@@ -289,4 +289,12 @@ ZTEST(rzi_lorawan_core, test_lifecycle_and_multiple_subscribers)
 	zassert_equal(rzi_lorawan_unregister_callbacks(second_handle), -RZI_ERR_NOT_FOUND);
 }
 
+ZTEST(rzi_lorawan_core, test_oversized_uplink_is_too_large)
+{
+	uint8_t too_big[RZI_LORAWAN_MAX_PAYLOAD + 1U] = {0};
+
+	zassert_equal(rzi_lorawan_send(10, too_big, sizeof(too_big), RZI_LORAWAN_MSG_UNCONFIRMED),
+		      -RZI_ERR_TOO_LARGE);
+}
+
 ZTEST_SUITE(rzi_lorawan_core, NULL, NULL, NULL, NULL, NULL);

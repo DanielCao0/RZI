@@ -83,6 +83,9 @@ const char *rzi_err_str(int err);
  * Zero and positive values become `0`. Codes that are not in the catalog
  * become `-RZI_ERR_IO`. `EAGAIN` and `EWOULDBLOCK` both map to
  * `-RZI_ERR_NOT_READY` because those POSIX values are aliases on Zephyr.
+ * `ENOSYS` maps to `-RZI_ERR_NOT_SUPPORTED`, `EEXIST` to `-RZI_ERR_ALREADY`,
+ * `EPERM`/`EACCES` to `-RZI_ERR_DENIED`, and `ENOSPC` to
+ * `-RZI_ERR_NO_RESOURCE`.
  *
  * Public service entry points must not call this for their own argument
  * checks. Use it only at a backend or driver boundary.

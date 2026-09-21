@@ -75,6 +75,11 @@ int rzi_err_from_errno(int rc)
 	case -EBUSY:
 		return -RZI_ERR_BUSY;
 	case -ENOTSUP:
+#ifdef ENOSYS
+#if ENOSYS != ENOTSUP
+	case -ENOSYS:
+#endif
+#endif
 #ifdef EOPNOTSUPP
 #if EOPNOTSUPP != ENOTSUP
 	case -EOPNOTSUPP:
@@ -93,8 +98,9 @@ int rzi_err_from_errno(int rc)
 	case -ETIMEDOUT:
 		return -RZI_ERR_TIMEOUT;
 	case -EOVERFLOW:
-	case -ENOSPC:
 		return -RZI_ERR_OVERFLOW;
+	case -ENOSPC:
+		return -RZI_ERR_NO_RESOURCE;
 	case -EBADMSG:
 		return -RZI_ERR_BAD_MESSAGE;
 	case -ENODEV:
@@ -102,7 +108,14 @@ int rzi_err_from_errno(int rc)
 	case -ENETDOWN:
 		return -RZI_ERR_NOT_JOINED;
 	case -EACCES:
+#ifdef EPERM
+#if EPERM != EACCES
+	case -EPERM:
+#endif
+#endif
 		return -RZI_ERR_DENIED;
+	case -EEXIST:
+		return -RZI_ERR_ALREADY;
 	case -EIO:
 	default:
 		return -RZI_ERR_IO;

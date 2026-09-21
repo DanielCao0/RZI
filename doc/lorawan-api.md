@@ -131,7 +131,9 @@ not hide an infinite retry loop.
 ## 5. Uplink and downlink
 
 `rzi_lorawan_send()` ports are 1 through 223. Maximum payload is
-`RZI_LORAWAN_MAX_PAYLOAD`. The backend copies the payload before the
+`RZI_LORAWAN_MAX_PAYLOAD`. A larger payload returns `-RZI_ERR_TOO_LARGE`,
+the same code `rzi_lorawan_query_tx_possible()` uses when the current data
+rate cannot carry the frame. The backend copies the payload before the
 function returns. Only one outstanding uplink is allowed. A second request
 returns `-RZI_ERR_BUSY`. Unjoined devices return `-RZI_ERR_NOT_JOINED`.
 
@@ -180,7 +182,7 @@ Every fallible API returns `0` or a negative `enum rzi_err`. The closed
 catalog and AT mapping are in [error-codes.md](./error-codes.md). LoRaWAN
 uses this subset:
 
-- `-RZI_ERR_INVALID`: invalid argument, enum, port, or payload length;
+- `-RZI_ERR_INVALID`: invalid argument, enum, or port;
 - `-RZI_ERR_WOULDBLOCK`: a thread-context API was called from an ISR;
 - `-RZI_ERR_NOT_READY`: the service or backend is not ready;
 - `-RZI_ERR_ALREADY`: repeated `start`, or a start-time setting changed
@@ -191,9 +193,11 @@ uses this subset:
   requested capability;
 - `-RZI_ERR_NO_RESOURCE`: callback subscriber slots are full;
 - `-RZI_ERR_NOT_FOUND`: handle or multicast session does not exist;
-- `-RZI_ERR_NO_DATA`: no downlink or beacon has been received;
-- `-RZI_ERR_TOO_LARGE`: the payload does not fit the current data rate;
-- `-RZI_ERR_TIMEOUT`: join failed without a more precise backend code;
+- `-RZI_ERR_NO_DATA`: no downlink, beacon, or modem time/event is available;
+- `-RZI_ERR_TOO_LARGE`: the payload exceeds the API maximum or the current
+  data rate;
+- `-RZI_ERR_TIMEOUT`: join retries were exhausted, or a MAC request timed
+  out, and the backend has no more precise code;
 - `-RZI_ERR_OVERFLOW`: the dispatcher event queue overflowed;
 - `-RZI_ERR_IO`: a backend failure without a more precise error;
 - `-RZI_ERR_NOT_JOINED`: uplink requested without an active session.

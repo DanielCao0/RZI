@@ -51,7 +51,8 @@ CRLF framing and one of the RUI3 status names:
 - `AT_PARAM_ERROR`
 - `AT_BUSY_ERROR`
 - `AT_NO_NETWORK_JOINED`
-- `AT_TEST_PARAM_OVERFLOW` (input line longer than `CONFIG_RZI_AT_LINE_MAX`)
+- `AT_TEST_PARAM_OVERFLOW` (input line longer than `CONFIG_RZI_AT_LINE_MAX`,
+  or a handler returned `-RZI_ERR_TOO_LARGE` / `-RZI_ERR_OVERFLOW`)
 
 An `OK` response from an asynchronous operation means that the request was
 accepted, not that the radio operation has completed.

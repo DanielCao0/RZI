@@ -357,8 +357,11 @@ static int handle_psend(const struct rzi_at_request *request, void *user_data)
 	int rc;
 
 	ARG_UNUSED(user_data);
-	if (hex_len == 0U || (hex_len % 2U) != 0U || hex_len > sizeof(payload) * 2U) {
+	if (hex_len == 0U || (hex_len % 2U) != 0U) {
 		return -RZI_ERR_INVALID;
+	}
+	if (hex_len > sizeof(payload) * 2U) {
+		return -RZI_ERR_TOO_LARGE;
 	}
 	rc = rzi_at_lora_hex_to_bin(request->argument, payload, hex_len / 2U);
 	if (rc != 0) {

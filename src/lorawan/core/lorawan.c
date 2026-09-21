@@ -459,10 +459,12 @@ int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size,
 {
 	int rc;
 
-	if ((data == NULL && size != 0U) || size > RZI_LORAWAN_MAX_PAYLOAD || port == 0 ||
-	    port > 223 ||
+	if ((data == NULL && size != 0U) || port == 0 || port > 223 ||
 	    (type != RZI_LORAWAN_MSG_UNCONFIRMED && type != RZI_LORAWAN_MSG_CONFIRMED)) {
 		return -RZI_ERR_INVALID;
+	}
+	if (size > RZI_LORAWAN_MAX_PAYLOAD) {
+		return -RZI_ERR_TOO_LARGE;
 	}
 	rc = check_context();
 	if (rc != 0) {

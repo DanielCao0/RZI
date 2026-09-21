@@ -448,10 +448,13 @@ __must_check int rzi_lorawan_leave(void);
  * one outstanding uplink is currently supported.
  *
  * @retval 0 Request accepted.
- * @retval -RZI_ERR_INVALID The port, payload, size, or message type is invalid.
+ * @retval -RZI_ERR_INVALID The port, payload pointer, or message type is invalid.
+ * @retval -RZI_ERR_TOO_LARGE The payload exceeds RZI_LORAWAN_MAX_PAYLOAD or
+ *         the current data rate.
  * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
  * @retval -RZI_ERR_NOT_JOINED No network session is active.
  * @retval -RZI_ERR_BUSY Another uplink is outstanding.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend cannot send.
  * @retval -RZI_ERR_IO The backend operation failed.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *

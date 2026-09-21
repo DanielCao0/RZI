@@ -58,6 +58,10 @@ int rzi_storage_init(void)
 {
 	int rc = 0;
 
+	if (k_is_in_isr()) {
+		return -RZI_ERR_WOULDBLOCK;
+	}
+
 	k_mutex_lock(&storage_lock, K_FOREVER);
 	if (!initialized) {
 		rc = settings_subsys_init();

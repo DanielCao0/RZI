@@ -28,6 +28,7 @@ extern "C" {
  * This operation is idempotent.
  *
  * @retval 0 Storage is ready.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  * @retval -RZI_ERR_IO Backend initialization failed.
  * @note Thread context only.
  * @since 0.2

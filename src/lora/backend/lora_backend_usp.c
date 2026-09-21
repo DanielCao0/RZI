@@ -26,6 +26,9 @@ static int map_rc(smtc_modem_return_code_t rc)
 		return -RZI_ERR_INVALID;
 	case SMTC_MODEM_RC_BUSY:
 		return -RZI_ERR_BUSY;
+	case SMTC_MODEM_RC_NO_TIME:
+	case SMTC_MODEM_RC_NO_EVENT:
+		return -RZI_ERR_NO_DATA;
 	case SMTC_MODEM_RC_FAIL:
 		return -RZI_ERR_IO;
 	default:
