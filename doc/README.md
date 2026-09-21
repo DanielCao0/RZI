@@ -2,8 +2,8 @@
 
 Status: index
 
-In-tree copies are English. Chinese reading copies live outside the repository
-at `~/doc/rzi/`. File names are lowercase kebab-case and do not repeat `rzi`.
+In-tree copies are English. File names are lowercase kebab-case and do not
+repeat `rzi`.
 
 Every page uses the same front matter: a short title, a `Status:` line, a
 purpose paragraph, and `See also:` links to peer documents. Status values:
@@ -55,9 +55,6 @@ switches, and limits that do not belong in a header comment.
 | [sbom.md](./sbom.md) | implemented | Module SPDX / CycloneDX SBOM |
 | [ci.md](./ci.md) | implemented | CI jobs, version pins, local reproduction |
 | [naming-conventions.md](./naming-conventions.md) | superseded | Redirect to coding standards §3 |
-
-Product and Arduino operator notes live outside the repository:
-`~/doc/rzi-arduino-*.md`.
 
 ## Doxygen
 
