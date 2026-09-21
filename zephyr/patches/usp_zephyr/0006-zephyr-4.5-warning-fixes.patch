@@ -1,0 +1,48 @@
+diff --git a/include/zephyr/lorawan_lbm/lorawan_hal_init.h b/include/zephyr/lorawan_lbm/lorawan_hal_init.h
+--- a/include/zephyr/lorawan_lbm/lorawan_hal_init.h
++++ b/include/zephyr/lorawan_lbm/lorawan_hal_init.h
+@@ -38,7 +38,7 @@
+ #include <stdint.h>
+ 
+ #include <zephyr/device.h>
+-#include <zephyr/sys_clock.h>
++#include <zephyr/sys/clock.h>
+ #include <zephyr/kernel.h>
+ 
+ #ifdef __cplusplus
+diff --git a/drivers/usp/sx126x/sx126x_board.c b/drivers/usp/sx126x/sx126x_board.c
+--- a/drivers/usp/sx126x/sx126x_board.c
++++ b/drivers/usp/sx126x/sx126x_board.c
+@@ -50,7 +50,7 @@
+ 
+ LOG_MODULE_REGISTER( lora_sx126x, CONFIG_LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL );
+ 
+-#define SX126X_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB )
++#define SX126X_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_CONTROLLER | SPI_TRANSFER_MSB )
+ 
+ /**
+  * @brief Event pin callback handler.
+diff --git a/drivers/usp/lr11xx/lr11xx_board.c b/drivers/usp/lr11xx/lr11xx_board.c
+--- a/drivers/usp/lr11xx/lr11xx_board.c
++++ b/drivers/usp/lr11xx/lr11xx_board.c
+@@ -46,7 +46,7 @@
+ 
+ LOG_MODULE_REGISTER( lora_lr11xx, CONFIG_LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL );
+ 
+-#define LR11XX_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB )
++#define LR11XX_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_CONTROLLER | SPI_TRANSFER_MSB )
+ 
+ /**
+  * @brief Event pin callback handler.
+diff --git a/drivers/usp/lr20xx/lr20xx_board.c b/drivers/usp/lr20xx/lr20xx_board.c
+--- a/drivers/usp/lr20xx/lr20xx_board.c
++++ b/drivers/usp/lr20xx/lr20xx_board.c
+@@ -47,7 +47,7 @@
+ 
+ LOG_MODULE_REGISTER( lora_lr20xx, CONFIG_LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL );
+ 
+-#define LR20XX_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB )
++#define LR20XX_SPI_OPERATION ( SPI_WORD_SET( 8 ) | SPI_OP_MODE_CONTROLLER | SPI_TRANSFER_MSB )
+ 
+ /**
+  * @brief Event pin callback handler.

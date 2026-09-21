@@ -20,14 +20,16 @@ rzi/
             ├── 0002-fix-lr-fhss-src-path.patch
             ├── 0003-disable-duplicate-xiao-board-root.patch
             ├── 0004-sx1262-pa-compile-definitions.patch
-            └── 0005-stm32wl-subghz-radio.patch
+            ├── 0005-stm32wl-subghz-radio.patch
+            └── 0006-zephyr-4.5-warning-fixes.patch
 ```
 
 The third patch stops `usp_zephyr` from exporting its historical
 `xiao_nrf54l15` board root because the pinned Zephyr 4.4 revision already owns
 that board. USP devicetree bindings, shields, and module extensions remain
 exported. The fifth patch teaches the USP SX126x driver the STM32WL on-chip
-SUBGHZ radio used by RAK3372.
+SUBGHZ radio used by RAK3372. The sixth patch replaces the deprecated
+`<zephyr/sys_clock.h>` include and `SPI_OP_MODE_MASTER` on Zephyr 4.5-dev.
 
 ## Applying the patches
 

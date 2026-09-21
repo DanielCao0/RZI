@@ -69,3 +69,16 @@ patches:
       Enumerate st,stm32wl-subghz-radio in the USP SX126x driver (RAK3372
       on-chip SUBGHZ). Reset/busy use RCC/PWR, IRQ is EXTI 44, PA follows
       rfo-hp, and tx/rx-enable GPIOs track SetTx/SetRx.
+
+  - path: usp_zephyr/0006-zephyr-4.5-warning-fixes.patch
+    sha256sum: 364a140ab1cdffb48d6ba5751a9934f1d8c483546b8461e99e3838e1c4663b80
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-21
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Update for Zephyr 4.5 APIs: include zephyr/sys/clock.h instead of the
+      deprecated sys_clock.h wrapper, and replace SPI_OP_MODE_MASTER with
+      SPI_OP_MODE_CONTROLLER in the USP radio board files.

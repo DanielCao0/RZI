@@ -22,7 +22,7 @@ concurrency:
 env:
   # Zephyr revision validated with the pinned USP backend and the patches
   # under zephyr/patches/. Bump together with the patches and doc/ci.md.
-  ZEPHYR_REVISION: 161f758ba363ec90cd9b727a5d82e6c86efa85ad
+  ZEPHYR_REVISION: 7d713288b4baab1cffecadf16f258d9a3885d713
   ZEPHYR_SDK_VERSION: "1.0.1"
   CLANG_FORMAT_VERSION: "23.1.0"
   DOXYGEN_VERSION: "1.13.2"
