@@ -223,9 +223,8 @@ lorawan_fuota.c    TRANSFERRING/APPLYING ↔ FLASH
 rsup.c             whole session ↔ UPDATE
 ```
 
-AT+SLEEP is not registered yet. The long-term mapping of RUI3
-`api.system.sleep` is this service; see
-[rui3-mapping.md](./rui3-mapping.md).
+`AT+SLEEP` / `AT+LPM` call this service. RUI3 `api.system.sleep` maps here;
+see [rui3-mapping.md](./rui3-mapping.md).
 
 ## 9. Explicit non-goals
 

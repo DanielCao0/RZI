@@ -2,13 +2,14 @@
 
 Status: implemented
 
-Public `rzi_lorawan_*` surface that corresponds to the RUI3 C service, now
-exposed under `include/rzi/lorawan/`. Headers are the ABI. This page is the
-function index and backend coverage.
+Public C surface that corresponds to the RUI3 C service
+(`service_lora*`). Headers are the ABI. This page is the function index,
+backend coverage, and C-level gap versus RUI3. AT grammar and events are
+in [at-command-compatibility.md](./at-command-compatibility.md).
 
 See also: [lorawan-api.md](./lorawan-api.md),
 [at-command-compatibility.md](./at-command-compatibility.md),
-[rui3-gap.md](./rui3-gap.md).
+[lora-api.md](./lora-api.md).
 
 ## Purpose
 
@@ -26,8 +27,8 @@ rate. Class B ping-slot periodicity is 0–7. Channel masks use up to
 
 ## `include/rzi/lorawan/lorawan.h`
 
-Core lifecycle (SDK 0.2) plus network, channel, information, and Class B
-(SDK 0.3). `rzi_lorawan_callbacks` includes optional `link_check_done` and
+Core lifecycle, network, channel, last-downlink RSSI/SNR, and Class B.
+`rzi_lorawan_callbacks` includes optional `link_check_done` and
 `device_time_done`.
 
 ```c
@@ -179,3 +180,84 @@ Do not add these as `rzi_lorawan_*`:
 - work-mode switch to P2P/FSK — `rzi_lora_*`
 - sleep / suspend / resume — `rzi_power_*`
 - LPTP, LmHandler, LoRaMac types
+- channel RSSI scan (`ARSSI`)
+
+## RUI3 C coverage
+
+RUI3 source of truth: `component/service/lora/service_lora*.h`.
+Out of product scope for RAK4631 / RAK3372: cellular, bootloader-only
+commands, RAK3172 `AT+UID`, and transparent / binary API modes.
+
+| Status | Meaning |
+|---|---|
+| present | Same capability exists |
+| limited | Exists, with a documented subset or different model |
+| AT-only | RUI3 has a C getter/setter; RZI keeps it in AT / `join()` |
+| missing | In RUI3 product firmware, not in RZI |
+| out of scope | Other SKU or bootloader |
+
+| Group | RUI3 | RZI | Status | Note |
+|---|---|---|---|---|
+| Lifecycle | `service_lora_init` | `rzi_lorawan_start` | present | |
+| Lifecycle | `service_lora_get/set_band` | `rzi_lorawan_get/set_region` | limited | No EU433 / LA915 enum |
+| Lifecycle | `service_lora_region_isActive` | — | missing | No public “region compiled in?” probe |
+| Lifecycle | `service_lora_set_lora_default` | `ATR` / `AT+FACTORY` | AT-only | Not a C ABI |
+| Credentials | `get/set` AppEUI, AppKey, DevEUI, DevAddr, NwkSKey, AppSKey | `rzi_lorawan_join()` inputs; AT keys | AT-only | Stay in `join()` / AT |
+| Credentials | `get/set_nwk_id` | `rzi_lorawan_get_net_id`; AT `NETID` | AT-only | Set stays in AT |
+| Credentials | `get_McRoot_key` | AT `MCROOTKEY` | AT-only | |
+| Join / send | `service_lora_join` | `rzi_lorawan_join` | present | Auto-join period/count stay AT `JOIN=` |
+| Join / send | `get/set_njm`, `get_njs` | `join()` mode; `rzi_lorawan_is_joined` | present | NJM also AT |
+| Join / send | `get/set_nwm` | `rzi_lora_start/stop`; AT `NWM` | AT-only | P2P vs LoRaWAN is not LoRaWAN ABI |
+| Join / send | `get/set_retry`, `get/set_cfm`, `get_cfs` | AT `RETY` / `CFM` / `CFS` | AT-only | |
+| Join / send | `get/set_join_start`, `auto_join*` | AT `JOIN=` fields | AT-only | |
+| Join / send | `service_lora_send` | `rzi_lorawan_send` | present | Confirm flag comes from AT context |
+| Join / send | `get_last_recv` | AT `RECV` | AT-only | |
+| Join / send | `service_lora_lptp_send` | AT `LPSEND` | missing | LPSEND is one frame, max 242, not LPTP |
+| Network | ADR, class, DCS, DR, TXP, PNM | matching `rzi_lorawan_get/set_*` | present | `tx_power` is LoRaWAN index |
+| Network | `get_real_class_from_stack` | `rzi_lorawan_get_class` | missing | No separate stack-vs-requested class |
+| Network | RX1/RX2 delays, RX2 DR/freq, JN1/JN2 | matching getters/setters | present | |
+| Network | LBT / RSSI / scantime | matching getters/setters | present | |
+| Network | `get/set_linkcheck` | `rzi_lorawan_request_link_check` | present | |
+| Network | `get/set_timereq` | `rzi_lorawan_request_device_time` | present | |
+| Network | `query_txPossible`, `isbusy` | `query_tx_possible`, `is_busy` | present | `0` = request accepted |
+| Network | `get/set_DevNonce` | `get/set_dev_nonce` | present | |
+| Network | `systemMaxRxError` | — | missing | Internal RX-window calibration |
+| Channels | mask, CHE, CHS | `channel_mask`, `sub_band`, `fixed_channel` | present | |
+| Info | RSSI, SNR, version | matching getters | present | SNR is quarter-dB in C, AT prints dB |
+| Info | ARSSI | — | missing | Channel RSSI scan not provided |
+| Class B | ping slot, beacon freq/time/DR, BGW, state, force stop | matching getters/setters | present | |
+| Class B | `get_local_time` UTC text | `get_network_time` / AT `LTIME` | limited | GPS seconds, not RUI UTC string |
+| MAC | recv/join/send/linkcheck/timereq callbacks | `rzi_lorawan_register_callbacks` | present | |
+| Cert | `certification`, `IsCertPortOn` | `set_certification_mode`, `set_certification_port_enabled` | present | |
+| Multicast | add / remove / list / clear | `rzi_lorawan_*_multicast_session` | present | |
+| Power | `suspend` / `resume` | `rzi_power_sleep` / `set_policy` | present | Different names |
+| FUOTA | RUI LmHandler FUOTA packages | `rzi_fuota_*` | limited | ChirpStack dual-slot, not LoRa Alliance FUOTA |
+| P2P | `p2p_init/config/send/recv` | `rzi_lora_start/set_config/send/receive` | present | USP cannot share radio with LoRaWAN |
+| P2P | freq/SF/BW/CR/preamble/power/IQ/sync/CAD/FSK | `rzi_lora_get/set_config` | present | |
+| P2P | `check_runtime_*` validators | inside `set_config` | missing | No standalone validator APIs |
+| P2P | crypto enable/key/IV | `config.encrypt/key/iv` | limited | XOR of key+IV, not AES-CTR |
+| P2P | `p2p_encrpty` / `decrpty` | — | missing | No public AES helpers |
+| P2P | send / recv callbacks | `rzi_lora_register_callbacks` | present | |
+| P2P | `register_send_CAD_cb` | — | missing | No dedicated CAD-send callback |
+| P2P | `get/set_public_network` | `config.sync_word` | limited | No separate P2P public-network flag |
+| P2P | `get/set_symbol_timeout` | `config.symbol_timeout` | present | No AT command |
+| P2P | `get/set_fix_length_payload` | `config.fixed_length` | present | No AT command |
+| P2P | `get_radio_stat` | — | missing | No “radio busy” P2P getter |
+| Test | TRSSI, TTONE, TTX, TRX, TOFF, CW | `rzi_lora_test_*` | present | |
+| Test | `get/set_tconf` | `get/set_config` | limited | Six P2P fields, not RUI long TCONF |
+| Test | `tth` | `test_tx` | limited | No frequency hopping |
+| Test | `trth` | `test_rx` | limited | RUI is random TX hop; RZI is RX |
+| Test | `set_dr/txp_for_trth` | — | missing | |
+
+C API still missing if the goal is parity with `service_lora*`:
+
+- LPTP (`service_lora_lptp_send`)
+- `region_isActive`, `get_real_class_from_stack`, `systemMaxRxError`
+- channel RSSI scan (`ARSSI`)
+- P2P AES encrypt/decrypt helpers, CAD-send callback, `get_radio_stat`,
+  standalone `check_runtime_*`
+- Radio-test hopping (`TCONF` hop fields, `TTH`/`TRTH` as RUI implements them)
+
+Intentional: credentials / CFM / RETY / auto-join / last payload stay
+AT-only; `LPSEND` is not LPTP; P2P encrypt is XOR; EU433 / LA915 are not
+regions.

@@ -7,7 +7,7 @@ differ from RUI3.
 
 See also: [at-framework.md](./at-framework.md),
 [storage-api.md](./storage-api.md),
-[rui3-gap.md](./rui3-gap.md).
+[rui3-mapping.md](./rui3-mapping.md).
 
 ## Scope
 
@@ -187,7 +187,7 @@ Asynchronous events are:
 +EVT:RX_1:<rssi>:<snr>:UNICAST:<port>:<payload>
 ```
 
-### Network, channel, and information
+### Network, channel, and last-downlink info
 
 These commands call the public `rzi_lorawan_*` APIs after the LoRaWAN service
 has started. A backend that does not implement the operation returns
@@ -238,6 +238,12 @@ ignores.
 
 The main gaps compared with the full RUI3 command set are:
 
+- `AT+ARSSI` (channel RSSI scan; not provided)
+- P2P long-name aliases (`RFFREQUENCY`, `TXOUTPUTPOWER`, `BANDWIDTH`,
+  `SPREADINGFACTOR`, `CODINGRATE`, `PREAMBLELENGTH`) and
+  `SYMBOLTIMEOUT` / `FIXLENGTHPAYLOAD`
+- `AT+BLEDTM`
+- `AT+EXTFLASH`
 - Cellular, GNSS, and WisBlock-sensor commands;
 - BLE advertising, UART-over-BLE, and DTM commands other than `AT+BLEMAC`;
 - Bootloader-only `AT+RUN`, `AT+BOOTSTATUS`, and `AT+UPDATE`;

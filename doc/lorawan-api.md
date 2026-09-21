@@ -9,7 +9,6 @@ The precise ABI is `include/rzi/lorawan/lorawan.h` (group 0.4.0) plus
 See also: [error-codes.md](./error-codes.md),
 [lorawan-backends.md](./lorawan-backends.md),
 [fuota.md](./fuota.md), [rui3-mapping.md](./rui3-mapping.md).
-The header-to-RUI3 mapping is in [rui3-mapping.md](./rui3-mapping.md).
 
 ## 1. Purpose
 
@@ -27,8 +26,8 @@ concrete protocol stack. Public interfaces follow these rules:
 - API return values only say whether a request was accepted. Final results
   arrive through callbacks.
 
-Class B, network/channel management, information, DeviceTimeReq, and
-LinkCheckReq stay in LoRaWAN Core. Multicast and certification are also
+Class B, network/channel management, last-downlink RSSI/SNR, DeviceTimeReq,
+and LinkCheckReq stay in LoRaWAN Core. Multicast and certification are also
 core facades with dedicated public headers. FUOTA
 lives under `src/lorawan/services/fuota/`. Clock Synchronization, Remote
 Multicast Setup, Fragmentation, and the Firmware Management Package
@@ -106,13 +105,15 @@ an activation enum plus a union:
   fragmentation root key);
 - ABP: `dev_addr`, `network_session_key`, `application_session_key`.
 
-The public API can express OTAA and ABP. Actual support is a capability.
-Applications should check `rzi_lorawan_get_capabilities()`.
+The public API can express OTAA and ABP. A backend that does not implement
+a mode or ops table returns `-RZI_ERR_NOT_SUPPORTED`.
+`rzi_lorawan_get_capabilities()` is optional discovery for portable code
+and the AT package; typical applications do not need to call it.
 
 | Backend | Default capabilities | With `CONFIG_RZI_LORAWAN_FUOTA` |
 |---|---|---|
-| USP | OTAA, Class A/B/C, multicast, link check, information, network management, device time, certification | Adds FUOTA |
-| Zephyr | OTAA, ABP, Class A/C, link check, information, network/channel management, device time | Adds FUOTA |
+| USP | OTAA, Class A/B/C, NETWORK, MAC, MULTICAST, CERTIFICATION | Adds FUOTA |
+| Zephyr | OTAA, ABP, Class A/C, NETWORK, CHANNEL, SESSION, MAC | Adds FUOTA |
 
 AT `AT+APPKEY` copies the same 16 bytes into both `network_key` and
 `application_key`. Native C callers that need a separate ChirpStack

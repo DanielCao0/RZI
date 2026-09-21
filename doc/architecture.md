@@ -150,9 +150,10 @@ must never control the same radio instance at runtime.
 - MCUBoot **source** (west module): verify, select a slot, jump to the app;
 - upstream protocol APIs when they are available and stable.
 
-RZI exports a product `board_root` (`rzi_rak4631`, `rzi_rak3372`) and a `dts_root`
-for partition dtsi files. It does not fork SoC bindings. Customers target RZI
-product boards, not the upstream board names. The boot contract is `CONFIG_RZI_MCUBOOT`, sysbuild, and a merged image; see
+RZI exports a product `board_root` (`rzi_rak4631`, `rzi_rak3372`). Partition
+tables live next to each board DTS. It does not fork SoC bindings. Customers
+target RZI product boards, not the upstream board names. The boot contract is
+`CONFIG_RZI_MCUBOOT`, sysbuild, and a merged image; see
 [boot.md](./boot.md).
 
 ### The application owns
@@ -236,8 +237,8 @@ See [lorawan-api.md](./lorawan-api.md) for the normative API and concurrency
 contract.
 
 FUOTA coordination is implemented under `src/lorawan/services/fuota/` and
-`include/rzi/lorawan/fuota.h`. LinkCheck, DeviceTime, multicast, channel
-scan, and certification are core facades: the first two live in
+`include/rzi/lorawan/fuota.h`. LinkCheck, DeviceTime, multicast, and
+certification are core facades: the first two live in
 `include/rzi/lorawan/lorawan.h`, the others keep dedicated public headers.
 Backend libraries own the LoRaWAN application-package implementations
 required by FUOTA; RZI does not duplicate them. Class and network/channel
@@ -256,10 +257,11 @@ certification, FUOTA). Further candidate capabilities include:
 ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY
 ```
 
-An unsupported operation returns `-RZI_ERR_NOT_SUPPORTED`. C API clients should query
-`rzi_lorawan_get_capabilities()` instead of inferring support from the
-backend name. The AT package forwards class, ADR, data rate, channels,
-link-check, Class B, multicast, and certification to the same C API.
+An unsupported operation returns `-RZI_ERR_NOT_SUPPORTED`. Typical
+applications call the API and handle that error. Portable code and the AT
+package may also read `rzi_lorawan_get_capabilities()`. The AT package
+forwards class, ADR, data rate, channels, link-check, Class B, multicast,
+and certification to the same C API.
 
 ### Concurrency and events
 
@@ -542,6 +544,7 @@ rzi/
 │   ├── rsup/
 │   ├── lora/                Raw LoRa / FSK scaffold
 │   └── diagnostics/         planned
+├── boards/                  Product boards; partition dtsi lives here
 ├── samples/
 ├── tests/
 ├── doc/

@@ -18,12 +18,8 @@ and FUOTA take blockers automatically. Class A join/send do not.
 
 ## Boards
 
-| | `rzi_rak4631` (nRF52840) | `rzi_rak3372` (STM32WLE5) |
-|---|---|---|
-| Default policy | Idle (USB CDC often attached) | Suspend |
-| RAM-retaining sleep | System ON + WFE. No `cpu-power-states`; do not enable `CONFIG_PM` | `CONFIG_PM=y`; idle may enter STOP0/1/2 |
-| Shutdown | `sys_poweroff()` → System OFF. Needs GPIO or USB wake | `sys_poweroff()` → STANDBY/shutdown. GPIO / RTC / SUBGHZ can wake |
-| Radio wake | Application or driver keeps SX1262 DIO1 | On-chip SUBGHZ EXTI; LPTIM1 + LSE is the system timer |
+Sleep depth on each product board is in [power.md](./power.md). 4631 stays
+System ON + WFE and does not enable `CONFIG_PM`. 3372 may enter STOP2.
 
 ## Policy and blockers
 

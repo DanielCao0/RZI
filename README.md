@@ -39,7 +39,7 @@ rzi/
 │   ├── lora/            Raw LoRa private .c/.h scaffold
 │   ├── lorawan/
 │   │   ├── core/              Backend-independent service and thin facades
-│   │   ├── backend/           Contract, feature extensions, USP / Zephyr
+│   │   ├── backend/           Contract and USP / Zephyr adapters
 │   │   ├── services/fuota/    ChirpStack-compatible FUOTA coordinator
 │   └── at/
 │       ├── at_core.c          Lifecycle, RX queue and output
@@ -49,6 +49,7 @@ rzi/
 │       │   ├── at_command_system.c
 │       │   └── lorawan/       LoRaWAN commands grouped by RUI3 domain
 │       └── adapters/          UART and reserved RUI3 BLE UART adapters
+├── boards/              Product boards and partition tables
 ├── samples/             RZI-owned buildable samples
 ├── doc/                 Architecture and internal documentation
 ├── LICENSE
