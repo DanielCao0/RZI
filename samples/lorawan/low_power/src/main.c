@@ -62,59 +62,53 @@ static void uplink_work_handler(struct k_work *work)
 	(void)k_work_schedule(&uplink_work, K_SECONDS(PERIODICAL_UPLINK_DELAY_S));
 }
 
-static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
+static void request_join(void)
 {
-	int rc;
+	int rc = rzi_lorawan_join(&join_config);
 
-	ARG_UNUSED(user_data);
-	if (state != RZI_LORAWAN_STATE_READY) {
-		return;
-	}
-
-	rc = rzi_lorawan_join(&join_config);
 	if (rc != 0) {
 		LOG_WRN("Join rejected: %d", rc);
 	}
 }
 
-static void on_join_done(int status, void *user_data)
+static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	ARG_UNUSED(user_data);
-	if (status != 0) {
-		LOG_INF("Join failed: %d", status);
-		return;
+	switch (event->type) {
+	case RZI_LORAWAN_EVENT_READY:
+		request_join();
+		break;
+	case RZI_LORAWAN_EVENT_STATE_CHANGED:
+		if (event->state == RZI_LORAWAN_STATE_READY) {
+			request_join();
+		}
+		break;
+	case RZI_LORAWAN_EVENT_JOINED:
+		LOG_INF("Joined");
+		send_uplink_counter();
+		(void)k_work_schedule(&uplink_work, K_SECONDS(PERIODICAL_UPLINK_DELAY_S));
+		break;
+	case RZI_LORAWAN_EVENT_JOIN_FAILED:
+		LOG_INF("Join failed: %d", event->error);
+		request_join();
+		break;
+	case RZI_LORAWAN_EVENT_TX_DONE:
+		LOG_INF("TX done %d", event->tx.status);
+		break;
+	case RZI_LORAWAN_EVENT_DOWNLINK:
+		LOG_INF("RX port %u, %u bytes, RSSI %d", event->downlink.port,
+			(unsigned int)event->downlink.size, event->downlink.rssi_dbm);
+		break;
+	case RZI_LORAWAN_EVENT_ERROR:
+		LOG_ERR("RZI error %d", event->error);
+		break;
+	default:
+		break;
 	}
-
-	LOG_INF("Joined");
-	send_uplink_counter();
-	(void)k_work_schedule(&uplink_work, K_SECONDS(PERIODICAL_UPLINK_DELAY_S));
-}
-
-static void on_send_done(const struct rzi_lorawan_tx_result *result, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	LOG_INF("TX done %d", result->status);
-}
-
-static void on_downlink(const struct rzi_lorawan_downlink *downlink, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	LOG_INF("RX port %u, %u bytes, RSSI %d", downlink->port, (unsigned int)downlink->size,
-		downlink->rssi_dbm);
-}
-
-static void on_error(int error, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	LOG_ERR("RZI error %d", error);
 }
 
 static const struct rzi_lorawan_callbacks callbacks = {
-	.join_done = on_join_done,
-	.send_done = on_send_done,
-	.downlink = on_downlink,
-	.state_changed = on_state_changed,
-	.error = on_error,
+	.on_event = on_event,
 };
 
 int main(void)

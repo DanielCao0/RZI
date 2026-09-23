@@ -27,8 +27,9 @@ rate. Class B ping-slot periodicity is 0–7. Channel masks use up to
 ## `include/rzi/lorawan/lorawan.h`
 
 Core lifecycle (SDK 0.2) plus network, channel, information, and Class B
-(SDK 0.3). `rzi_lorawan_callbacks` includes optional `link_check_done` and
-`device_time_done`.
+(SDK 0.3). `rzi_lorawan_callbacks.on_event` reports link check as
+`RZI_LORAWAN_EVENT_LINK_CHECK` and device time as
+`RZI_LORAWAN_EVENT_DEVICE_TIME`.
 
 ```c
 int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks,
@@ -116,7 +117,8 @@ int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time);
 ```
 
 `request_link_check(ONCE)` or `EVERY_UPLINK` triggers a request immediately.
-Completion is `link_check_done`. DeviceTime completion is `device_time_done`.
+Completion is `on_event()` with `RZI_LORAWAN_EVENT_LINK_CHECK` or
+`RZI_LORAWAN_EVENT_DEVICE_TIME`.
 `get_network_time` uses the GPS epoch.
 
 ## `include/rzi/lorawan/multicast.h`

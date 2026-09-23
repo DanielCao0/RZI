@@ -36,47 +36,41 @@ static void on_emul_uplink(uint8_t port, uint8_t len, const uint8_t *data)
 	}
 }
 
-static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
+static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	struct callback_stats *stats = user_data;
 
-	if (state == RZI_LORAWAN_STATE_READY) {
+	switch (event->type) {
+	case RZI_LORAWAN_EVENT_READY:
 		atomic_inc(&stats->ready);
 		k_sem_give(&callback_sem);
-	}
-}
-
-static void on_join_done(int status, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	atomic_set(&stats->join_status, status);
-	if (status == 0) {
+		break;
+	case RZI_LORAWAN_EVENT_JOINED:
+		atomic_set(&stats->join_status, 0);
 		atomic_inc(&stats->joined);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_JOIN_FAILED:
+		atomic_set(&stats->join_status, event->error);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_TX_DONE:
+		zassert_equal(event->tx.status, RZI_LORAWAN_TX_SENT);
+		zassert_ok(event->tx.error);
+		atomic_inc(&stats->uplink);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_DOWNLINK:
+		if (event->downlink.port == 3 && event->downlink.size == 2 &&
+		    event->downlink.data[0] == 0xab && event->downlink.data[1] == 0xcd) {
+			atomic_set(&stats->payload_valid, 1);
+		}
+		atomic_inc(&stats->downlink);
+		k_sem_give(&callback_sem);
+		break;
+	default:
+		break;
 	}
-	k_sem_give(&callback_sem);
-}
-
-static void on_send_done(const struct rzi_lorawan_tx_result *result, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	zassert_equal(result->status, RZI_LORAWAN_TX_SENT);
-	zassert_ok(result->error);
-	atomic_inc(&stats->uplink);
-	k_sem_give(&callback_sem);
-}
-
-static void on_downlink(const struct rzi_lorawan_downlink *downlink, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	if (downlink->port == 3 && downlink->size == 2 && downlink->data[0] == 0xab &&
-	    downlink->data[1] == 0xcd) {
-		atomic_set(&stats->payload_valid, 1);
-	}
-	atomic_inc(&stats->downlink);
-	k_sem_give(&callback_sem);
 }
 
 static void wait_for_callbacks(unsigned int count)
@@ -90,10 +84,7 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 {
 	struct callback_stats stats = {0};
 	const struct rzi_lorawan_callbacks callbacks = {
-		.join_done = on_join_done,
-		.send_done = on_send_done,
-		.downlink = on_downlink,
-		.state_changed = on_state_changed,
+		.on_event = on_event,
 		.user_data = &stats,
 	};
 	rzi_lorawan_callback_handle_t handle;

@@ -55,10 +55,9 @@ set_region -> start -> join(config) -> send(port, data, size, type)
 - Standard capabilities the backend does not support return `-ENOTSUP`.
 
 RZI does not copy Zephyr's synchronous join semantics. USP/LBM join, TX, and
-downlink are already asynchronous events, so RZI uses RUI3-style
-`join_done`, `send_done`, `downlink`, and `state_changed` callbacks. That
-avoids long blocks on the caller thread and does not invent a synchronous
-result.
+downlink are already asynchronous events, so RZI delivers one
+`on_event()` call per queued event. That avoids long blocks on the caller
+thread and does not invent a synchronous result.
 
 ## 3. Lifecycle
 
@@ -66,25 +65,21 @@ Typical call order:
 
 ```c
 static const struct rzi_lorawan_callbacks callbacks = {
-    .join_done = on_join_done,
-    .send_done = on_send_done,
-    .downlink = on_downlink,
-    .state_changed = on_state_changed,
-    .error = on_error,
+    .on_event = on_event,
     .user_data = context,
 };
 
 rzi_lorawan_register_callbacks(&callbacks, &handle);
 rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868);
 rzi_lorawan_start();
-/* after state_changed(RZI_LORAWAN_STATE_READY) */
+/* after on_event(RZI_LORAWAN_EVENT_READY) */
 rzi_lorawan_join(&join_config);
 ```
 
 Rules:
 
 1. Callbacks may be registered before `start`. Doing so is recommended so
-   the `READY` state is not missed;
+   `RZI_LORAWAN_EVENT_READY` is not missed;
 2. `set_region` and `set_join_backoff_bypass` may be called only before
    `start`;
 3. `start` is a process-wide one-shot. A repeat returns `-EALREADY`;
@@ -120,9 +115,10 @@ GenAppKey must fill the two fields themselves; the AT package cannot.
 
 The join config is deep-copied before `rzi_lorawan_join()` returns. The
 caller may then free or mutate the original object. A return of `0` only
-means the backend accepted the request. `join_done` status `0` means
-network activation finished. A negative errno means this attempt ended
-without joining.
+means the backend accepted the request. `on_event()` with
+`RZI_LORAWAN_EVENT_JOINED` means network activation finished.
+`RZI_LORAWAN_EVENT_JOIN_FAILED` carries a negative errno when this attempt
+ended without joining.
 
 Retry policy belongs to the application or the AT service. RZI core does
 not hide an infinite retry loop.
@@ -134,15 +130,15 @@ not hide an infinite retry loop.
 function returns. Only one outstanding uplink is allowed. A second request
 returns `-EBUSY`.
 
-`send_done` receives a `rzi_lorawan_tx_result` that is valid only for the
-duration of the callback:
+`RZI_LORAWAN_EVENT_TX_DONE` carries a `rzi_lorawan_tx_result` that is valid
+only for the duration of `on_event()`:
 
 - `RZI_LORAWAN_TX_ACKED`: a confirmed uplink received an acknowledgement;
 - `RZI_LORAWAN_TX_SENT`: the frame was sent without an acknowledgement;
 - `RZI_LORAWAN_TX_NOT_SENT`: the request was never sent.
 
-Metadata and payload pointers in the downlink callback are valid only until
-that callback returns. Subscribers that need the data later must copy it.
+Metadata and payload pointers in `RZI_LORAWAN_EVENT_DOWNLINK` are valid only
+until `on_event()` returns. Subscribers that need the data later must copy it.
 
 ## 6. Callbacks and concurrency
 
@@ -163,7 +159,7 @@ That guarantees user callbacks:
 
 Callbacks must return quickly and must not block for long. One slow
 subscriber delays the others. On queue overflow, RZI reports the loss with
-`error(-EOVERFLOW)`. Queue depth, subscriber limit, dispatcher stack, and
+`on_event()` type `RZI_LORAWAN_EVENT_ERROR` and errno `-EOVERFLOW`. Queue depth, subscriber limit, dispatcher stack, and
 priority are Kconfig settings.
 
 The callback table, including `user_data`, is copied at registration. The

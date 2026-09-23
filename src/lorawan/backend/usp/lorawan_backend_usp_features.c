@@ -284,17 +284,23 @@ static int usp_get_class_b_state(enum rzi_lorawan_class_b_state *state)
 
 static int usp_stop_class_b(void)
 {
+	bool notify = false;
 	int rc = rzi_lorawan_usp_enter();
 
 	if (rc != 0) {
 		return rc;
 	}
+
 	rc = rzi_lorawan_usp_result(
 		smtc_modem_set_class(RZI_LORAWAN_USP_STACK_ID, SMTC_MODEM_CLASS_A));
 	if (rc == 0) {
-		rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_IDLE);
+		notify = rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_IDLE);
 	}
-	return rzi_lorawan_usp_finish(rc);
+	rc = rzi_lorawan_usp_finish(rc);
+	if (notify) {
+		rzi_lorawan_usp_publish_class_b();
+	}
+	return rc;
 }
 
 static const struct rzi_lorawan_network_ops usp_network_ops = {

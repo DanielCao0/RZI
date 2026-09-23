@@ -57,7 +57,8 @@ __must_check int rzi_lorawan_get_link_check_mode(enum rzi_lorawan_link_check_mod
 /**
  * @brief Request LinkCheckReq according to mode.
  *
- * Completion is reported through link_check_done(). A return of zero means
+ * Completion is reported through on_event() as RZI_LORAWAN_EVENT_LINK_CHECK.
+ * A return of zero means
  * the mode was stored. ONCE and EVERY_UPLINK trigger a request immediately;
  * EVERY_UPLINK also piggybacks on later uplinks.
  *
@@ -93,7 +94,7 @@ __must_check int rzi_lorawan_get_device_time_enabled(bool *enabled);
 /**
  * @brief Enable or disable DeviceTimeReq on subsequent uplinks.
  *
- * Completion is reported through device_time_done().
+ * Completion is reported through on_event() as RZI_LORAWAN_EVENT_DEVICE_TIME.
  *
  * @param enabled True to request network time.
  *

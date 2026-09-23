@@ -223,7 +223,7 @@ struct rzi_lorawan_join_config {
 	};
 };
 
-/** Observable service states delivered through state_changed. */
+/** Observable service states carried by RZI_LORAWAN_EVENT_STATE_CHANGED. */
 enum rzi_lorawan_state {
 	/** Service has not started. */
 	RZI_LORAWAN_STATE_STOPPED,
@@ -275,32 +275,73 @@ struct rzi_lorawan_downlink {
 typedef uint16_t rzi_lorawan_callback_handle_t;
 
 /**
- * @brief Asynchronous service callbacks.
+ * @brief Events delivered to rzi_lorawan_callbacks.on_event.
  *
- * All callbacks are optional and execute serially in the RZI dispatcher
- * thread, never in an ISR or the backend modem callback. Implementations must
- * return promptly and must copy downlink data they need after returning.
+ * FUOTA session progress stays on the FUOTA callback table.
+ */
+enum rzi_lorawan_event_type {
+	/** Backend startup completed. */
+	RZI_LORAWAN_EVENT_READY,
+	/** Network activation succeeded. */
+	RZI_LORAWAN_EVENT_JOINED,
+	/** Network activation failed. Active member is error. */
+	RZI_LORAWAN_EVENT_JOIN_FAILED,
+	/** An accepted uplink completed. Active member is tx. */
+	RZI_LORAWAN_EVENT_TX_DONE,
+	/** An application downlink was received. Active member is downlink. */
+	RZI_LORAWAN_EVENT_DOWNLINK,
+	/** An asynchronous error. Active member is error. */
+	RZI_LORAWAN_EVENT_ERROR,
+	/** Service state transition from the core. Active member is state. */
+	RZI_LORAWAN_EVENT_STATE_CHANGED,
+	/** LinkCheckAns received. Active member is link_check. */
+	RZI_LORAWAN_EVENT_LINK_CHECK,
+	/** DeviceTimeAns completed. Active member is error. */
+	RZI_LORAWAN_EVENT_DEVICE_TIME,
+	/** Class B acquisition state changed. Active member is class_b. */
+	RZI_LORAWAN_EVENT_CLASS_B,
+};
+
+/**
+ * @brief One queued LoRaWAN event.
  *
- * @note A callback may call non-blocking RZI LoRaWAN APIs.
+ * type selects the active union member. Downlink data is valid only for the
+ * duration of on_event().
+ */
+struct rzi_lorawan_event {
+	/** Selects the active union member. */
+	enum rzi_lorawan_event_type type;
+	union {
+		/** Negative errno for JOIN_FAILED, ERROR, and DEVICE_TIME. */
+		int error;
+		/** Uplink result for RZI_LORAWAN_EVENT_TX_DONE. */
+		struct rzi_lorawan_tx_result tx;
+		/** State for RZI_LORAWAN_EVENT_STATE_CHANGED. */
+		enum rzi_lorawan_state state;
+		/** Downlink metadata. data is valid only during on_event(). */
+		struct rzi_lorawan_downlink downlink;
+		/** Link-check result for RZI_LORAWAN_EVENT_LINK_CHECK. */
+		struct rzi_lorawan_link_check_result link_check;
+		/** Class B state for RZI_LORAWAN_EVENT_CLASS_B. */
+		enum rzi_lorawan_class_b_state class_b;
+	};
+};
+
+/**
+ * @brief Asynchronous service callback.
+ *
+ * on_event executes serially in the RZI dispatcher thread, never in an ISR
+ * or the backend modem callback. Each queued event produces one call.
+ * Implementations must return promptly and must copy downlink data they need
+ * after returning.
+ *
+ * @note The callback may call non-blocking RZI LoRaWAN APIs.
  * @since 0.2
  */
 struct rzi_lorawan_callbacks {
-	/** Called with zero after join success or negative errno after failure. */
-	void (*join_done)(int status, void *user_data);
-	/** Called after an accepted uplink reaches a terminal result. */
-	void (*send_done)(const struct rzi_lorawan_tx_result *result, void *user_data);
-	/** Called for each application downlink. */
-	void (*downlink)(const struct rzi_lorawan_downlink *downlink, void *user_data);
-	/** Called for observable service state transitions. */
-	void (*state_changed)(enum rzi_lorawan_state state, void *user_data);
-	/** Called for asynchronous errors not attached to another result. */
-	void (*error)(int error, void *user_data);
-	/** Called after a LinkCheckAns, or not at all when the request failed. */
-	void (*link_check_done)(const struct rzi_lorawan_link_check_result *result,
-				void *user_data);
-	/** Called with zero after DeviceTimeAns, otherwise a negative errno. */
-	void (*device_time_done)(int status, void *user_data);
-	/** Opaque subscriber pointer passed to every callback. */
+	/** Called once for each delivered event. */
+	void (*on_event)(const struct rzi_lorawan_event *event, void *user_data);
+	/** Opaque subscriber pointer passed to on_event. */
 	void *user_data;
 };
 
@@ -382,7 +423,7 @@ __must_check int rzi_lorawan_set_join_backoff_bypass(bool enabled);
  * @brief Start the process-wide LoRaWAN service.
  *
  * A return value of zero means startup was accepted. Readiness is reported
- * through state_changed() with RZI_LORAWAN_STATE_READY.
+ * through on_event() with RZI_LORAWAN_EVENT_READY.
  *
  * @retval 0 Startup accepted.
  * @retval -EALREADY The service has already started.
@@ -400,7 +441,7 @@ __must_check int rzi_lorawan_start(void);
  *
  * The configuration is copied before this function returns. A return value of
  * zero means the request was accepted; completion is reported through
- * join_done().
+ * on_event() as RZI_LORAWAN_EVENT_JOINED or RZI_LORAWAN_EVENT_JOIN_FAILED.
  *
  * @param config Activation mode and credentials.
  *
@@ -412,7 +453,7 @@ __must_check int rzi_lorawan_start(void);
  * @retval -ENOTSUP The selected backend does not support the activation mode.
  * @retval -EWOULDBLOCK Called from an ISR.
  *
- * @pre RZI_LORAWAN_STATE_READY has been reported.
+ * @pre on_event() has reported RZI_LORAWAN_EVENT_READY.
  * @note Thread context only.
  * @since 0.2
  */
@@ -442,8 +483,8 @@ __must_check int rzi_lorawan_leave(void);
  * @param size Number of payload bytes.
  * @param type Confirmed or unconfirmed message type.
  * A return value of zero means the payload was copied and accepted, not that
- * it has been transmitted. Completion is reported through send_done(). Only
- * one outstanding uplink is currently supported.
+ * it has been transmitted. Completion is reported through on_event() as
+ * RZI_LORAWAN_EVENT_TX_DONE. Only one outstanding uplink is currently supported.
  *
  * @retval 0 Request accepted.
  * @retval -EINVAL The port, payload, size, or message type is invalid.

@@ -426,12 +426,11 @@ int rzi_at_lorawan_join_stop(void)
 	return context->service_started ? rzi_lorawan_leave() : 0;
 }
 
-static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
+static void continue_pending_join(void)
 {
 	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 
-	ARG_UNUSED(user_data);
-	if (state == RZI_LORAWAN_STATE_READY && atomic_cas(&context->join_pending, 1, 0)) {
+	if (atomic_cas(&context->join_pending, 1, 0)) {
 		if (rzi_at_lorawan_apply_class() != 0 ||
 		    rzi_lorawan_join(&context->pending_join_config) != 0) {
 			report_join_failure();
@@ -439,60 +438,62 @@ static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
 	}
 }
 
-static void on_join_done(int status, void *user_data)
+static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 
 	ARG_UNUSED(user_data);
-	if (status == 0) {
+	switch (event->type) {
+	case RZI_LORAWAN_EVENT_READY:
+		continue_pending_join();
+		break;
+	case RZI_LORAWAN_EVENT_STATE_CHANGED:
+		if (event->state == RZI_LORAWAN_STATE_READY) {
+			continue_pending_join();
+		}
+		break;
+	case RZI_LORAWAN_EVENT_JOINED:
 		atomic_clear(&context->join_sequence_active);
 		(void)k_work_cancel_delayable(&context->join_retry_work);
 		at_event("JOINED");
-	} else {
+		break;
+	case RZI_LORAWAN_EVENT_JOIN_FAILED:
 		report_join_failure();
+		break;
+	case RZI_LORAWAN_EVENT_TX_DONE:
+		if (!atomic_get(&context->tx_confirmed)) {
+			at_event("TX_DONE");
+		} else if (event->tx.status == RZI_LORAWAN_TX_ACKED) {
+			atomic_set(&context->confirmation_status, 1);
+			at_event("SEND_CONFIRMED_OK");
+		} else if (event->tx.status == RZI_LORAWAN_TX_NOT_SENT) {
+			atomic_clear(&context->confirmation_status);
+			at_event("SEND_CONFIRMED_FAILED");
+		} else {
+			at_event("TX_DONE");
+		}
+		break;
+	case RZI_LORAWAN_EVENT_DOWNLINK: {
+		char hex[RZI_LORAWAN_MAX_PAYLOAD * 2U + 1U];
+
+		k_mutex_lock(&context->state_lock, K_FOREVER);
+		context->last_downlink.valid = true;
+		context->last_downlink.port = event->downlink.port;
+		context->last_downlink.size = event->downlink.size;
+		memcpy(context->last_downlink.data, event->downlink.data, event->downlink.size);
+		k_mutex_unlock(&context->state_lock);
+		rzi_at_lorawan_bin_to_hex(event->downlink.data, event->downlink.size, hex);
+		at_event("RX_1:%d:%d:UNICAST:%u:%s", event->downlink.rssi_dbm,
+			 event->downlink.snr_quarter_db / 4, event->downlink.port, hex);
+		break;
 	}
-}
-
-static void on_send_done(const struct rzi_lorawan_tx_result *result, void *user_data)
-{
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
-
-	ARG_UNUSED(user_data);
-	if (!atomic_get(&context->tx_confirmed)) {
-		at_event("TX_DONE");
-	} else if (result->status == RZI_LORAWAN_TX_ACKED) {
-		atomic_set(&context->confirmation_status, 1);
-		at_event("SEND_CONFIRMED_OK");
-	} else if (result->status == RZI_LORAWAN_TX_NOT_SENT) {
-		atomic_clear(&context->confirmation_status);
-		at_event("SEND_CONFIRMED_FAILED");
-	} else {
-		at_event("TX_DONE");
+	default:
+		break;
 	}
-}
-
-static void on_downlink(const struct rzi_lorawan_downlink *downlink, void *user_data)
-{
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
-	char hex[RZI_LORAWAN_MAX_PAYLOAD * 2U + 1U];
-
-	ARG_UNUSED(user_data);
-	k_mutex_lock(&context->state_lock, K_FOREVER);
-	context->last_downlink.valid = true;
-	context->last_downlink.port = downlink->port;
-	context->last_downlink.size = downlink->size;
-	memcpy(context->last_downlink.data, downlink->data, downlink->size);
-	k_mutex_unlock(&context->state_lock);
-	rzi_at_lorawan_bin_to_hex(downlink->data, downlink->size, hex);
-	at_event("RX_1:%d:%d:UNICAST:%u:%s", downlink->rssi_dbm, downlink->snr_quarter_db / 4,
-		 downlink->port, hex);
 }
 
 static const struct rzi_lorawan_callbacks callbacks = {
-	.join_done = on_join_done,
-	.send_done = on_send_done,
-	.downlink = on_downlink,
-	.state_changed = on_state_changed,
+	.on_event = on_event,
 };
 
 static int extension_start(void)

@@ -88,7 +88,7 @@ Example:
  * @brief Request LoRaWAN network activation.
  *
  * The configuration is copied before this function returns. A return value of
- * zero means accepted; completion is reported through join_done().
+ * zero means accepted; completion is reported through on_event().
  *
  * @param config Activation configuration.
  *

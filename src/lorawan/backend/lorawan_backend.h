@@ -35,6 +35,8 @@ enum rzi_lorawan_backend_event_type {
 	RZI_LORAWAN_BACKEND_LINK_CHECK,
 	/** DeviceTimeAns received or the request timed out. */
 	RZI_LORAWAN_BACKEND_DEVICE_TIME,
+	/** Class B acquisition state changed. */
+	RZI_LORAWAN_BACKEND_CLASS_B,
 };
 
 /** FUOTA session kind carried by RZI_LORAWAN_BACKEND_FUOTA. */
@@ -93,6 +95,8 @@ struct rzi_lorawan_backend_event {
 		} fuota;
 		/** Link-check result for RZI_LORAWAN_BACKEND_LINK_CHECK. */
 		struct rzi_lorawan_link_check_result link_check;
+		/** Class B state for RZI_LORAWAN_BACKEND_CLASS_B. */
+		enum rzi_lorawan_class_b_state class_b;
 	};
 };
 

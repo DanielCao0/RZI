@@ -19,7 +19,8 @@ int rzi_lorawan_usp_finish(int rc);
 int rzi_lorawan_usp_result(smtc_modem_return_code_t rc);
 void rzi_lorawan_usp_publish(const struct rzi_lorawan_backend_event *event);
 bool rzi_lorawan_usp_tx_pending(void);
-void rzi_lorawan_usp_set_class_b_state(enum rzi_lorawan_class_b_state state);
+bool rzi_lorawan_usp_set_class_b_state(enum rzi_lorawan_class_b_state state);
+void rzi_lorawan_usp_publish_class_b(void);
 enum rzi_lorawan_class_b_state rzi_lorawan_usp_class_b_state(void);
 const struct rzi_lorawan_backend_extension *
 rzi_lorawan_usp_get_extension(enum rzi_lorawan_feature_id feature);
