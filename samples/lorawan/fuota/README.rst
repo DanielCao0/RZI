@@ -48,7 +48,7 @@ Credentials are in ``app.overlay``. Flash ``merged.hex``. See ``doc/boot.md``.
 Test payload
 ************
 
-``test-payload/rzi-fuota-test.bin`` is a 4096-byte ChirpStack upload file.
+``test_payload/rzi-fuota-test.bin`` is a 4096-byte ChirpStack upload file.
 It starts with the ASCII magic ``RZI1``. After a successful deployment the
 ``rzi_fuota`` log module prints ``FUOTA image head`` beginning ``52 5a 49 31``.
 
@@ -56,4 +56,4 @@ Regenerate it with:
 
 .. code-block:: console
 
-   python3 samples/lorawan/fuota/test-payload/gen_test_bin.py
+   python3 samples/lorawan/fuota/test_payload/gen_test_bin.py

@@ -4,9 +4,9 @@ Status: implemented
 
 RZI does not implement a bootloader. MCUBoot source remains a west-fetched
 module. RZI owns how customers enable it, how each board is partitioned,
-how to flash, and how FUOTA or RSUP lands in a slot.
+how to flash, and how FUOTA lands in a slot.
 
-See also: [fuota.md](./fuota.md), [rsup-api.md](./rsup-api.md).
+See also: [fuota.md](./fuota.md).
 
 ## Contract (every product board)
 
@@ -19,19 +19,12 @@ See also: [fuota.md](./fuota.md), [rsup-api.md](./rsup-api.md).
 4. First flash and recovery: flash the **merged image** (`merged.hex`) from
    the build directory, not `zephyr.hex`.
 5. Later upgrades on dual-slot boards: write a signed MCUBoot image into
-   **slot1** (`image-1`), then use `rzi_fuota_apply()` (LoRaWAN FUOTA) or
-   `rzi_rsup_run()` (RSUP). RZI uses partition names, not a board-specific
-   absolute address. Single-slot boards (3372) have no `image-1`, so they
-   do not support FUOTA or RSUP type 1. Reflash the merged image.
-6. Everyday serial upgrade (`CONFIG_RZI_RSUP`, depends on
-   `CONFIG_RZI_MCUBOOT_DUAL_SLOT`): the same RSUP (RZI Slot Update
-   Protocol) type 1 as the Arduino loader. The port comes from
-   `chosen rzi,rsup-uart` and may be USB CDC or a hardware UART.
-   1200 bps → GPREGRET `0xA5` → write slot1 → MCUBoot swaps slots. MCUBoot
-   source is not modified. First flash / brick recovery still uses
-   `merged.hex`.
+   **slot1** (`image-1`), then use `rzi_fuota_apply()` (LoRaWAN FUOTA).
+   RZI uses partition names, not a board-specific absolute address.
+   Single-slot boards (3372) have no `image-1`, so they do not support
+   FUOTA. Reflash the merged image.
 
-Partition tables live on the product board, not in RZI core Kconfig.
+Partition tables live on the product board, not in RZI module Kconfig.
 Adding a board only adds that board's DTS and flash notes.
 
 | Board | Full name | west target | Status |
@@ -106,5 +99,5 @@ west build -p always --sysbuild \
   rzi/samples/lorawan/class_a
 ```
 
-The artifact is again `merged.hex`. There is no slot1, so FUOTA / RSUP
-type 1 are not available.
+The artifact is again `merged.hex`. There is no slot1, so FUOTA is not
+available.

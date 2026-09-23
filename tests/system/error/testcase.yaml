@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+
+tests:
+  rzi.system.error:
+    platform_allow:
+      - native_sim
+    tags:
+      - rzi
+      - err

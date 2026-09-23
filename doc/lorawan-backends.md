@@ -30,7 +30,8 @@ overlay, and a separate build directory**. After switching backends use
 
 ## 1. USP / LBM (default, product path)
 
-Existing `samples/lorawan/class_a`, `at`, and `fuota` use this path.
+Existing `samples/lorawan/class_a`, `samples/at/lorawan`, and
+`samples/lorawan/fuota` use this path.
 
 Required configuration:
 
@@ -59,7 +60,7 @@ west build -p always --sysbuild \
 ```
 
 For Class A or AT, replace the last path with
-`rzi/samples/lorawan/class_a` or `rzi/samples/lorawan/at`.
+`rzi/samples/lorawan/class_a` or `rzi/samples/at/lorawan`.
 
 Inside the container, same as the product app:
 
@@ -157,7 +158,7 @@ Contract tests on the native simulator (no board flash):
 ZEPHYR_TOOLCHAIN_VARIANT=host west build -p always \
   -b native_sim \
   -d build/rzi-lorawan-backend-zephyr \
-  rzi/tests/lorawan/backend_zephyr
+  rzi/tests/lorawan/backend/zephyr
 
 ZEPHYR_TOOLCHAIN_VARIANT=host west build \
   -d build/rzi-lorawan-backend-zephyr \

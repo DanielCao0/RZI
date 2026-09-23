@@ -8,14 +8,14 @@
 
 #include <rzi/lorawan/lorawan.h>
 
-#include "lorawan_certification.h"
-#include "lorawan_channel.h"
-#include "lorawan_class_b.h"
-#include "lorawan_fuota.h"
-#include "lorawan_mac_commands.h"
-#include "lorawan_multicast.h"
-#include "lorawan_network.h"
-#include "lorawan_session.h"
+#include "lorawan_certification_ops.h"
+#include "lorawan_channel_ops.h"
+#include "lorawan_class_b_ops.h"
+#include "lorawan_fuota_ops.h"
+#include "lorawan_mac_ops.h"
+#include "lorawan_multicast_ops.h"
+#include "lorawan_network_ops.h"
+#include "lorawan_session_ops.h"
 
 /** Events published by a backend and consumed by the service dispatcher. */
 enum rzi_lorawan_backend_event_type {

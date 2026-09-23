@@ -76,7 +76,7 @@ west twister -T rzi/tests --inline-logs -v
 west twister -T rzi/samples --inline-logs -v
 
 # Public headers against a configured build
-west build -b native_sim/native/64 rzi/tests/lorawan/core -d build-headers
+west build -b native_sim/native/64 rzi/tests/lorawan/service -d build-headers
 python3 scripts/check-public-headers.py build-headers
 
 # Documentation and SBOM

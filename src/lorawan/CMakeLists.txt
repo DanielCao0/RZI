@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library_sources(
-  core/lorawan.c
-  core/lorawan_config.c
-  core/lorawan_mac_commands.c
-  core/lorawan_multicast.c
-  core/lorawan_certification.c
+  lorawan.c
+  lorawan_config.c
+  lorawan_mac_commands.c
+  lorawan_multicast.c
+  lorawan_certification.c
 )
 
 zephyr_library_sources_ifdef(

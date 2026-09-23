@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+tests:
+  rzi.at.framework:
+    tags:
+      - rzi
+      - at
+    platform_allow:
+      - native_sim/native/64
+    integration_platforms:
+      - native_sim/native/64
+  rzi.at.framework.raw_lora:
+    tags:
+      - rzi
+      - at
+      - lora
+    platform_allow:
+      - native_sim/native/64
+    extra_configs:
+      - CONFIG_RZI_LORA=y
+      - CONFIG_RZI_AT_COMMAND_LORA=y

@@ -22,7 +22,7 @@
 #endif
 
 #include "../../backend/lorawan_backend.h"
-#include "../../core/lorawan_service.h"
+#include "../../lorawan_service.h"
 
 static __maybe_unused void ignore_result(int result)
 {

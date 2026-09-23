@@ -22,13 +22,13 @@ catalog is [`doc/README.md`](doc/README.md).
 | LoRaWAN backends | Default Semtech USP / LoRa Basics Modem; optional Zephyr `lorawan_*` adapter |
 | Raw LoRa / FSK (`include/rzi/lora/lora.h`) | P2P and radio-test C API |
 | AT | RUI3-compatible CLI over an optional UART adapter; not a full RUI3 firmware |
-| Storage, power, RSUP | Implemented |
+| Storage, power | Implemented |
 | Diagnostics | Planned |
 | Arduino / RUI C++ | OTAA subset lives in Arduino Core for Zephyr, not this repository |
 
 The public join API accepts OTAA and ABP. The default USP backend implements
-OTAA. The Zephyr backend also implements ABP. FUOTA and RSUP type 1 need a
-dual-slot board (`rzi_rak4631`); `rzi_rak3372` is single-slot.
+OTAA. The Zephyr backend also implements ABP. FUOTA needs a dual-slot
+board (`rzi_rak4631`); `rzi_rak3372` is single-slot.
 
 Registered AT commands and the gaps versus RUI3:
 [`doc/at-command-compatibility.md`](doc/at-command-compatibility.md).
@@ -111,8 +111,7 @@ west build -b rzi_rak4631/nrf52840 --sysbuild samples/lorawan/class_a
 | Sample | Purpose |
 |---|---|
 | [`samples/lorawan/class_a`](samples/lorawan/class_a/README.rst) | Minimal OTAA join and periodic uplink |
-| [`samples/lorawan/low_power`](samples/lorawan/low_power/README.rst) | Event-driven Class A low-power shape |
-| [`samples/lorawan/at`](samples/lorawan/at/README.rst) | RUI3-compatible AT over USB CDC |
+| [`samples/at/lorawan`](samples/at/lorawan/README.rst) | RUI3-compatible LoRaWAN AT over USB CDC |
 | [`samples/lorawan/fuota`](samples/lorawan/fuota/README.rst) | ChirpStack-compatible FUOTA (`rzi_rak4631`) |
 
 Overlays ship zero-valued credentials. Replace them before a radio test.

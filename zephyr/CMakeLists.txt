@@ -19,8 +19,8 @@ if(CONFIG_RZI)
   zephyr_include_directories(${ZEPHYR_CURRENT_MODULE_DIR}/include)
 
   add_subdirectory(
-    ${ZEPHYR_CURRENT_MODULE_DIR}/src/core
-    ${CMAKE_CURRENT_BINARY_DIR}/rzi-core
+    ${ZEPHYR_CURRENT_MODULE_DIR}/src/system
+    ${CMAKE_CURRENT_BINARY_DIR}/rzi-system
   )
 
   if(CONFIG_RZI_STORAGE)
@@ -48,13 +48,6 @@ if(CONFIG_RZI)
     add_subdirectory(
       ${ZEPHYR_CURRENT_MODULE_DIR}/src/at
       ${CMAKE_CURRENT_BINARY_DIR}/rzi-at
-    )
-  endif()
-
-  if(CONFIG_RZI_RSUP)
-    add_subdirectory(
-      ${ZEPHYR_CURRENT_MODULE_DIR}/src/rsup
-      ${CMAKE_CURRENT_BINARY_DIR}/rzi-rsup
     )
   endif()
 

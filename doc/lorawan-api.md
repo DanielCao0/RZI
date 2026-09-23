@@ -27,8 +27,8 @@ concrete protocol stack. Public interfaces follow these rules:
   arrive through callbacks.
 
 Class B, network/channel management, last-downlink RSSI/SNR, DeviceTimeReq,
-and LinkCheckReq stay in LoRaWAN Core. Multicast and certification are also
-core facades with dedicated public headers. FUOTA
+and LinkCheckReq stay in the LoRaWAN service. Multicast and certification are
+also service facades with dedicated public headers. FUOTA
 lives under `src/lorawan/services/fuota/`. Clock Synchronization, Remote
 Multicast Setup, Fragmentation, and the Firmware Management Package
 required by FUOTA come from the selected backend. RZI does not copy those
@@ -125,8 +125,8 @@ means the backend accepted the request. `join_done` status `0` means
 network activation finished. A negative `RZI_ERR_*` means this attempt ended
 without joining.
 
-Retry policy belongs to the application or the AT service. RZI core does
-not hide an infinite retry loop.
+Retry policy belongs to the application or the AT service. The RZI LoRaWAN
+service does not hide an infinite retry loop.
 
 ## 5. Uplink and downlink
 

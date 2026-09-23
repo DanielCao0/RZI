@@ -257,7 +257,7 @@ jobs:
         run: |
           set -o pipefail
           if ! west build -b native_sim/native/64 \
-              "${GITHUB_WORKSPACE}/rzi/tests/lorawan/core" \
+              "${GITHUB_WORKSPACE}/rzi/tests/lorawan/service" \
               -d build-headers --pristine=always 2>&1 | tee build-headers.log; then
             tail -30 build-headers.log | while IFS= read -r line; do
               echo "::error::${line}"

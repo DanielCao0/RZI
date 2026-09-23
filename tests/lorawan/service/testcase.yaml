@@ -1,0 +1,15 @@
+tests:
+  rzi.lorawan.service:
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - native_sim
+  rzi.lorawan.service.all_scaffolds:
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - native_sim
+    extra_configs:
+      - CONFIG_RZI_LORAWAN_FUOTA=y

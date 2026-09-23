@@ -49,7 +49,7 @@ the device Gen App Key in ChirpStack. `network_key` is the 1.0.x AppKey.
    - Let ChirpStack compute fragment size and multicast timeout
    - Configure fragmentation redundancy (for example 10–20%)
 5. Upload the file to send. For protocol bring-up use
-   `samples/lorawan/fuota/test-payload/rzi-fuota-test.bin` (4096 bytes,
+   `samples/lorawan/fuota/test_payload/rzi-fuota-test.bin` (4096 bytes,
    ASCII `RZI1` at the start). That is not bootable firmware. For MCUboot
    installation, switch to a signed image.
 

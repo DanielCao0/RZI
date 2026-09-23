@@ -11,9 +11,9 @@ See also: [at-command-compatibility.md](./at-command-compatibility.md),
 
 ## Boundaries
 
-The core owns line framing, RUI3 grammar, command dispatch, responses,
+The framework owns line framing, RUI3 grammar, command dispatch, responses,
 unsolicited events, and one execution thread. An adapter only moves bytes
-between a specific I/O API and the core. A command package translates requests
+between a specific I/O API and the framework. A command package translates requests
 into public RZI service calls. It never calls a private LoRaWAN backend or owns
 a hardware adapter.
 
@@ -36,7 +36,7 @@ UART / future RUI3 BLE UART adapter
 
 ## Configuration
 
-`CONFIG_RZI_AT` enables only the core framework. It does not enable LoRaWAN or
+`CONFIG_RZI_AT` enables only the AT framework. It does not enable LoRaWAN or
 UART. The current optional pieces are:
 
 - `CONFIG_RZI_AT_COMMAND_LORAWAN`: RUI3 LoRaWAN command package;
@@ -82,7 +82,7 @@ Handlers use `rzi_at_respond_status()` or `rzi_at_respond_value()`. A
 handler that does not write a reply returns `0` or a negative `RZI_ERR_*`.
 The parser maps those codes to unchanged RUI3 status names; see
 [error-codes.md](./error-codes.md). Components publish asynchronous RUI3
-events with `rzi_at_publish_event()`. The core serializes all output,
+events with `rzi_at_publish_event()`. The framework serializes all output,
 including events produced by other threads.
 
 ## Execution and ownership

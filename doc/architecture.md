@@ -199,14 +199,11 @@ include/rzi/
 ├── at/uart.h                  UART adapter
 ├── storage/storage.h          Versioned RZI configuration
 ├── power/power.h              Sleep constraints and wake policy
-├── rsup/rsup.h                Slot update protocol
-├── rsup/slot_update.h         Deprecated alias of rsup.h
-├── rsup/usb_update.h          Deprecated alias of rsup.h
 └── diagnostics/diagnostics.h  Stable counters and health data (planned)
 ```
 
-`version.h`, `capabilities.h`, and the lorawan, at, storage, power, and
-rsup headers are implemented. `diagnostics/diagnostics.h` is still planned.
+`version.h`, `capabilities.h`, and the lorawan, at, storage, and power
+headers are implemented. `diagnostics/diagnostics.h` is still planned.
 
 ## 6. LoRaWAN service
 
@@ -223,26 +220,27 @@ The current `include/rzi/lorawan/lorawan.h` supports:
 - multiple callback subscribers, one modem instance, and one outstanding uplink;
 - a fixed-size private event queue with overflow reporting.
 
-`src/lorawan/core/lorawan.c` validates requests and dispatches copied backend events
+`src/lorawan/lorawan.c` validates requests and dispatches copied backend events
 to subscribers outside the modem callback context. The private contract in
 `src/lorawan/backend/lorawan_backend.h` is implemented by one source under
 `src/lorawan/backend/`. Optional capability groups are typed ops tables hung
 directly on that contract; a NULL pointer means the backend does not implement
 the group. Optional services attach through `rzi_lorawan_register_service()` in
-`src/lorawan/core/lorawan_service.h`. Core fans those hooks out after start and
-on every dispatched event; it does not name FUOTA or include service headers.
-FUOTA operations live in `src/lorawan/backend/lorawan_fuota.h` with the other
+`src/lorawan/lorawan_service.h`. The LoRaWAN service fans those hooks out after
+start and on every dispatched event; it does not name FUOTA or include service
+headers.
+FUOTA operations live in `src/lorawan/backend/lorawan_fuota_ops.h` with the other
 backend ops tables.
 See [lorawan-api.md](./lorawan-api.md) for the normative API and concurrency
 contract.
 
 FUOTA coordination is implemented under `src/lorawan/services/fuota/` and
 `include/rzi/lorawan/fuota.h`. LinkCheck, DeviceTime, multicast, and
-certification are core facades: the first two live in
+certification are service facades: the first two live in
 `include/rzi/lorawan/lorawan.h`, the others keep dedicated public headers.
 Backend libraries own the LoRaWAN application-package implementations
 required by FUOTA; RZI does not duplicate them. Class and network/channel
-management remain in the core service.
+management remain in the LoRaWAN service.
 Unsupported backend operations return `-RZI_ERR_NOT_SUPPORTED`. Raw LoRa P2P and FSK use
 `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
@@ -374,7 +372,7 @@ The implementation separates protocol processing, command packages, and I/O:
 
 ```text
 src/at/
-├── at_core.c                lifecycle, RX queue, execution thread, output
+├── at.c                     lifecycle, RX queue, execution thread, output
 ├── at_parser.c              RUI3 line grammar and line editing
 ├── at_registry.c            command registration
 ├── at_priv.h                cross-file private contract
@@ -382,15 +380,15 @@ src/at/
 │   ├── at_command_system.c  system command package
 │   ├── at_network_mode.c    shared AT+NWM state
 │   └── lorawan/
-│       ├── at_command_lorawan.c
+│       ├── at_lorawan.c
 │       │                         package state, callbacks, NVM, registration
-│       ├── at_command_lorawan_priv.h
+│       ├── at_lorawan_priv.h
 │       │                         private command-package contract
-│       ├── at_command_lorawan_key_id.c
+│       ├── at_lorawan_key_id.c
 │       │                         OTAA identifiers and keys
-│       ├── at_command_lorawan_join_send.c
+│       ├── at_lorawan_join_send.c
 │       │                         activation and application data
-│       └── at_command_lorawan_network_management.c
+│       └── at_lorawan_network_management.c
 │                                 region, class, and MAC parameters
 └── adapters/
     ├── at_adapter_uart.c    implemented interrupt-driven UART adapter
@@ -398,8 +396,8 @@ src/at/
                               reserved RUI3 SERIAL_BLE0 boundary
 ```
 
-Adapters carry bytes between an I/O API and AT core; they never bypass parsing
-or transparently forward data to a modem. USB CDC ACM exposed as a Zephyr UART
+Adapters carry bytes between an I/O API and the AT framework; they never bypass
+parsing or transparently forward data to a modem. USB CDC ACM exposed as a Zephyr UART
 uses the UART adapter. The BLE UART boundary is grounded in RUI3
 `SERIAL_BLE0`; it is not compiled until its Zephyr GATT contract is
 implemented. Compatibility is documented command by command, including
@@ -448,7 +446,7 @@ Status: implemented coordinator (`include/rzi/power/power.h`). Hardware current
 targets remain a product acceptance item.
 
 RZI coordinates product sleep policy; Zephyr performs the power transition.
-Services report blockers (Class C, flash, RSUP, FUOTA) and the
+Services report blockers (Class C, flash, FUOTA) and the
 application reports transport activity and required wake sources. A wake
 deadline is advisory for Zephyr PM residency, not an RX-window calculator.
 
@@ -524,16 +522,16 @@ rzi/
 ├── zephyr/                  Top-level and per-service Kconfig integration
 ├── include/rzi/
 ├── src/
-│   ├── core/                Version and compiled-service capabilities
+│   ├── system/              Errors, version, and compiled-service capabilities
 │   ├── lorawan/
-│   │   ├── core/lorawan.c
-│   │   ├── core/lorawan_service.h
-│   │   ├── core/lorawan_mac_commands.c
-│   │   ├── core/lorawan_multicast.c
-│   │   ├── core/lorawan_certification.c
+│   │   ├── lorawan.c
+│   │   ├── lorawan_service.h
+│   │   ├── lorawan_mac_commands.c
+│   │   ├── lorawan_multicast.c
+│   │   ├── lorawan_certification.c
 │   │   ├── backend/
 │   │   │   ├── lorawan_backend.h
-│   │   │   ├── lorawan_fuota.h
+│   │   │   ├── lorawan_fuota_ops.h
 │   │   │   ├── usp/lorawan_backend_usp.c
 │   │   │   ├── zephyr/lorawan_backend_zephyr.c
 │   │   │   └── zephyr_lbm.c                       planned
@@ -541,7 +539,6 @@ rzi/
 │   ├── at/
 │   ├── storage/             Namespaced settings adapter
 │   ├── power/
-│   ├── rsup/
 │   ├── lora/                Raw LoRa / FSK scaffold
 │   └── diagnostics/         planned
 ├── boards/                  Product boards; partition dtsi lives here

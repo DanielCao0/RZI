@@ -43,7 +43,7 @@ include/rzi/power/power.h          Sole public entry
 src/power/power.c            Coordinator: policy × blocker → Zephyr constraint
     │
 ┌───┴──────────────────────────────┐
-│ LoRaWAN / storage / RSUP / FUOTA │  Auto take/release blockers (optional)
+│ LoRaWAN / storage / FUOTA        │  Auto take/release blockers (optional)
 └──────────────────────────────────┘
     │
     ▼
@@ -123,12 +123,10 @@ flowchart LR
     classc["Class C"] --> LORAWAN
     settings["storage write/delete"] --> FLASH
     fuota["FUOTA transfer/apply"] --> FLASH
-    rsup["rzi_rsup_run"] --> UPDATE
     usb["App waiting for CDC DTR"] --> TRANSPORT
     app["Product critical section"] --> APP
     LORAWAN --> coord[power.c]
     FLASH --> coord
-    UPDATE --> coord
     TRANSPORT --> coord
     APP --> coord
     coord --> lock[Zephyr pm_policy lock]
@@ -140,15 +138,13 @@ Default `CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK=y`:
 |---|---|---|
 | `LORAWAN` | Only `set_class(C)` | Back to Class A/B, or `leave()` |
 | `FLASH` | During settings write/delete; FUOTA `TRANSFERRING` / `APPLYING` | Write finished; FUOTA left those states |
-| `UPDATE` | The whole `rzi_rsup_run()` session | Function return (success reboots, so the count is irrelevant) |
-| `TRANSPORT` / `APP` | Never automatic | The application pairs the calls |
+| `UPDATE` / `TRANSPORT` / `APP` | Never automatic | The application pairs the calls |
 
 Class A join/send does **not** take LORAWAN. Semtech USP official
 `periodical_uplink`, ST AN5406 `LoRaWAN_End_Node`, and RAK
 RUI3-Best-Practice all do the same: the application does not compute RX
 windows; the stack schedules TX/RX1/RX2 and idle enters STOP / LPM. Locking
-STOP for the entire send would block that official path on 3372. See
-`samples/lorawan/low_power`.
+STOP for the entire send would block that official path on 3372.
 
 After auto-block is disabled, the application must `block` / `unblock` in
 the same critical sections. Do not leave auto-block on and also write a
@@ -186,8 +182,8 @@ returned by `smtc_modem_run_engine()` (see
 `usp_zephyr/subsys/usp/zephyr_usp_thread.c`).
 
 `set_wake_deadline()` only constrains the next work time the application
-already knows. It is not an RX-window calculator. The `low_power` sample
-does not use it. 4631 has no system PM, so the deadline only truncates
+already knows. It is not an RX-window calculator. The periodic LoRaWAN path
+does not need it. 4631 has no system PM, so the deadline only truncates
 `rzi_power_sleep()`.
 
 ## 7. Shutdown and wake sources
@@ -214,13 +210,11 @@ that needs the application's own GPIO/RTC callbacks.
 ## 8. How existing services connect
 
 ```text
-low_power sample   Semtech/RUI3 event-driven: join/send in callbacks, main FOREVER
 class_a sample     API demo (same periodic sleep as the Zephyr-tree class_a; not a low-power reference)
 4631 product app   init; take TRANSPORT while waiting for CDC DTR
 lorawan.c          Class C only ↔ LORAWAN
 storage_settings.c write/delete ↔ FLASH
 lorawan_fuota.c    TRANSFERRING/APPLYING ↔ FLASH
-rsup.c             whole session ↔ UPDATE
 ```
 
 `AT+SLEEP` / `AT+LPM` call this service. RUI3 `api.system.sleep` maps here;

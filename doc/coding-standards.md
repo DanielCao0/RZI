@@ -42,7 +42,7 @@ scripts/generate-sbom.sh
 |---|---|
 | `include/rzi/` | Public C ABI. Applications may only `#include <rzi/...>` |
 | `src/<service>/` | Implementation and private headers for that service |
-| `src/core/` | Module identity: version and compiled service capabilities. Not a product service |
+| `src/system/` | Module-wide errors, version, and compiled service capabilities. Not a product service |
 | `samples/`, `tests/` | Samples and tests; mirror the service under test |
 | `doc/` | Standards and architecture. Lowercase kebab-case names; do not repeat `rzi` |
 
@@ -60,7 +60,6 @@ include/rzi/
 ├── lora/lora.h
 ├── power/power.h
 ├── storage/storage.h
-├── rsup/rsup.h
 ├── at/at.h
 └── at/uart.h
 ```
@@ -69,7 +68,7 @@ LoRaWAN implementation is split by responsibility:
 
 ```text
 src/lorawan/
-├── core/           Public API, event dispatch, LinkCheck / DeviceTime / thin facades
+├── lorawan*.c      Public API, event dispatch, LinkCheck / DeviceTime / thin facades
 ├── backend/        Private contract plus USP / Zephyr implementations
 └── services/fuota/ Optional FUOTA coordinator
 ```
@@ -85,7 +84,7 @@ Private headers must sit next to the implementation. They must not enter
 - Names describe responsibility, not implementation history. Do not keep an
   old protocol name or a one-off migration codename in a new file name.
 - Do not invent abbreviations. Established domain words may stay: `AT`,
-  `EUI`, `FUOTA`, `NVM`, `UART`, `USB`, `USP`, `LoRaWAN`, `RSUP`.
+  `EUI`, `FUOTA`, `NVM`, `UART`, `USB`, `USP`, `LoRaWAN`.
 - Public names must stay stable within one RZI major version.
 - Unless that dependency is part of the API contract, public APIs must not
   carry a backend, board, vendor, or protocol-stack name.
@@ -94,9 +93,13 @@ Private headers must sit next to the implementation. They must not enter
 
 - C sources, headers, and directories: lowercase `snake_case`.
 - Implementations use `.c`. Public and private headers use `.h`.
-- Production-library sources and private headers must start with the service
-  name, for example `at_parser.c` and `lorawan_backend.h`. Private file names
-  must not repeat the repository name `rzi`.
+- A production-library basename must remain recognizable without its path.
+  Start it with the nearest stable service or package name, for example
+  `at_parser.c`, `at_lorawan_join_send.c`, and `lorawan_backend.h`. Do not
+  mechanically repeat structural directories such as `commands` in every
+  nested file. Private file names must not repeat the repository name `rzi`.
+- Backend operation-table headers end in `_ops.h`, matching their
+  `struct ..._ops` type.
 - Documentation: lowercase kebab-case, for example `coding-standards.md`.
 - Public service headers: `include/rzi/<service>/<name>.h`.
 - Dependent public APIs hang under their owning service:
@@ -105,21 +108,23 @@ Private headers must sit next to the implementation. They must not enter
   `capabilities.h`.
 - Backend implementations:
   `src/<service>/backend/<service>_backend_<backend>.c`.
-- Tests and samples should mirror the service directory under test.
+- Tests and samples start with the service name and then describe the behavior,
+  component, or scenario under test. Do not use generic `core` directories.
+  Use `api` only for a test that exclusively verifies a public API contract.
 
 ```text
 include/rzi/lorawan/lorawan.h
 include/rzi/lora/lora.h
 include/rzi/at/uart.h
-src/lorawan/core/lorawan.c
+src/lorawan/lorawan.c
 src/lorawan/backend/lorawan_backend.h
 src/lorawan/backend/usp/lorawan_backend_usp.c
 src/lora/lora.c
 src/lora/backend/lora_backend.h
-src/at/at_core.c
+src/at/at.c
 src/at/at_priv.h
-src/at/commands/lorawan/at_command_lorawan.c
-tests/lorawan/core/src/main.c
+src/at/commands/lorawan/at_lorawan.c
+tests/lorawan/service/src/main.c
 ```
 
 Production-library files must not use unprefixed generic names: `core.c`,
@@ -216,7 +221,7 @@ include/rzi/power/power.h      -> RZI_POWER_POWER_H
 ### 3.6 Kconfig, Devicetree, and build
 
 - Kconfig: `RZI_<SERVICE>_<OPTION>`. One `zephyr/Kconfig.<service>` file
-  per service (`storage`, `lorawan`, `lora`, `at`, `rsup`, `power`). The
+  per service (`storage`, `lorawan`, `lora`, `at`, `power`). The
   MCUboot contract lives in `zephyr/Kconfig.boot`. Child options keep
   the full parent prefix, for example `RZI_LORAWAN_FUOTA_*` under
   `RZI_LORAWAN_FUOTA`, and `RZI_LORAWAN_BACKEND_ZEPHYR_*` under
@@ -306,8 +311,8 @@ headers and Zephyr. Markdown under `doc/` is English.
 
 ## 8. Tests and samples
 
-- Test directories mirror the service: `tests/lorawan/core`,
-  `tests/power/api`.
+- Test directories name the subject or scenario: `tests/lorawan/service`,
+  `tests/at/framework`, and `tests/power/api`.
 - When testing a private contract, add `src/<service>` to the include path
   and include private headers such as `backend/lorawan_backend.h`. Do not
   copy the contract for the test.
@@ -315,8 +320,8 @@ headers and Zephyr. Markdown under `doc/` is English.
   a backend.
 - `samples/` and `tests/` do not require file-level Doxygen.
 - Low-power samples must not `sleep(fixed duration)` during an in-flight
-  Class A exchange to race the RX windows. The official shape is
-  `samples/lorawan/low_power`.
+  Class A exchange to race the RX windows. Join and send from callbacks,
+  schedule later uplinks with delayed work, and leave the main thread blocked.
 
 ## 9. Commits
 
@@ -327,7 +332,7 @@ Commit messages follow Conventional Commits:
 ```
 
 Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `build`. Scope is
-the service name (`lorawan`, `power`, `at`, `rsup`). The subject is
+the service name (`lorawan`, `power`, `at`). The subject is
 imperative, lowercase, and has no trailing period.
 
 One commit does one thing. Format with `scripts/check-style.sh --fix`. Do

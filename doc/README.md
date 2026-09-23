@@ -40,8 +40,7 @@ switches, and limits that do not belong in a header comment.
 | [fuota.md](./fuota.md) | implemented | ChirpStack FUOTA (dual-slot) |
 | [storage-api.md](./storage-api.md) | implemented | Namespaced key-value storage |
 | [power-api.md](./power-api.md) | implemented | `rzi_power_*` C contract |
-| [rsup-api.md](./rsup-api.md) | implemented | Slot-update protocol |
-| [at-framework.md](./at-framework.md) | implemented | AT core, registry, adapters |
+| [at-framework.md](./at-framework.md) | implemented | AT framework, registry, adapters |
 | [at-command-compatibility.md](./at-command-compatibility.md) | implemented | Registered commands vs RUI3 |
 | [rui3-mapping.md](./rui3-mapping.md) | implemented | Public C ABI mapped from RUI3, plus C-level gaps |
 | [rui3-gap.md](./rui3-gap.md) | superseded | Redirect to rui3-mapping and AT compatibility |
