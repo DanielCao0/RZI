@@ -8,8 +8,8 @@
 
 #include <rzi/lorawan/multicast.h>
 
-#include "backend/lorawan_backend.h"
-#include "lorawan_priv.h"
+#include "../backend/lorawan_backend.h"
+#include "../lorawan_priv.h"
 
 static const struct rzi_lorawan_multicast_ops *multicast_ops(void)
 {

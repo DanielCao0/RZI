@@ -261,7 +261,7 @@ Public functions:
   See [error-codes.md](./error-codes.md). Do not return POSIX errno.
 - Validate arguments before entering a backend.
 - If `0` only means "request accepted", the header and `@retval` must say
-  so. Completion uses a callback; applications must not guess.
+  so. Completion uses a typed event callback; applications must not guess.
 - Asynchronous request data must be copied before return, or the lifetime
   must be fixed in the contract.
 - Avoid heap allocation in the base configuration.

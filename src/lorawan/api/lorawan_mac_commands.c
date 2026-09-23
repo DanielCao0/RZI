@@ -8,9 +8,8 @@
 
 #include <rzi/lorawan/lorawan.h>
 
-#include "backend/lorawan_backend.h"
-#include "lorawan_mac_commands.h"
-#include "lorawan_priv.h"
+#include "../backend/lorawan_backend.h"
+#include "../lorawan_priv.h"
 
 static enum rzi_lorawan_link_check_mode link_check_mode = RZI_LORAWAN_LINK_CHECK_DISABLED;
 static bool device_time_enabled;

@@ -18,6 +18,7 @@
 	 RZI_LORAWAN_CAP_CERTIFICATION)
 
 rzi_lorawan_event_sink_t fake_sink;
+int fake_set_class_error;
 
 static enum rzi_lorawan_class device_class = RZI_LORAWAN_CLASS_A;
 static bool adr_enabled = true;
@@ -108,11 +109,22 @@ static int fake_send(uint8_t port, const uint8_t *data, size_t size,
 
 static int fake_set_class(enum rzi_lorawan_class requested)
 {
+	enum rzi_lorawan_class_b_state next = requested == RZI_LORAWAN_CLASS_B
+						      ? RZI_LORAWAN_CLASS_B_ACQUIRING_BEACON
+						      : RZI_LORAWAN_CLASS_B_IDLE;
+
+	if (fake_set_class_error != 0) {
+		return fake_set_class_error;
+	}
 	device_class = requested;
-	if (requested == RZI_LORAWAN_CLASS_B) {
-		class_b_state = RZI_LORAWAN_CLASS_B_ACTIVE;
-	} else if (requested == RZI_LORAWAN_CLASS_A) {
-		class_b_state = RZI_LORAWAN_CLASS_B_IDLE;
+	if (class_b_state != next) {
+		const struct rzi_lorawan_backend_event event = {
+			.type = RZI_LORAWAN_BACKEND_CLASS_B,
+			.class_b = next,
+		};
+
+		class_b_state = next;
+		fake_sink(&event);
 	}
 	return 0;
 }
@@ -341,8 +353,18 @@ static int fake_get_class_b_state(enum rzi_lorawan_class_b_state *value)
 
 static int fake_stop_class_b(void)
 {
+	bool changed = class_b_state != RZI_LORAWAN_CLASS_B_IDLE;
+
 	device_class = RZI_LORAWAN_CLASS_A;
 	class_b_state = RZI_LORAWAN_CLASS_B_IDLE;
+	if (changed) {
+		const struct rzi_lorawan_backend_event event = {
+			.type = RZI_LORAWAN_BACKEND_CLASS_B,
+			.class_b = class_b_state,
+		};
+
+		fake_sink(&event);
+	}
 	return 0;
 }
 

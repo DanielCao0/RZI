@@ -12,6 +12,8 @@
 
 int rzi_lorawan_check_thread(void);
 int rzi_lorawan_check_started(void);
+void rzi_lorawan_note_class(enum rzi_lorawan_class device_class);
+void rzi_lorawan_mac_commands_on_uplink(void);
 bool rzi_lorawan_uplink_data_rate_valid(enum rzi_lorawan_data_rate data_rate);
 bool rzi_lorawan_rx_data_rate_valid(enum rzi_lorawan_data_rate data_rate);
 

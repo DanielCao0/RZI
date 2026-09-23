@@ -215,7 +215,8 @@ The current `include/rzi/lorawan/lorawan.h` supports:
 - OTAA join, leave, and a public ABP model for capable future backends;
 - confirmed and unconfirmed uplink requests;
 - joined-state query;
-- typed join-done, send-done, downlink, state-change, and error callbacks;
+- one typed public event callback for join, send, downlink, state, MAC-command,
+  error, and Class B results;
 - a backend capability bitset and device-class operation;
 - multiple callback subscribers, one modem instance, and one outstanding uplink;
 - a fixed-size private event queue with overflow reporting.
@@ -229,8 +230,8 @@ the group. Optional services attach through `rzi_lorawan_register_service()` in
 `src/lorawan/lorawan_service.h`. The LoRaWAN service fans those hooks out after
 start and on every dispatched event; it does not name FUOTA or include service
 headers.
-FUOTA operations live in `src/lorawan/backend/lorawan_fuota_ops.h` with the other
-backend ops tables.
+FUOTA operations live in `src/lorawan/backend/ops/lorawan_fuota_ops.h` with the
+other backend ops tables.
 See [lorawan-api.md](./lorawan-api.md) for the normative API and concurrency
 contract.
 
@@ -526,13 +527,19 @@ rzi/
 │   ├── lorawan/
 │   │   ├── lorawan.c
 │   │   ├── lorawan_service.h
-│   │   ├── lorawan_mac_commands.c
-│   │   ├── lorawan_multicast.c
-│   │   ├── lorawan_certification.c
+│   │   ├── lorawan_priv.h
+│   │   ├── api/
+│   │   │   ├── lorawan_network.c
+│   │   │   ├── lorawan_channel.c
+│   │   │   ├── lorawan_class_b.c
+│   │   │   ├── lorawan_session.c
+│   │   │   ├── lorawan_mac_commands.c
+│   │   │   ├── lorawan_multicast.c
+│   │   │   └── lorawan_certification.c
 │   │   ├── backend/
 │   │   │   ├── lorawan_backend.h
-│   │   │   ├── lorawan_fuota_ops.h
-│   │   │   ├── usp/lorawan_backend_usp.c
+│   │   │   ├── ops/        Typed optional backend capability contracts
+│   │   │   ├── usp/        USP/LBM backend split by capability domain
 │   │   │   ├── zephyr/lorawan_backend_zephyr.c
 │   │   │   └── zephyr_lbm.c                       planned
 │   │   └── services/fuota/  Optional FUOTA coordinator

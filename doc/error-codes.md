@@ -45,8 +45,8 @@ value returned by an API.
 | `RZI_ERR_DENIED` | 17 | Caller is not allowed to perform this operation |
 
 Each public function documents the subset it actually returns. Asynchronous
-callbacks use the same catalog: `join_done`, `error`, `device_time_done`,
-and `tx_done` receive `0` or a negative `RZI_ERR_*`. `send_done` stores
+events use the same catalog: `JOIN_FAILED`, `ERROR`, and `DEVICE_TIME` carry
+`0` or a negative `RZI_ERR_*` in `rzi_lorawan_event.error`; `TX_DONE` stores
 that value in `rzi_lorawan_tx_result.error`.
 
 ## Backend mapping

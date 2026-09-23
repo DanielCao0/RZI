@@ -4,7 +4,6 @@
  * @brief Backend-independent RZI LoRaWAN service implementation.
  */
 
-#include <errno.h>
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
@@ -15,7 +14,6 @@
 #endif
 
 #include "backend/lorawan_backend.h"
-#include "lorawan_mac_commands.h"
 #include "lorawan_priv.h"
 #include "lorawan_service.h"
 
@@ -88,12 +86,73 @@ static void publish_state(enum rzi_lorawan_state state)
 	publish(&event);
 }
 
+static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
+			       struct rzi_lorawan_event *out)
+{
+	memset(out, 0, sizeof(*out));
+	switch (event->type) {
+	case RZI_LORAWAN_BACKEND_READY:
+		out->type = RZI_LORAWAN_EVENT_READY;
+		return true;
+	case RZI_LORAWAN_BACKEND_JOINED:
+		out->type = RZI_LORAWAN_EVENT_JOINED;
+		return true;
+	case RZI_LORAWAN_BACKEND_JOIN_FAILED:
+		out->type = RZI_LORAWAN_EVENT_JOIN_FAILED;
+		out->error = event->error != 0 ? event->error : -RZI_ERR_TIMEOUT;
+		return true;
+	case RZI_LORAWAN_BACKEND_TX_DONE:
+		atomic_clear(&tx_outstanding);
+		out->type = RZI_LORAWAN_EVENT_TX_DONE;
+		out->tx.status = event->tx_status;
+		out->tx.error = event->error;
+		return true;
+	case RZI_LORAWAN_BACKEND_DOWNLINK:
+		last_rssi_dbm = event->downlink.rssi_dbm;
+		last_snr_quarter_db = event->downlink.snr_quarter_db;
+		last_downlink_valid = true;
+		out->type = RZI_LORAWAN_EVENT_DOWNLINK;
+		out->downlink.port = event->downlink.port;
+		out->downlink.size = event->downlink.size;
+		out->downlink.rssi_dbm = event->downlink.rssi_dbm;
+		out->downlink.snr_quarter_db = event->downlink.snr_quarter_db;
+		out->downlink.flags = event->downlink.flags;
+		out->downlink.data = event->downlink.data;
+		return true;
+	case RZI_LORAWAN_BACKEND_ERROR:
+		out->type = RZI_LORAWAN_EVENT_ERROR;
+		out->error = event->error;
+		return true;
+	case RZI_LORAWAN_BACKEND_STATE_CHANGED:
+		out->type = RZI_LORAWAN_EVENT_STATE_CHANGED;
+		out->state = event->state;
+		return true;
+	case RZI_LORAWAN_BACKEND_LINK_CHECK:
+		out->type = RZI_LORAWAN_EVENT_LINK_CHECK;
+		out->link_check = event->link_check;
+		return true;
+	case RZI_LORAWAN_BACKEND_DEVICE_TIME:
+		out->type = RZI_LORAWAN_EVENT_DEVICE_TIME;
+		out->error = event->error;
+		return true;
+	case RZI_LORAWAN_BACKEND_CLASS_B:
+		out->type = RZI_LORAWAN_EVENT_CLASS_B;
+		out->class_b = event->class_b;
+		return true;
+	case RZI_LORAWAN_BACKEND_FUOTA:
+	default:
+		return false;
+	}
+}
+
 static void dispatch(const struct rzi_lorawan_backend_event *event)
 {
 	struct callback_slot subscribers[CONFIG_RZI_LORAWAN_MAX_CALLBACKS] = {0};
 	const struct rzi_lorawan_service *attached[SERVICE_MAX];
+	struct rzi_lorawan_event public_event;
 	size_t count = 0;
 	size_t attached_count;
+	bool deliver;
 
 	k_mutex_lock(&callbacks_lock, K_FOREVER);
 	for (size_t i = 0; i < ARRAY_SIZE(callback_slots); ++i) {
@@ -103,84 +162,12 @@ static void dispatch(const struct rzi_lorawan_backend_event *event)
 	}
 	k_mutex_unlock(&callbacks_lock);
 
+	deliver = event_from_backend(event, &public_event);
 	for (size_t i = 0; i < count; ++i) {
 		const struct rzi_lorawan_callbacks *callbacks = &subscribers[i].callbacks;
-		void *user_data = callbacks->user_data;
 
-		switch (event->type) {
-		case RZI_LORAWAN_BACKEND_READY:
-			if (callbacks->state_changed != NULL) {
-				callbacks->state_changed(RZI_LORAWAN_STATE_READY, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_JOINED:
-		case RZI_LORAWAN_BACKEND_JOIN_FAILED:
-			if (callbacks->state_changed != NULL) {
-				callbacks->state_changed(event->type == RZI_LORAWAN_BACKEND_JOINED
-								 ? RZI_LORAWAN_STATE_JOINED
-								 : RZI_LORAWAN_STATE_READY,
-							 user_data);
-			}
-			if (callbacks->join_done != NULL) {
-				int status = 0;
-
-				if (event->type == RZI_LORAWAN_BACKEND_JOIN_FAILED) {
-					status =
-						event->error != 0 ? event->error : -RZI_ERR_TIMEOUT;
-				}
-				callbacks->join_done(status, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_TX_DONE:
-			atomic_clear(&tx_outstanding);
-			if (callbacks->send_done != NULL) {
-				const struct rzi_lorawan_tx_result result = {
-					.status = event->tx_status,
-					.error = event->error,
-				};
-
-				callbacks->send_done(&result, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_DOWNLINK:
-			last_rssi_dbm = event->downlink.rssi_dbm;
-			last_snr_quarter_db = event->downlink.snr_quarter_db;
-			last_downlink_valid = true;
-			if (callbacks->downlink != NULL) {
-				const struct rzi_lorawan_downlink downlink = {
-					.port = event->downlink.port,
-					.size = event->downlink.size,
-					.rssi_dbm = event->downlink.rssi_dbm,
-					.snr_quarter_db = event->downlink.snr_quarter_db,
-					.flags = event->downlink.flags,
-					.data = event->downlink.data,
-				};
-
-				callbacks->downlink(&downlink, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_ERROR:
-			if (callbacks->error != NULL) {
-				callbacks->error(event->error, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_STATE_CHANGED:
-			if (callbacks->state_changed != NULL) {
-				callbacks->state_changed(event->state, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_FUOTA:
-			break;
-		case RZI_LORAWAN_BACKEND_LINK_CHECK:
-			if (callbacks->link_check_done != NULL) {
-				callbacks->link_check_done(&event->link_check, user_data);
-			}
-			break;
-		case RZI_LORAWAN_BACKEND_DEVICE_TIME:
-			if (callbacks->device_time_done != NULL) {
-				callbacks->device_time_done(event->error, user_data);
-			}
-			break;
+		if (deliver && callbacks->on_event != NULL) {
+			callbacks->on_event(&public_event, callbacks->user_data);
 		}
 	}
 
@@ -243,12 +230,17 @@ static int check_context(void)
 	return rzi_lorawan_check_started();
 }
 
+void rzi_lorawan_note_class(enum rzi_lorawan_class device_class)
+{
+	k_mutex_lock(&config_lock, K_FOREVER);
+	configured_class = device_class;
+	k_mutex_unlock(&config_lock);
+	power_sync_class_c(device_class == RZI_LORAWAN_CLASS_C);
+}
+
 static bool callbacks_empty(const struct rzi_lorawan_callbacks *callbacks)
 {
-	return callbacks->join_done == NULL && callbacks->send_done == NULL &&
-	       callbacks->downlink == NULL && callbacks->state_changed == NULL &&
-	       callbacks->error == NULL && callbacks->link_check_done == NULL &&
-	       callbacks->device_time_done == NULL;
+	return callbacks->on_event == NULL;
 }
 
 int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks,
@@ -500,8 +492,7 @@ int rzi_lorawan_set_class(enum rzi_lorawan_class device_class)
 	}
 	rc = rzi_lorawan_backend.set_class(device_class);
 	if (rc == 0) {
-		configured_class = device_class;
-		power_sync_class_c(device_class == RZI_LORAWAN_CLASS_C);
+		rzi_lorawan_note_class(device_class);
 	}
 	return rc;
 }
@@ -551,14 +542,16 @@ int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class)
 	if (rzi_lorawan_backend.get_class != NULL) {
 		rc = rzi_lorawan_backend.get_class(device_class);
 		if (rc == 0) {
-			configured_class = *device_class;
+			rzi_lorawan_note_class(*device_class);
 			return 0;
 		}
 		if (rc != -RZI_ERR_NOT_SUPPORTED) {
 			return rc;
 		}
 	}
+	k_mutex_lock(&config_lock, K_FOREVER);
 	*device_class = configured_class;
+	k_mutex_unlock(&config_lock);
 	return 0;
 }
 

@@ -38,37 +38,39 @@ static void wait_until(volatile bool *flag)
 	}
 }
 
-static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
+static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	ARG_UNUSED(user_data);
-	if (state == RZI_LORAWAN_STATE_READY) {
+	switch (event->type) {
+	case RZI_LORAWAN_EVENT_READY:
 		stack_ready = true;
+		break;
+	case RZI_LORAWAN_EVENT_STATE_CHANGED:
+		if (event->state == RZI_LORAWAN_STATE_READY) {
+			stack_ready = true;
+		}
+		break;
+	case RZI_LORAWAN_EVENT_JOINED:
+		joined = true;
+		join_failed = false;
+		break;
+	case RZI_LORAWAN_EVENT_JOIN_FAILED:
+		joined = false;
+		join_failed = true;
+		break;
+	case RZI_LORAWAN_EVENT_TX_DONE:
+		LOG_INF("Uplink complete: %d", event->tx.status);
+		break;
+	case RZI_LORAWAN_EVENT_DOWNLINK:
+		LOG_INF("Downlink: port %u, %u bytes", event->downlink.port,
+			(unsigned int)event->downlink.size);
+		break;
+	case RZI_LORAWAN_EVENT_ERROR:
+		LOG_ERR("RZI error: %d", event->error);
+		break;
+	default:
+		break;
 	}
-}
-
-static void on_join_done(int status, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	joined = status == 0;
-	join_failed = status != 0;
-}
-
-static void on_send_done(const struct rzi_lorawan_tx_result *result, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	LOG_INF("Uplink complete: %d", result->status);
-}
-
-static void on_downlink(const struct rzi_lorawan_downlink *downlink, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	LOG_INF("Downlink: port %u, %u bytes", downlink->port, (unsigned int)downlink->size);
-}
-
-static void on_error(int error, void *user_data)
-{
-	ARG_UNUSED(user_data);
-	LOG_ERR("RZI error: %d", error);
 }
 
 static void on_fuota_state(enum rzi_fuota_state state, void *user_data)
@@ -94,11 +96,7 @@ static void on_fuota_complete(int status, void *user_data)
 }
 
 static const struct rzi_lorawan_callbacks callbacks = {
-	.join_done = on_join_done,
-	.send_done = on_send_done,
-	.downlink = on_downlink,
-	.state_changed = on_state_changed,
-	.error = on_error,
+	.on_event = on_event,
 };
 
 static const struct rzi_fuota_callbacks fuota_callbacks = {

@@ -9,8 +9,8 @@
 #include <rzi/lorawan/certification.h>
 #include <rzi/lorawan/lorawan.h>
 
-#include "backend/lorawan_backend.h"
-#include "lorawan_priv.h"
+#include "../backend/lorawan_backend.h"
+#include "../lorawan_priv.h"
 
 static const struct rzi_lorawan_certification_ops *cert_ops(void)
 {

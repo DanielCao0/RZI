@@ -18,94 +18,94 @@
 K_SEM_DEFINE(callback_sem, 0, 8);
 
 extern rzi_lorawan_event_sink_t fake_sink;
+extern int fake_set_class_error;
 
 struct callback_stats {
 	atomic_t ready;
 	atomic_t joined;
+	atomic_t join_failed;
 	atomic_t uplink;
 	atomic_t downlink;
 	atomic_t errors;
 	atomic_t payload_valid;
 	atomic_t link_checks;
 	atomic_t times;
+	atomic_t states;
+	atomic_t class_b;
+	atomic_t last_join_error;
+	atomic_t last_tx_error;
+	atomic_t last_device_time_error;
+	atomic_t last_state;
+	atomic_t last_class_b_state;
 };
 
-static void on_state_changed(enum rzi_lorawan_state state, void *user_data)
+static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	struct callback_stats *stats = user_data;
 
-	if (state == RZI_LORAWAN_STATE_READY) {
+	switch (event->type) {
+	case RZI_LORAWAN_EVENT_READY:
 		atomic_inc(&stats->ready);
 		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_JOINED:
+		atomic_inc(&stats->joined);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_JOIN_FAILED:
+		atomic_set(&stats->last_join_error, event->error);
+		atomic_inc(&stats->join_failed);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_TX_DONE:
+		zassert_equal(event->tx.status, RZI_LORAWAN_TX_ACKED);
+		atomic_set(&stats->last_tx_error, event->tx.error);
+		atomic_inc(&stats->uplink);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_DOWNLINK:
+		zassert_equal(event->downlink.rssi_dbm, -42);
+		zassert_equal(event->downlink.snr_quarter_db, 12);
+		zassert_equal(event->downlink.flags, 0x55);
+		if (event->downlink.port == 3 && event->downlink.size == 2 &&
+		    event->downlink.data[0] == 0xab && event->downlink.data[1] == 0xcd) {
+			atomic_set(&stats->payload_valid, 1);
+		}
+		atomic_inc(&stats->downlink);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_ERROR:
+		zassert_equal(event->error, -RZI_ERR_IO);
+		atomic_inc(&stats->errors);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_LINK_CHECK:
+		zassert_equal(event->link_check.demod_margin, 10);
+		zassert_equal(event->link_check.gateway_count, 2);
+		atomic_inc(&stats->link_checks);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_DEVICE_TIME:
+		atomic_set(&stats->last_device_time_error, event->error);
+		atomic_inc(&stats->times);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_STATE_CHANGED:
+		atomic_set(&stats->last_state, event->state);
+		atomic_inc(&stats->states);
+		break;
+	case RZI_LORAWAN_EVENT_CLASS_B:
+		atomic_set(&stats->last_class_b_state, event->class_b);
+		atomic_inc(&stats->class_b);
+		k_sem_give(&callback_sem);
+		break;
+	default:
+		break;
 	}
-}
-
-static void on_join_done(int status, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	zassert_ok(status);
-	atomic_inc(&stats->joined);
-	k_sem_give(&callback_sem);
-}
-
-static void on_send_done(const struct rzi_lorawan_tx_result *result, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	zassert_equal(result->status, RZI_LORAWAN_TX_ACKED);
-	zassert_ok(result->error);
-	atomic_inc(&stats->uplink);
-	k_sem_give(&callback_sem);
-}
-
-static void on_downlink(const struct rzi_lorawan_downlink *downlink, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	if (downlink->port == 3 && downlink->size == 2 && downlink->data[0] == 0xab &&
-	    downlink->data[1] == 0xcd) {
-		atomic_set(&stats->payload_valid, 1);
-	}
-	atomic_inc(&stats->downlink);
-	k_sem_give(&callback_sem);
-}
-
-static void on_error(int error, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	zassert_equal(error, -RZI_ERR_IO);
-	atomic_inc(&stats->errors);
-	k_sem_give(&callback_sem);
-}
-
-static void on_link_check(const struct rzi_lorawan_link_check_result *result, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	zassert_equal(result->gateway_count, 2);
-	atomic_inc(&stats->link_checks);
-	k_sem_give(&callback_sem);
-}
-
-static void on_device_time(int status, void *user_data)
-{
-	struct callback_stats *stats = user_data;
-
-	zassert_ok(status);
-	atomic_inc(&stats->times);
-	k_sem_give(&callback_sem);
 }
 
 static const struct rzi_lorawan_callbacks callbacks = {
-	.join_done = on_join_done,
-	.send_done = on_send_done,
-	.downlink = on_downlink,
-	.state_changed = on_state_changed,
-	.error = on_error,
-	.link_check_done = on_link_check,
-	.device_time_done = on_device_time,
+	.on_event = on_event,
 };
 
 static void wait_for_callbacks(unsigned int count)
@@ -154,6 +154,8 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	wait_for_callbacks(2);
 	zassert_equal(atomic_get(&first.ready), 1);
 	zassert_equal(atomic_get(&second.ready), 1);
+	zassert_equal(atomic_get(&first.states), 1);
+	zassert_equal(atomic_get(&first.last_state), RZI_LORAWAN_STATE_STARTING);
 	zassert_equal(rzi_lorawan_start(), -RZI_ERR_ALREADY);
 	zassert_equal(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_CONFIRMED),
 		      -RZI_ERR_NOT_JOINED);
@@ -163,37 +165,86 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	wait_for_callbacks(2);
 	zassert_equal(atomic_get(&first.joined), 1);
 	zassert_equal(atomic_get(&second.joined), 1);
+	zassert_equal(atomic_get(&second.states), 2);
+	zassert_equal(atomic_get(&second.last_state), RZI_LORAWAN_STATE_JOINING);
 
 	zassert_ok(rzi_lorawan_unregister_callbacks(first_handle));
 	zassert_ok(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_CONFIRMED));
 	wait_for_callbacks(1);
 	zassert_equal(atomic_get(&first.uplink), 0);
 	zassert_equal(atomic_get(&second.uplink), 1);
+	zassert_equal(atomic_get(&second.last_tx_error), 0);
 
 	{
 		const struct rzi_lorawan_backend_event downlink = {
 			.type = RZI_LORAWAN_BACKEND_DOWNLINK,
 			.downlink.port = 3,
 			.downlink.size = 2,
+			.downlink.rssi_dbm = -42,
+			.downlink.snr_quarter_db = 12,
+			.downlink.flags = 0x55,
 			.downlink.data = {0xab, 0xcd},
+		};
+		const struct rzi_lorawan_backend_event tx_error = {
+			.type = RZI_LORAWAN_BACKEND_TX_DONE,
+			.error = -RZI_ERR_IO,
+			.tx_status = RZI_LORAWAN_TX_ACKED,
 		};
 		const struct rzi_lorawan_backend_event error = {
 			.type = RZI_LORAWAN_BACKEND_ERROR,
 			.error = -RZI_ERR_IO,
 		};
+		const struct rzi_lorawan_backend_event join_failed = {
+			.type = RZI_LORAWAN_BACKEND_JOIN_FAILED,
+		};
 
 		fake_sink(&downlink);
 		wait_for_callbacks(1);
+		fake_sink(&tx_error);
+		wait_for_callbacks(1);
 		fake_sink(&error);
+		wait_for_callbacks(1);
+		fake_sink(&join_failed);
 		wait_for_callbacks(1);
 	}
 	zassert_equal(atomic_get(&second.downlink), 1);
 	zassert_true(atomic_get(&second.payload_valid));
+	zassert_equal(atomic_get(&second.uplink), 2);
+	zassert_equal(atomic_get(&second.last_tx_error), -RZI_ERR_IO);
 	zassert_equal(atomic_get(&second.errors), 1);
+	zassert_equal(atomic_get(&second.join_failed), 1);
+	zassert_equal(atomic_get(&second.last_join_error), -RZI_ERR_TIMEOUT);
 
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_A));
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_C));
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_A));
+	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_B));
+	wait_for_callbacks(1);
+	zassert_equal(atomic_get(&second.class_b), 1);
+	zassert_equal(atomic_get(&second.last_class_b_state), RZI_LORAWAN_CLASS_B_ACQUIRING_BEACON);
+	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_B));
+	k_sleep(K_MSEC(20));
+	zassert_equal(atomic_get(&second.class_b), 1);
+	zassert_equal(k_sem_take(&callback_sem, K_NO_WAIT), -EBUSY);
+	fake_set_class_error = -RZI_ERR_IO;
+	zassert_equal(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_A), -RZI_ERR_IO);
+	fake_set_class_error = 0;
+	{
+		enum rzi_lorawan_class device_class;
+		const struct rzi_lorawan_backend_event active = {
+			.type = RZI_LORAWAN_BACKEND_CLASS_B,
+			.class_b = RZI_LORAWAN_CLASS_B_ACTIVE,
+		};
+
+		zassert_ok(rzi_lorawan_get_class(&device_class));
+		zassert_equal(device_class, RZI_LORAWAN_CLASS_B);
+		fake_sink(&active);
+		wait_for_callbacks(1);
+		zassert_equal(atomic_get(&second.last_class_b_state), RZI_LORAWAN_CLASS_B_ACTIVE);
+	}
+	zassert_ok(rzi_lorawan_stop_class_b());
+	wait_for_callbacks(1);
+	zassert_equal(atomic_get(&second.last_class_b_state), RZI_LORAWAN_CLASS_B_IDLE);
 	zassert_ok(rzi_lorawan_is_joined(&joined));
 	zassert_true(joined);
 
@@ -278,8 +329,19 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 		zassert_equal(link_mode, RZI_LORAWAN_LINK_CHECK_DISABLED);
 		zassert_ok(rzi_lorawan_request_device_time(true));
 		wait_for_callbacks(1);
+		zassert_equal(atomic_get(&second.last_device_time_error), 0);
 		zassert_ok(rzi_lorawan_get_network_time(&time));
 		zassert_equal(time.gps_seconds, 1000);
+	}
+	{
+		const struct rzi_lorawan_backend_event time_failed = {
+			.type = RZI_LORAWAN_BACKEND_DEVICE_TIME,
+			.error = -RZI_ERR_TIMEOUT,
+		};
+
+		fake_sink(&time_failed);
+		wait_for_callbacks(1);
+		zassert_equal(atomic_get(&second.last_device_time_error), -RZI_ERR_TIMEOUT);
 	}
 
 	zassert_ok(rzi_lorawan_unregister_callbacks(second_handle));

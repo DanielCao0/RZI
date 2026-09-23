@@ -276,13 +276,23 @@ static void modem_event_callback(void)
 			}
 #endif
 			break;
-		case SMTC_MODEM_EVENT_CLASS_B_STATUS:
-			rzi_lorawan_usp_set_class_b_state(
-				source.event_data.class_b_status.status ==
-						SMTC_MODEM_EVENT_CLASS_B_READY
-					? RZI_LORAWAN_CLASS_B_ACTIVE
-					: RZI_LORAWAN_CLASS_B_ACQUIRING_BEACON);
+		case SMTC_MODEM_EVENT_CLASS_B_STATUS: {
+			enum rzi_lorawan_class_b_state next;
+
+			if (source.event_data.class_b_status.status ==
+			    SMTC_MODEM_EVENT_CLASS_B_READY) {
+				next = RZI_LORAWAN_CLASS_B_ACTIVE;
+			} else if (source.event_data.class_b_status.status ==
+				   SMTC_MODEM_EVENT_CLASS_B_NOT_READY) {
+				next = RZI_LORAWAN_CLASS_B_IDLE;
+			} else {
+				break;
+			}
+			if (rzi_lorawan_usp_set_class_b_state(next)) {
+				rzi_lorawan_usp_publish_class_b(next);
+			}
 			break;
+		}
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 		case SMTC_MODEM_EVENT_ALCSYNC_TIME:
 			event.type = RZI_LORAWAN_BACKEND_FUOTA;
@@ -355,9 +365,25 @@ bool rzi_lorawan_usp_tx_pending(void)
 	return tx_pending;
 }
 
-void rzi_lorawan_usp_set_class_b_state(enum rzi_lorawan_class_b_state state)
+bool rzi_lorawan_usp_set_class_b_state(enum rzi_lorawan_class_b_state state)
 {
+	if (class_b_state == state) {
+		return false;
+	}
 	class_b_state = state;
+	return true;
+}
+
+void rzi_lorawan_usp_publish_class_b(enum rzi_lorawan_class_b_state state)
+{
+	const struct rzi_lorawan_backend_event event = {
+		.type = RZI_LORAWAN_BACKEND_CLASS_B,
+		.class_b = state,
+	};
+
+	if (event_sink != NULL) {
+		event_sink(&event);
+	}
 }
 
 enum rzi_lorawan_class_b_state rzi_lorawan_usp_class_b_state(void)
@@ -439,6 +465,9 @@ static int usp_is_joined(bool *joined)
 static int usp_set_class(enum rzi_lorawan_class device_class)
 {
 	smtc_modem_class_t mapped;
+	enum rzi_lorawan_class_b_state previous;
+	enum rzi_lorawan_class_b_state next;
+	bool changed;
 	int rc = rzi_lorawan_usp_enter();
 
 	if (rc != 0) {
@@ -447,21 +476,34 @@ static int usp_set_class(enum rzi_lorawan_class device_class)
 	switch (device_class) {
 	case RZI_LORAWAN_CLASS_A:
 		mapped = SMTC_MODEM_CLASS_A;
-		rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_IDLE);
+		next = RZI_LORAWAN_CLASS_B_IDLE;
 		break;
 	case RZI_LORAWAN_CLASS_B:
 		mapped = SMTC_MODEM_CLASS_B;
-		rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_ACQUIRING_BEACON);
+		next = RZI_LORAWAN_CLASS_B_ACQUIRING_BEACON;
 		break;
 	case RZI_LORAWAN_CLASS_C:
 		mapped = SMTC_MODEM_CLASS_C;
-		rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_IDLE);
+		next = RZI_LORAWAN_CLASS_B_IDLE;
 		break;
 	default:
 		return rzi_lorawan_usp_finish(-RZI_ERR_INVALID);
 	}
-	return rzi_lorawan_usp_finish(
-		rzi_lorawan_usp_result(smtc_modem_set_class(STACK_ID, mapped)));
+	previous = rzi_lorawan_usp_class_b_state();
+	changed = rzi_lorawan_usp_set_class_b_state(next);
+	rc = rzi_lorawan_usp_result(smtc_modem_set_class(STACK_ID, mapped));
+	if (rc != 0 && changed) {
+		(void)rzi_lorawan_usp_set_class_b_state(previous);
+		changed = false;
+	}
+	if (changed) {
+		/*
+		 * The sink only copies into the service queue. Publish before
+		 * unlocking so concurrent class changes retain mutex order.
+		 */
+		rzi_lorawan_usp_publish_class_b(next);
+	}
+	return rzi_lorawan_usp_finish(rc);
 }
 
 #ifdef CONFIG_RZI_LORAWAN_FUOTA

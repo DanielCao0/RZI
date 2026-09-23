@@ -8,14 +8,14 @@
 
 #include <rzi/lorawan/lorawan.h>
 
-#include "lorawan_certification_ops.h"
-#include "lorawan_channel_ops.h"
-#include "lorawan_class_b_ops.h"
-#include "lorawan_fuota_ops.h"
-#include "lorawan_mac_ops.h"
-#include "lorawan_multicast_ops.h"
-#include "lorawan_network_ops.h"
-#include "lorawan_session_ops.h"
+#include "ops/lorawan_certification_ops.h"
+#include "ops/lorawan_channel_ops.h"
+#include "ops/lorawan_class_b_ops.h"
+#include "ops/lorawan_fuota_ops.h"
+#include "ops/lorawan_mac_ops.h"
+#include "ops/lorawan_multicast_ops.h"
+#include "ops/lorawan_network_ops.h"
+#include "ops/lorawan_session_ops.h"
 
 /** Events published by a backend and consumed by the service dispatcher. */
 enum rzi_lorawan_backend_event_type {
@@ -39,6 +39,8 @@ enum rzi_lorawan_backend_event_type {
 	RZI_LORAWAN_BACKEND_LINK_CHECK,
 	/** DeviceTimeAns received or the request timed out. */
 	RZI_LORAWAN_BACKEND_DEVICE_TIME,
+	/** Class B acquisition state changed. */
+	RZI_LORAWAN_BACKEND_CLASS_B,
 };
 
 /** FUOTA session kind carried by RZI_LORAWAN_BACKEND_FUOTA. */
@@ -97,6 +99,8 @@ struct rzi_lorawan_backend_event {
 		} fuota;
 		/** Link-check result for RZI_LORAWAN_BACKEND_LINK_CHECK. */
 		struct rzi_lorawan_link_check_result link_check;
+		/** Class B state for RZI_LORAWAN_BACKEND_CLASS_B. */
+		enum rzi_lorawan_class_b_state class_b;
 	};
 };
 
