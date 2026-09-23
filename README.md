@@ -3,32 +3,49 @@
 [![CI](https://github.com/DanielCao0/RZI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DanielCao0/RZI/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-RZI is a Zephyr module for RAK product firmware. Applications call a stable C
-API; protocol-stack types stay private, and board hardware stays in Zephyr
-plus the RZI product boards.
+RZI is a modular C SDK for building RAKWireless products on
+[Zephyr](https://www.zephyrproject.org/). It provides stable, backend-neutral
+APIs for LoRaWAN, raw LoRa/FSK, AT commands, persistent storage, and power
+management.
 
-**Version 0.2.0** · Apache-2.0 · boards `rzi_rak4631/nrf52840` and
-`rzi_rak3372/stm32wle5xx`
+RZI keeps protocol-stack details out of application code while retaining
+Zephyr's native build system, device model, and hardware description. Product
+firmware can therefore evolve its radio backend without changing its public
+application interface.
 
-The public ABI is `include/rzi/`. Architecture, ownership, and the service
-roadmap are in [`doc/architecture.md`](doc/architecture.md). The document
-catalog is [`doc/README.md`](doc/README.md).
+- **Current version:** [0.2.0](include/rzi/version.h)
+- **License:** [Apache-2.0](LICENSE)
+- **Supported boards:** `rzi_rak4631/nrf52840` and
+  `rzi_rak3372/stm32wle5xx`
 
-## Status
+## Key capabilities
 
-| Area | State |
-|---|---|
-| LoRaWAN C API (`include/rzi/lorawan/`) | OTAA join/send, classes and extras as advertised by the backend, multicast, certification, FUOTA |
-| LoRaWAN backends | Default Semtech USP / LoRa Basics Modem; optional Zephyr `lorawan_*` adapter |
-| Raw LoRa / FSK (`include/rzi/lora/lora.h`) | P2P and radio-test C API |
-| AT | RUI3-compatible CLI over an optional UART adapter; not a full RUI3 firmware |
-| Storage, power | Implemented |
-| Diagnostics | Planned |
-| Arduino / RUI C++ | OTAA subset lives in Arduino Core for Zephyr, not this repository |
+- Backend-neutral LoRaWAN API for OTAA, ABP, Class A/B/C, multicast,
+  certification, MAC requests, and FUOTA.
+- Default Semtech USP / LoRa Basics Modem integration, with an optional Zephyr
+  `lorawan_*` backend.
+- Raw LoRa and FSK APIs for point-to-point communication and radio testing.
+- RUI3-compatible AT command framework with pluggable transports.
+- Namespaced nonvolatile storage and coordinated power management.
+- Product board definitions, flash partitions, and sysbuild integration.
 
-The public join API accepts OTAA and ABP. The default USP backend implements
-OTAA. The Zephyr backend also implements ABP. FUOTA needs a dual-slot
-board (`rzi_rak4631`); `rzi_rak3372` is single-slot.
+The public ABI lives exclusively under [`include/rzi/`](include/rzi/).
+Backend types and third-party protocol headers are private implementation
+details.
+
+## Support matrix
+
+| Capability | USP backend | Zephyr backend |
+|---|---:|---:|
+| OTAA | Yes | Yes |
+| ABP | No | Yes |
+| Class A/B/C | Yes | Backend-dependent |
+| Multicast and certification | Yes | Backend-dependent |
+| FUOTA | Yes, dual-slot boards | No |
+
+FUOTA is supported on the dual-slot `rzi_rak4631`. The
+`rzi_rak3372` configuration is single-slot. The AT layer is a
+RUI3-compatible command interface, not a complete RUI3 firmware replacement.
 
 Registered AT commands and the gaps versus RUI3:
 [`doc/at-command-compatibility.md`](doc/at-command-compatibility.md).
@@ -38,7 +55,7 @@ RZI follows the
 Zephyr discovers this repository through [`zephyr/module.yml`](zephyr/module.yml).
 Applications do not add RZI sources by hand.
 
-## Integration
+## Getting started
 
 Add RZI to the application `west.yml` and import its manifest. Production
 revisions pin a released tag or commit, not `main`:
@@ -119,15 +136,15 @@ Overlays ship zero-valued credentials. Replace them before a radio test.
 ## Layout
 
 ```text
-include/rzi/   Public C ABI (`#include <rzi/...>`)
-src/           Per-service implementation
-zephyr/        Module metadata, Kconfig, CMake, west patches
-boards/        Product boards and partition tables
-samples/       Buildable examples
-tests/         Twister suites
-doc/           Architecture and API notes
-scripts/       Style, Doxygen, and SBOM helpers
-west.yml       Default USP backend pins
+include/rzi/    Public C API (`#include <rzi/...>`)
+src/            Service implementations and private backends
+boards/         Product boards and partition tables
+zephyr/         Module metadata, Kconfig, CMake, and west patches
+samples/        Buildable integration examples
+tests/          Zephyr Twister test suites
+doc/            Architecture, API contracts, and integration guides
+scripts/        Style, documentation, and SBOM tooling
+west.yml        Default USP dependency revisions
 ```
 
 ## Documentation
@@ -159,8 +176,8 @@ See [`doc/sbom.md`](doc/sbom.md).
 
 ## Development
 
-New code follows [`doc/coding-standards.md`](doc/coding-standards.md) and the
-Zephyr coding style. Enable the versioned hook once per clone:
+Contributions must follow [`doc/coding-standards.md`](doc/coding-standards.md)
+and the Zephyr coding style. Enable the repository hook once per clone:
 
 ```bash
 git config core.hooksPath .githooks
@@ -175,3 +192,7 @@ scripts/check-style.sh --fix     # apply clang-format in place
 CI runs those checks, twister on `native_sim`, sample builds for both
 product boards, public-header compilation (C and C++), Doxygen, and SBOM
 regeneration. Jobs and local reproduction: [`doc/ci.md`](doc/ci.md).
+
+Architecture, ownership boundaries, and the service roadmap are documented in
+[`doc/architecture.md`](doc/architecture.md). See
+[`doc/README.md`](doc/README.md) for the complete documentation index.
