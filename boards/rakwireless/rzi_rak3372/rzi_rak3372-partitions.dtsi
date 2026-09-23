@@ -3,8 +3,8 @@
  * rzi_rak3372 flash map (STM32WLE5, 256 KiB).
  *
  * Single slot: 256 KB cannot hold two signed images plus storage. There is
- * no image-1, so LoRaWAN FUOTA and RSUP type-1 slot update are not
- * supported. Flash the merged image (mcuboot + signed slot0).
+ * no image-1, so LoRaWAN FUOTA is not supported. Flash the merged
+ * image (mcuboot + signed slot0).
  */
 
 / {

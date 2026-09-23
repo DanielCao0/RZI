@@ -4,7 +4,7 @@
  * Pinout follows upstream rak3172. Radio is the STM32WLE5 on-chip
  * SUBGHZ (st,stm32wl-subghz-radio), not an SPI SX1262 shield. USP
  * support is the RAK3372 west patch in zephyr/patches/usp_zephyr.
- * Single-slot flash: no FUOTA and no RSUP type-1 update.
+ * Single-slot flash: no FUOTA.
  */
 
 /dts-v1/;

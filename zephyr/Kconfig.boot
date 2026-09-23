@@ -16,6 +16,6 @@ config RZI_MCUBOOT_DUAL_SLOT
 	depends on RZI_MCUBOOT
 	default y if BOARD_RZI_RAK4631
 	help
-	  The product board has slot1_partition. LoRaWAN FUOTA and RSUP
-	  type-1 UART update write a signed image there. Single-slot
-	  boards such as rzi_rak3372 (256 KiB) leave this off.
+	  The product board has slot1_partition. LoRaWAN FUOTA writes a
+	  signed image there. Single-slot boards such as rzi_rak3372
+	  (256 KiB) leave this off.

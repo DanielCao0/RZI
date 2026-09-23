@@ -74,7 +74,7 @@ accepted, not that the radio operation has completed.
 - `AT+SN` and `AT+FSN` report a serial derived from `hwinfo` when available.
 - `AT+ALIAS` stores an operator name (max 16 characters).
 - `AT+BUILDTIME`, `AT+REPOINFO`, `AT+BOOTVER`, `AT+DEBUG`.
-- `AT+BOOT` reboots; with RSUP it arms the bootloader slot.
+- `AT+BOOT` reboots.
 - `AT+FACTORY` restores persisted AT settings and reboots.
 - `AT+LOCK` / `AT+PWORD` lock the AT port. While locked, only `PWORD` and
   `LOCK` are accepted.

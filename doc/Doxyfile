@@ -66,7 +66,6 @@ INPUT                  = ../include/rzi \
                          boot.md \
                          power.md \
                          power-api.md \
-                         rsup-api.md \
                          west-patch.md \
                          lorawan-api.md \
                          lora-api.md \

@@ -12,11 +12,10 @@ if RZI
 rsource "Kconfig.storage"
 rsource "Kconfig.boot"
 
-# Radio and command services, then upgrade and power.
+# Radio and command services, then power.
 rsource "Kconfig.lorawan"
 rsource "Kconfig.lora"
 rsource "Kconfig.at"
-rsource "Kconfig.rsup"
 rsource "Kconfig.power"
 
 endif

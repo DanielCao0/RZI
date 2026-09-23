@@ -27,9 +27,6 @@
 #if defined(CONFIG_RZI_POWER)
 #include <rzi/power/power.h>
 #endif
-#if defined(CONFIG_RZI_RSUP)
-#include <rzi/rsup/rsup.h>
-#endif
 #if defined(CONFIG_BT)
 #include <zephyr/bluetooth/bluetooth.h>
 #endif
@@ -208,11 +205,7 @@ static int handle_boot(const struct rzi_at_request *request, void *user_data)
 	ARG_UNUSED(request);
 	ARG_UNUSED(user_data);
 	ignore_result(rzi_at_respond_status(RZI_AT_STATUS_OK));
-#if defined(CONFIG_RZI_RSUP)
-	rzi_rsup_arm_reboot();
-#else
 	sys_reboot(SYS_REBOOT_COLD);
-#endif
 	return 0;
 }
 
@@ -484,7 +477,7 @@ static const struct rzi_at_command commands[] = {
 	},
 	{
 		.name = "BOOT",
-		.help = "enter bootloader mode for firmware upgrade",
+		.help = "reboot the device",
 		.allowed_operations = RZI_AT_ALLOW_RUN,
 		.handler = handle_boot,
 	},

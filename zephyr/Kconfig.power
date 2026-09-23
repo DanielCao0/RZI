@@ -41,7 +41,7 @@ config RZI_POWER_AUTO_SERVICE_BLOCK
 	bool "Services report blockers automatically"
 	default y
 	help
-	  Class C, storage writes, RSUP, and FUOTA transfer/apply take and
+	  Class C, storage writes, and FUOTA transfer/apply take and
 	  release blockers. Class A join/send do not: the backend must be
 	  allowed to STOP between TX and RX1/RX2. Disable only when the
 	  application owns every blocker itself.

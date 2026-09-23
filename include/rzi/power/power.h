@@ -51,7 +51,7 @@ enum rzi_power_blocker {
 	RZI_POWER_BLOCK_FLASH,
 	/** UART or USB session that must not drop clocks. */
 	RZI_POWER_BLOCK_TRANSPORT,
-	/** RSUP or other dedicated update session. */
+	/** Dedicated firmware-update session owned by the application. */
 	RZI_POWER_BLOCK_UPDATE,
 	/** Number of blocker identities (not a valid blocker). */
 	RZI_POWER_BLOCK_COUNT,

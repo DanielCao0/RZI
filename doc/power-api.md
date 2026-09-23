@@ -6,14 +6,14 @@ C contract for product sleep policy. The header is
 `include/rzi/power/power.h`. Sleep depth on each board is in
 [power.md](./power.md).
 
-See also: [power.md](./power.md), [rsup-api.md](./rsup-api.md).
+See also: [power.md](./power.md).
 
 RZI coordinates **policy** and **blockers** only. Zephyr performs the CPU /
 peripheral transition. LoRaWAN RX1/RX2 timing belongs to the backend. This
 service does not compute or delay receive windows.
 
 `CONFIG_RZI_POWER=y` enables the service. The default also enables
-`CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK`, so LoRaWAN Class C, storage, RSUP,
+`CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK`, so LoRaWAN Class C, storage,
 and FUOTA take blockers automatically. Class A join/send do not.
 
 ## Boards
@@ -36,7 +36,7 @@ System ON + WFE and does not enable `CONFIG_PM`. 3372 may enter STOP2.
 | `LORAWAN` | Class C only |
 | `FLASH` | Storage write/delete; FUOTA transfer or apply |
 | `TRANSPORT` | Application during a USB/UART session |
-| `UPDATE` | `rzi_rsup_run()` |
+| `UPDATE` | Application during a dedicated update session |
 
 The same blocker is reentrant. `rzi_power_is_sleep_allowed()` is true when
 the policy is idle or suspend and every count is zero.
