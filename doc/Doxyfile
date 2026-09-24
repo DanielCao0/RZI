@@ -81,7 +81,8 @@ INPUT                  = ../include/rzi \
                          ci.md \
                          coding-standards.md \
                          naming-conventions.md \
-                         api-docs.md
+                         api-docs.md \
+                         error-codes.md
 FILE_PATTERNS          = *.h \
                          *.md
 RECURSIVE              = YES

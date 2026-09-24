@@ -34,11 +34,11 @@ Failed twister jobs upload `twister-out/` as a build artifact.
 RZI is a module, so CI builds the workspace a customer would:
 
 1. A temporary manifest is generated: Zephyr at `ZEPHYR_REVISION` plus the
-   `usp_zephyr` / `usp` revisions read from `west.yml`, all with
-   `clone-depth: 1`. The checked-out RZI tree is the code under test; it is
-   not cloned again.
-2. `west update --narrow` fetches the pinned revisions. GitHub serves
-   reachable commit SHAs, so shallow fetches of pinned commits work.
+   `usp_zephyr` / `usp` revisions read from `west.yml`. The checked-out RZI
+   tree is the code under test; it is not cloned again.
+2. `west update --narrow -o=--filter=blob:none` fetches those revisions
+   without a depth-1 clone. A shallow fetch of a pinned SHA is an unadvertised
+   object and git rejects it.
 3. The patches under `zephyr/patches/usp_zephyr/` are applied with
    `git apply` (idempotent: already-applied patches are skipped). This
    mirrors `west patch -sm rzi apply` without making RZI a west project of

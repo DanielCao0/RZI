@@ -46,8 +46,7 @@ __must_check int rzi_storage_init(void);
  * @retval 0 Value loaded.
  * @retval -RZI_ERR_INVALID An argument or path component is invalid.
  * @retval -RZI_ERR_NOT_FOUND The value does not exist.
- * @retval -RZI_ERR_TOO_LARGE The stored value does not have the requested size.
- * @retval -RZI_ERR_TOO_LARGE The composed backend key is too long.
+ * @retval -RZI_ERR_TOO_LARGE Stored size does not match, or the backend key is too long.
  * @note Thread context only.
  * @since 0.2
  */

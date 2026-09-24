@@ -14,10 +14,16 @@ runs:
   steps:
     - name: Install west
       shell: bash
-      run: python3 -m pip install --upgrade west
+      run: |
+        set -eux
+        if ! python3 -m pip install --upgrade "west==1.5.0"; then
+          python3 -m pip install --upgrade --break-system-packages "west==1.5.0"
+        fi
+        echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
     - name: Cache the west workspace
-      uses: actions/cache@v4
+      uses: actions/cache@v5
+      continue-on-error: true
       with:
         path: |
           ${{ github.workspace }}/zephyr
@@ -25,8 +31,8 @@ runs:
           ${{ github.workspace }}/bootloader
           ${{ github.workspace }}/tools
           ${{ github.workspace }}/usp_zephyr
-        key: west-${{ inputs.zephyr-revision }}-${{ hashFiles('rzi/west.yml') }}
-        restore-keys: west-${{ inputs.zephyr-revision }}-
+        key: west-blobless-${{ inputs.zephyr-revision }}-${{ hashFiles('rzi/west.yml') }}
+        restore-keys: west-blobless-${{ inputs.zephyr-revision }}-
 
     - name: Generate the CI manifest
       shell: bash
@@ -48,14 +54,11 @@ runs:
                 "name": "zephyr",
                 "url": "https://github.com/zephyrproject-rtos/zephyr",
                 "revision": os.environ["ZEPHYR_REVISION"],
-                "clone-depth": 1,
                 "import": True,
             },
         ]
         for dep in deps:
-            dep = dict(dep)
-            dep["clone-depth"] = 1
-            projects.append(dep)
+            projects.append(dict(dep))
         manifest = {"manifest": {"version": "0.13", "projects": projects}}
         (root / "manifest/west.yml").write_text(yaml.safe_dump(manifest, sort_keys=False))
         PY
@@ -71,7 +74,9 @@ runs:
           -c user.name=rzi-ci -c user.email=ci@localhost commit -qm "CI manifest"
         cd "${GITHUB_WORKSPACE}"
         west init -l manifest
-        west update --narrow
+        # Blobless narrow fetch. clone-depth 1 plus a pinned SHA is rejected
+        # by git as an unadvertised object, which fails this step immediately.
+        west update --narrow -o=--filter=blob:none
 
     - name: Apply the RZI backend patches
       shell: bash
