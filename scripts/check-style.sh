@@ -3,9 +3,10 @@
 #
 # Zephyr coding-style checks for RZI.
 #
-#   scripts/check-style.sh           check the working tree (or HEAD when clean)
-#   scripts/check-style.sh --staged  check staged changes (pre-commit hook mode)
-#   scripts/check-style.sh --fix     apply clang-format in place
+#   scripts/check-style.sh                 check the working tree (or HEAD when clean)
+#   scripts/check-style.sh --staged        check staged changes (pre-commit hook mode)
+#   scripts/check-style.sh --fix           apply clang-format in place
+#   scripts/check-style.sh --no-checkpatch clang-format and @file / @brief only
 #
 # clang-format uses the repository's own .clang-format (a copy of
 # Zephyr's), so editors and plain clang-format invocations pick it up
@@ -24,10 +25,11 @@ if ! command -v "${CLANG_FORMAT}" >/dev/null 2>&1 &&
 	CLANG_FORMAT="${HOME}/.local/bin/clang-format"
 fi
 
-# Mirror of zephyr/.checkpatch.conf (ignore list), plus MISSING_SIGN_OFF
-# (the DCO sign-off is a zephyrproject contribution requirement, not
-# enforced here) and EXECUTE_PERMISSIONS (hook and helper scripts must
-# carry the execute bit; git requires it).
+# Mirror of zephyr/.checkpatch.conf (ignore list), plus two local ignores.
+# MISSING_SIGN_OFF: this script feeds checkpatch a diff, which has no
+# commit message. Signed-off-by is enforced by the DCO workflow.
+# EXECUTE_PERMISSIONS: hook and helper scripts must carry the execute
+# bit; git requires it.
 CHECKPATCH_IGNORE="SPLIT_STRING,SPDX_LICENSE_TAG,PRINTK_WITHOUT_KERN_LEVEL,\
 VOLATILE,CONFIG_EXPERIMENTAL,PREFER_KERNEL_TYPES,PREFER_SECTION,AVOID_EXTERNS,\
 NETWORKING_BLOCK_COMMENT_STYLE,DATE_TIME,MINMAX,CONST_STRUCT,FILE_PATH_CHANGES,\
@@ -166,12 +168,14 @@ run_checkpatch() {
 
 fix=no
 staged=no
+no_checkpatch=no
 case "${1:-}" in
 	--fix) fix=yes ;;
 	--staged) staged=yes ;;
+	--no-checkpatch) no_checkpatch=yes ;;
 	"") ;;
 	*)
-		echo "usage: $0 [--fix|--staged]" >&2
+		echo "usage: $0 [--fix|--staged|--no-checkpatch]" >&2
 		exit 2
 		;;
 esac
@@ -179,7 +183,7 @@ esac
 rc=0
 run_doxygen_file_check || rc=1
 run_clang_format "${fix}" "${staged}" || rc=1
-if [[ "${fix}" == "no" ]]; then
+if [[ "${fix}" == "no" && "${no_checkpatch}" == "no" ]]; then
 	run_checkpatch "${staged}" || rc=1
 fi
 exit "${rc}"

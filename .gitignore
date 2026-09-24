@@ -10,3 +10,8 @@
 /doc/reqmgmt/
 # Generated Doxygen HTML (scripts/generate-doxygen.sh)
 /doc/doxygen/
+
+# Written by scripts/check-compliance.sh from the Zephyr tree, then removed
+/.checkpatch.conf
+/.gitlint
+/compliance.xml

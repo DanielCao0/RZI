@@ -2,9 +2,11 @@
 
 Status: implemented
 
-GitHub Actions gates every push to `main` and every pull request, following
-the Zephyr project CI model: compliance first, then twister, then sample
-builds, plus public-header, documentation, and SBOM checks.
+GitHub Actions gates every push to `main` and every pull request. Compliance
+follows Zephyr's `scripts/ci/check_compliance.py` workflow. Tests and samples
+follow the `example-application` twister invocation (`--integration`).
+Public-header, documentation, and SBOM checks are RZI gates. Pull requests
+also run the Developer Certificate of Origin check.
 
 See also: [coding-standards.md](./coding-standards.md),
 [architecture.md](./architecture.md), [west-patch.md](./west-patch.md).
@@ -17,9 +19,10 @@ that need one.
 
 | Job | What it proves |
 |---|---|
-| Compliance | `scripts/check-style.sh` (clang-format, `@file` / `@brief`, checkpatch), no backend symbols in `include/rzi/`, ASCII-only source, SPDX tags, version strings in sync |
-| Twister (native_sim) | `west twister -T rzi/tests` on the host |
-| Samples (product boards) | `west twister -T rzi/samples` for `rzi_rak4631` and `rzi_rak3372` with the Zephyr SDK |
+| Compliance | `scripts/check-compliance.sh` (Zephyr `check_compliance.py`), `scripts/check-style.sh --no-checkpatch` (clang-format, `@file` / `@brief`), no backend symbols in `include/rzi/`, ASCII-only source, SPDX tags, version strings in sync |
+| DCO | `Signed-off-by` on every pull-request commit (`.github/workflows/dco.yml`) |
+| Twister (native_sim) | `west twister -T rzi/tests --integration` on the host |
+| Samples (product boards) | `west twister -T rzi/samples --integration` for `rzi_rak4631` and `rzi_rak3372` with the Zephyr SDK |
 | Public headers | every `include/rzi/**.h` compiles standalone as C11 and as C++17 |
 | Documentation | `scripts/generate-doxygen.sh` with zero warnings |
 | SBOM | `scripts/generate-sbom.sh` regenerates valid SPDX and CycloneDX JSON |
@@ -59,21 +62,56 @@ from a cold cache automatically.
 `usp_zephyr` and `usp` revisions come from `west.yml`; CI never carries a
 second copy.
 
+## Compliance scope
+
+`scripts/check-compliance.sh` runs Zephyr's `check_compliance.py` with
+`ZEPHYR_BASE` set, on the same commit range Zephyr uses (`origin/<base>..HEAD`
+for a pull request). Pull requests are rebased onto the target branch, and a
+merge commit fails the job.
+
+The script loads Zephyr's `.checkpatch.conf` and `.gitlint`, rewriting paths
+so checkpatch's typedefs file and gitlint's commit rules come from the Zephyr
+tree. Two local ignores stay in place. `EXECUTE_PERMISSIONS`: hook and helper
+scripts must keep the executable bit. Gitlint rule `UC2`: it requires two
+whitespace-separated name tokens, while the DCO check accepts the committer
+name as configured, including a single token.
+
+These checks are excluded because they validate the Zephyr repository, not a
+module:
+
+- `Kconfig`, `KconfigBasic`, `KconfigBasicNoModules`, `KconfigHWMv2`
+- `SysbuildKconfig`, `SysbuildKconfigBasic`, `SysbuildKconfigBasicNoModules`
+- `ZephyrModuleFile`
+
+`ClangFormat` is excluded the same way as Zephyr's compliance workflow.
+`scripts/check-style.sh` still fails the job when clang-format or a missing
+`@file` / `@brief` is wrong. `LicenseAndCopyrightCheck` stays a warning, as
+in that workflow. Every other report fails the job.
+
+`native_sim` keeps `ZEPHYR_TOOLCHAIN_VARIANT=host`. The SDK install in CI is
+the ARM toolchain the product boards need; the host compiler builds the
+simulator.
+
 ## Local reproduction
 
 Prerequisites match the runner: a Python environment with
 `zephyr/scripts/requirements-{base,build-test,run-test}.txt` installed,
 `device-tree-compiler`, `gperf`, and `gcc-multilib` / `g++-multilib` for the
 32-bit `native_sim/native` variant. Sample builds need the Zephyr SDK
-(`ZEPHYR_SDK_INSTALL_DIR`).
+(`ZEPHYR_SDK_INSTALL_DIR`). Compliance also needs
+`zephyr/scripts/requirements-actions.txt` and `libmagic1`.
 
 ```bash
-# Compliance (uses the west workspace Zephyr for checkpatch)
+# clang-format, @file / @brief, and checkpatch
 scripts/check-style.sh
 
+# Zephyr check_compliance.py. ZEPHYR_BASE may be omitted when this repo
+# sits in a west workspace.
+scripts/check-compliance.sh origin/main..HEAD
+
 # Tests and samples, from the west workspace topdir
-west twister -T rzi/tests --inline-logs -v
-west twister -T rzi/samples --inline-logs -v
+west twister -T rzi/tests --inline-logs -v --integration
+west twister -T rzi/samples --inline-logs -v --integration
 
 # Public headers against a configured build
 west build -b native_sim/native/64 rzi/tests/lorawan/service -d build-headers

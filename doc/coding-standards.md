@@ -24,6 +24,9 @@ RZI is a Zephyr module and does not invent a second formatting style:
   `.clang-format` (a Zephyr copy).
 - `scripts/check-style.sh` runs clang-format, production-library
   `@file` / `@brief` checks, and Zephyr `checkpatch.pl` (100-column width).
+- `scripts/check-compliance.sh` runs Zephyr's `check_compliance.py` on a
+  commit range. CI uses that script. Every commit needs a `Signed-off-by`
+  line. Pull requests also run the Developer Certificate of Origin check.
 - Public headers use Zephyr-style Doxygen. Do not invent a private tag set.
 - USP, LBM, loramac-node, or board symbols must not leak into the public ABI.
 
@@ -32,6 +35,7 @@ Local checks:
 ```bash
 scripts/check-style.sh
 scripts/check-style.sh --fix
+ZEPHYR_BASE=<zephyr-checkout> scripts/check-compliance.sh origin/main..HEAD
 scripts/generate-doxygen.sh
 scripts/generate-sbom.sh
 ```
@@ -339,6 +343,11 @@ One commit does one thing. Format with `scripts/check-style.sh --fix`. Do
 not mix clang-format and logic changes in the same "while we are here"
 commit unless the surface area is tiny.
 
+The subject uses a `type:` or `type(scope):` prefix. The body is required.
+Each commit ends with `Signed-off-by: Name <email>`. `git commit -s` adds
+that line from the configured committer. The DCO check rejects a commit
+that lacks it.
+
 ## 10. Review checklist
 
 - [ ] Files and directories are lowercase `snake_case`. Production-library
@@ -355,6 +364,8 @@ commit unless the surface area is tiny.
 - [ ] Thread / ISR / callback context is documented.
 - [ ] Production-library `.c` / `.h` files have `@file` and `@brief`.
 - [ ] `scripts/check-style.sh` passes.
+- [ ] `scripts/check-compliance.sh` passes for the commit range.
+- [ ] Commits contain `Signed-off-by`.
 
 Naming and layering are code-review items even when tools cannot detect
 them.

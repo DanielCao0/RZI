@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# RZI continuous integration, modelled on the Zephyr project gates:
-# compliance (checkpatch / clang-format / ABI hygiene), twister tests on
-# native_sim, sample builds for the product boards, public-header compilation,
-# Doxygen, and SBOM regeneration.
+# RZI continuous integration, aligned with Zephyr's compliance workflow
+# and the example-application twister gate: check_compliance.py, DCO on
+# pull requests, twister --integration, plus public-header, Doxygen, and
+# SBOM checks.
 #
 # Version pins and local reproduction steps are documented in doc/ci.md.
 
 name: CI
+
+permissions:
+  contents: read
 
 on:
   push:
@@ -50,18 +53,59 @@ jobs:
 
       - name: Fetch the pull request base
         if: github.event_name == 'pull_request'
-        run: git -C rzi fetch --depth=1 origin "${{ github.base_ref }}"
+        run: git -C rzi fetch origin "${{ github.base_ref }}"
+
+      - name: Reject merge commits and rebase onto the target branch
+        if: github.event_name == 'pull_request'
+        working-directory: rzi
+        run: |
+          git config user.email "ci@localhost"
+          git config user.name "rzi-ci"
+          if [[ "$(git rev-list --merges --count "origin/${{ github.base_ref }}..")" != "0" ]]; then
+            echo "::error::Merge commits are not allowed; rebase onto the target branch"
+            exit 1
+          fi
+          git rebase "origin/${{ github.base_ref }}"
+
+      - name: Install Zephyr compliance requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libmagic1
+          python3 -m pip install \
+            -r zephyr/scripts/requirements-actions.txt \
+            --require-hashes
 
       - name: Install clang-format
         run: python3 -m pip install "clang-format==${CLANG_FORMAT_VERSION}"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: zephyr/scripts/ci/package-lock.json
+
+      - name: Install the devicetree linter
+        run: npm --prefix zephyr/scripts/ci ci
+
       - name: Coding style
         working-directory: rzi
+        run: scripts/check-style.sh --no-checkpatch
+
+      - name: Zephyr compliance
+        working-directory: rzi
         env:
-          BASE_REF: >-
-            ${{ github.event_name == 'pull_request' &&
-            format('origin/{0}', github.base_ref) || '' }}
-        run: scripts/check-style.sh
+          ZEPHYR_BASE: ${{ github.workspace }}/zephyr
+        run: |
+          before="${{ github.event.before }}"
+          empty="0000000000000000000000000000000000000000"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            scripts/check-compliance.sh "origin/${{ github.base_ref }}..HEAD"
+          elif [[ "${before}" =~ ^[0-9a-f]{40}$ && "${before}" != "${empty}" ]]; then
+            scripts/check-compliance.sh "${before}..${{ github.sha }}"
+          else
+            scripts/check-compliance.sh "HEAD~1..HEAD"
+          fi
 
       - name: Public ABI must not leak backend symbols
         run: |
@@ -141,7 +185,7 @@ jobs:
       - name: Run the test suites
         run: |
           set -o pipefail
-          if ! west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v -j "$(nproc)" 2>&1 | tee twister-console.log; then
+          if ! west twister -T "${GITHUB_WORKSPACE}/rzi/tests" --inline-logs -v --integration -j "$(nproc)" 2>&1 | tee twister-console.log; then
             grep -aE "ERROR|error:|FAILED" twister-console.log | head -40 | while IFS= read -r line; do
               echo "::error::${line}"
             done
@@ -209,7 +253,7 @@ jobs:
             >> "${GITHUB_ENV}"
 
       - name: Build the samples
-        run: west twister -T "${GITHUB_WORKSPACE}/rzi/samples" --inline-logs -v -j "$(nproc)"
+        run: west twister -T "${GITHUB_WORKSPACE}/rzi/samples" --inline-logs -v --integration -j "$(nproc)"
 
       - name: Upload the twister report on failure
         if: failure()

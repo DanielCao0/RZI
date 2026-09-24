@@ -4,6 +4,8 @@ tests:
   rzi.power.api:
     platform_allow:
       - native_sim
+    integration_platforms:
+      - native_sim
     tags:
       - rzi
       - power

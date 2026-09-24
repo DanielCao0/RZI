@@ -7,3 +7,5 @@ tests:
       - lorawan
     platform_allow:
       - native_sim
+    integration_platforms:
+      - native_sim
