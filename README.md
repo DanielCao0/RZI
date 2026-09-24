@@ -20,10 +20,8 @@ application interface.
 
 ## Key capabilities
 
-- Backend-neutral LoRaWAN API for OTAA, ABP, Class A/B/C, multicast,
-  certification, MAC requests, and FUOTA.
-- Default Semtech USP / LoRa Basics Modem integration, with an optional Zephyr
-  `lorawan_*` backend.
+- LoRaWAN API for OTAA, ABP, Class A/B/C, multicast, certification, MAC
+  requests, and FUOTA, on Semtech USP / LoRa Basics Modem through `usp_zephyr`.
 - Raw LoRa and FSK APIs for point-to-point communication and radio testing.
 - RUI3-compatible AT command framework with pluggable transports.
 - Namespaced nonvolatile storage and coordinated power management.
@@ -32,20 +30,6 @@ application interface.
 The public ABI lives exclusively under [`include/rzi/`](include/rzi/).
 Backend types and third-party protocol headers are private implementation
 details.
-
-## Support matrix
-
-| Capability | USP backend | Zephyr backend |
-|---|---:|---:|
-| OTAA | Yes | Yes |
-| ABP | No | Yes |
-| Class A/B/C | Yes | Backend-dependent |
-| Multicast and certification | Yes | Backend-dependent |
-| FUOTA | Yes, dual-slot boards | No |
-
-FUOTA is supported on the dual-slot `rzi_rak4631`. The
-`rzi_rak3372` configuration is single-slot. The AT layer is a
-RUI3-compatible command interface, not a complete RUI3 firmware replacement.
 
 Registered AT commands and the gaps versus RUI3:
 [`doc/at-command-compatibility.md`](doc/at-command-compatibility.md).
@@ -70,11 +54,10 @@ manifest:
       import: true
 ```
 
-The import pulls the default USP dependencies (`usp_zephyr` and `usp`) at the
-revisions in this repository's [`west.yml`](west.yml). The application
-manifest still chooses its own Zephyr revision. Projects defined there take
-precedence, so an application can override any imported version or blocklist
-the USP projects and declare another backend.
+The import pulls `usp_zephyr` and `usp` at the revisions pinned in this
+repository's [`west.yml`](west.yml). Product firmware uses that stack. The
+application manifest still chooses its own Zephyr revision; leave the imported
+USP projects at those pins.
 
 After `west update`, apply RZI's compatibility patches from the workspace
 root:
@@ -110,9 +93,7 @@ CONFIG_RZI_LORAWAN=y
 
 RZI owns modem bring-up, serialization, callback translation, and event
 queuing. Zephyr owns board hardware. The application owns credentials,
-region, product behavior, and the uplink schedule. Backend selection is a
-Kconfig choice under `src/lorawan/backend/`; applications and public headers
-do not change when a backend is added.
+region, product behavior, and the uplink schedule.
 
 Product images build with sysbuild and flash the merged image. See
 [`doc/boot.md`](doc/boot.md).
