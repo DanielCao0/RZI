@@ -115,17 +115,23 @@ done
 compliance=("${ZEPHYR_BASE}/scripts/ci/check_compliance.py")
 mapfile -t all_checks < <(python3 "${compliance[@]}" -l)
 
+# check_compliance.py exits non-zero for warn-only checks too. Zephyr's
+# workflow ignores that status and fails only when some other report is
+# non-empty. Match that here.
 set +e
 python3 "${compliance[@]}" --annotate -c "${RANGE}" "${args[@]}"
 rc=$?
 set -e
 
+hard=0
+reports=0
 for name in "${all_checks[@]}"; do
 	report="${name}.txt"
 	if [[ ! -s "${report}" ]]; then
 		rm -f "${report}"
 		continue
 	fi
+	reports=1
 	warn_only=0
 	for allowed in "${WARN_ONLY[@]}"; do
 		if [[ "${name}" == "${allowed}" ]]; then
@@ -136,10 +142,17 @@ for name in "${all_checks[@]}"; do
 		echo "::warning title=${name}::see the report below"
 	else
 		echo "::error title=${name}::see the report below"
-		rc=1
+		hard=1
 	fi
 	cat "${report}"
 	rm -f "${report}"
 done
 
-exit "${rc}"
+if [[ "${hard}" == 1 ]]; then
+	exit 1
+fi
+# A crash that produced no report is still a failure.
+if [[ "${rc}" -ne 0 && "${reports}" == 0 ]]; then
+	exit "${rc}"
+fi
+exit 0
