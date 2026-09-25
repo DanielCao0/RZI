@@ -73,6 +73,12 @@ runs:
         git -C "${GITHUB_WORKSPACE}/manifest" \
           -c user.name=rzi-ci -c user.email=ci@localhost commit -qm "CI manifest"
         cd "${GITHUB_WORKSPACE}"
+        # A cache hit restores usp_zephyr with the previous run's patches
+        # still in the worktree. west update will not discard those edits.
+        if [[ -d usp_zephyr/.git ]]; then
+          git -C usp_zephyr reset --hard
+          git -C usp_zephyr clean -fd
+        fi
         west init -l manifest
         # Blobless narrow fetch. clone-depth 1 plus a pinned SHA is rejected
         # by git as an unadvertised object, which fails this step immediately.
@@ -83,12 +89,28 @@ runs:
       working-directory: usp_zephyr
       run: |
         set -eux
+        rev="$(python3 - <<'PY'
+        import os
+        import pathlib
+
+        import yaml
+
+        root = pathlib.Path(os.environ["GITHUB_WORKSPACE"])
+        projects = yaml.safe_load((root / "rzi/west.yml").read_text())["manifest"]["projects"]
+        for project in projects:
+            if project["name"] == "usp_zephyr":
+                print(project["revision"])
+                raise SystemExit(0)
+        raise SystemExit("usp_zephyr revision missing from rzi/west.yml")
+        PY
+        )"
+        # Apply onto the pinned revision, not whatever the cache left behind.
+        # Skipping an "already applied" patch hid a worktree whose context no
+        # longer matched the next patch.
+        git reset --hard "${rev}"
+        git clean -fd
         for patch in "${GITHUB_WORKSPACE}"/rzi/zephyr/patches/usp_zephyr/*.patch; do
-          if git apply --reverse --check "${patch}" 2>/dev/null; then
-            echo "already applied: $(basename "${patch}")"
-          else
-            git apply -v "${patch}"
-          fi
+          git apply -v "${patch}"
         done
 
     - name: Mount RZI as an extra module

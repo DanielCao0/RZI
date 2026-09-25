@@ -39,10 +39,12 @@ RZI is a module, so CI builds the workspace a customer would:
 2. `west update --narrow -o=--filter=blob:none` fetches those revisions
    without a depth-1 clone. A shallow fetch of a pinned SHA is an unadvertised
    object and git rejects it.
-3. The patches under `zephyr/patches/usp_zephyr/` are applied with
-   `git apply` (idempotent: already-applied patches are skipped). This
-   mirrors `west patch -sm rzi apply` without making RZI a west project of
-   the CI manifest.
+3. `usp_zephyr` is reset to the revision in `west.yml`. The workspace
+   cache otherwise keeps the previous run's patched tree, and the next
+   patch then fails its context check. The patches under
+   `zephyr/patches/usp_zephyr/` are applied with `git apply`. This mirrors
+   `west patch -sm rzi apply` without making RZI a west project of the CI
+   manifest.
 4. `ZEPHYR_EXTRA_MODULES` points at the checkout, so builds and twister see
    RZI exactly as committed.
 
