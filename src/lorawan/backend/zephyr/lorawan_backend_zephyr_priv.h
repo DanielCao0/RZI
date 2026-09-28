@@ -11,6 +11,9 @@
 
 #include "../lorawan_backend.h"
 
+int rzi_lorawan_zephyr_mib_dev_addr(uint32_t *dev_addr);
+int rzi_lorawan_zephyr_mib_nwk_skey(uint8_t key[16]);
+int rzi_lorawan_zephyr_mib_app_skey(uint8_t key[16]);
 int rzi_lorawan_zephyr_lock_started(void);
 void rzi_lorawan_zephyr_unlock(void);
 bool rzi_lorawan_zephyr_busy(void);

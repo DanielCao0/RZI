@@ -22,6 +22,8 @@ rzi/
             ├── 0004-sx1262-pa-compile-definitions.patch
             ├── 0005-stm32wl-subghz-radio.patch
             └── 0006-zephyr-4.5-warning-fixes.patch
+        └── usp/
+            └── 0001-export-secure-element-session-keys.patch
 ```
 
 The third patch stops `usp_zephyr` from exporting its historical
@@ -30,6 +32,8 @@ that board. USP devicetree bindings, shields, and module extensions remain
 exported. The fifth patch teaches the USP SX126x driver the STM32WL on-chip
 SUBGHZ radio used by RAK3372. The sixth patch replaces the deprecated
 `<zephyr/sys_clock.h>` include and `SPI_OP_MODE_MASTER` on Zephyr 4.5-dev.
+The `usp` patch exports session keys from the software secure element.
+The LR11xx crypto engine cannot export key material and returns an error.
 
 ## Applying the patches
 
@@ -43,7 +47,7 @@ west patch -sm rzi apply --roll-back
 `-sm rzi` (`--src-module rzi`) tells `west patch` to read the patch definition
 from the RZI module. It does not mean that the patches target RZI. Each entry's
 `module` field in `patches.yml` selects the destination module, currently
-`usp_zephyr`.
+`usp_zephyr` or `usp`.
 
 `apply` is not idempotent, so automated build wrappers should run `clean`
 before `apply`. `--roll-back` cleans modules already modified by the current

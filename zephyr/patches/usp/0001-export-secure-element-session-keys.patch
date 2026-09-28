@@ -1,0 +1,80 @@
+diff --git a/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/lr11xx_crypto_engine/lr11xx_ce.c b/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/lr11xx_crypto_engine/lr11xx_ce.c
+index 06eda35..655175a 100644
+--- a/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/lr11xx_crypto_engine/lr11xx_ce.c
++++ b/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/lr11xx_crypto_engine/lr11xx_ce.c
+@@ -220,6 +220,21 @@ smtc_se_return_code_t smtc_secure_element_set_key( smtc_se_key_identifier_t key_
+     return status;
+ }
+ 
++smtc_se_return_code_t smtc_secure_element_get_key( smtc_se_key_identifier_t key_id, uint8_t key[SMTC_SE_KEY_SIZE],
++                                                   uint8_t stack_id )
++{
++    UNUSED( key_id );
++    UNUSED( stack_id );
++
++    if( key == NULL )
++    {
++        return SMTC_SE_RC_ERROR_NPE;
++    }
++
++    /* The LR11xx crypto engine does not export session keys. */
++    return SMTC_SE_RC_ERROR;
++}
++
+ smtc_se_return_code_t smtc_secure_element_compute_aes_cmac( const uint8_t* mic_bx_buffer, const uint8_t* buffer,
+                                                             uint16_t size, smtc_se_key_identifier_t key_id,
+                                                             uint32_t* cmac, uint8_t stack_id )
+diff --git a/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/smtc_secure_element/smtc_secure_element.h b/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/smtc_secure_element/smtc_secure_element.h
+index 10829a0..0a3a468 100644
+--- a/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/smtc_secure_element/smtc_secure_element.h
++++ b/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/smtc_secure_element/smtc_secure_element.h
+@@ -173,6 +173,19 @@ smtc_se_return_code_t smtc_secure_element_init( void );
+ smtc_se_return_code_t smtc_secure_element_set_key( smtc_se_key_identifier_t key_id, const uint8_t key[SMTC_SE_KEY_SIZE],
+                                                    uint8_t stack_id );
+ 
++/**
++ * @brief Reads a key from the software secure element
++ *
++ * Hardware crypto engines that do not export key material return @ref SMTC_SE_RC_ERROR.
++ *
++ * @param [in] key_id Key identifier
++ * @param [out] key Key value
++ * @param [in] stack_id The Stack Identifier
++ * @return Secure element return code as defined in @ref smtc_se_return_code_t
++ */
++smtc_se_return_code_t smtc_secure_element_get_key( smtc_se_key_identifier_t key_id, uint8_t key[SMTC_SE_KEY_SIZE],
++                                                   uint8_t stack_id );
++
+ /**
+  * @brief Computes a CMAC of a message using provided initial Bx block
+  *
+diff --git a/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/soft_secure_element/soft_se.c b/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/soft_secure_element/soft_se.c
+index 29073ad..99c3e78 100644
+--- a/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/soft_secure_element/soft_se.c
++++ b/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/soft_secure_element/soft_se.c
+@@ -452,6 +452,25 @@ smtc_se_return_code_t smtc_secure_element_set_key( smtc_se_key_identifier_t key_
+     return SMTC_SE_RC_ERROR_INVALID_KEY_ID;
+ }
+ 
++smtc_se_return_code_t smtc_secure_element_get_key( smtc_se_key_identifier_t key_id, uint8_t key[SMTC_SE_KEY_SIZE],
++                                                   uint8_t stack_id )
++{
++    soft_se_key_t* key_item;
++
++    if( key == NULL )
++    {
++        return SMTC_SE_RC_ERROR_NPE;
++    }
++
++    if( get_key_by_id( key_id, &key_item, stack_id ) != SMTC_SE_RC_SUCCESS )
++    {
++        return SMTC_SE_RC_ERROR_INVALID_KEY_ID;
++    }
++
++    memcpy( key, key_item->key_value, SMTC_SE_KEY_SIZE );
++    return SMTC_SE_RC_SUCCESS;
++}
++
+ smtc_se_return_code_t smtc_secure_element_compute_aes_cmac( const uint8_t* mic_bx_buffer, const uint8_t* buffer,
+                                                             uint16_t size, smtc_se_key_identifier_t key_id,
+                                                             uint32_t* cmac, uint8_t stack_id )

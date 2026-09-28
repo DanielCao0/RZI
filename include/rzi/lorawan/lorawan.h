@@ -24,12 +24,24 @@ extern "C" {
  *  @{
  */
 
+/** @name Constants and types
+ *  @{
+ */
+
 /** Maximum storage reserved for a LoRaWAN application payload. */
 #define RZI_LORAWAN_MAX_PAYLOAD             242
 /** Maximum channel-mask words for US915, AU915, and CN470. */
 #define RZI_LORAWAN_CHANNEL_MASK_WORDS      6
 /** Sentinel that never identifies a registered callback subscriber. */
 #define RZI_LORAWAN_CALLBACK_HANDLE_INVALID 0U
+/** Argument to @ref rzi_lorawan_join that leaves the stored value unchanged. */
+#define RZI_LORAWAN_JOIN_KEEP               (-1)
+/** Minimum seconds between join attempts. */
+#define RZI_LORAWAN_JOIN_INTERVAL_MIN       7
+/** Maximum seconds between join attempts. */
+#define RZI_LORAWAN_JOIN_INTERVAL_MAX       255
+/** Join retry interval used until a caller stores another value. */
+#define RZI_LORAWAN_JOIN_INTERVAL_DEFAULT   8
 
 /** LoRaWAN regional parameter selection. */
 enum rzi_lorawan_region {
@@ -202,56 +214,6 @@ enum rzi_lorawan_capability {
 	RZI_LORAWAN_CAP_FUOTA = (1U << 11),
 };
 
-/** OTAA credentials. They are copied before @ref rzi_lorawan_join returns. */
-struct rzi_lorawan_join_otaa {
-	/** Device EUI in network registration byte order. */
-	uint8_t dev_eui[8];
-	/** Join EUI in network registration byte order. */
-	uint8_t join_eui[8];
-	/** LoRaWAN 1.0.x AppKey or 1.1 NwkKey. */
-	uint8_t network_key[16];
-	/**
-	 * LoRaWAN 1.0.x GenAppKey or 1.1 AppKey.
-	 *
-	 * USP/LBM uses this as GenAppKey. The Zephyr LoRaWAN API maps it to
-	 * join app_key, so LoRaWAN 1.0.x applications must set both keys to
-	 * AppKey unless the backend documents separate GenAppKey support.
-	 */
-	uint8_t application_key[16];
-	/**
-	 * Device nonce used by backends that do not persist DevNonce
-	 * themselves.
-	 *
-	 * Zero means the backend should increment its own stored value.
-	 * LoRaWAN 1.0.4+ requires a monotonically increasing nonce for the
-	 * same DevEUI; the application should persist and supply it when the
-	 * backend cannot.
-	 */
-	uint16_t dev_nonce;
-};
-
-/** ABP session parameters. A backend may report this mode as unsupported. */
-struct rzi_lorawan_join_abp {
-	/** LoRaWAN device address in host byte order. */
-	uint32_t dev_addr;
-	/** Network session key. */
-	uint8_t network_session_key[16];
-	/** Application session key. */
-	uint8_t application_session_key[16];
-};
-
-/** Network activation parameters. */
-struct rzi_lorawan_join_config {
-	/** Selects the active union member. */
-	enum rzi_lorawan_activation activation;
-	union {
-		/** Parameters used when activation is OTAA. */
-		struct rzi_lorawan_join_otaa otaa;
-		/** Parameters used when activation is ABP. */
-		struct rzi_lorawan_join_abp abp;
-	};
-};
-
 /** Observable service states carried by RZI_LORAWAN_EVENT_STATE_CHANGED. */
 enum rzi_lorawan_state {
 	/** Service has not started. */
@@ -374,6 +336,12 @@ struct rzi_lorawan_callbacks {
 	void *user_data;
 };
 
+/** @} */
+
+/** @name Lifecycle
+ *  @{
+ */
+
 /**
  * @brief Register one callback subscriber.
  *
@@ -465,28 +433,397 @@ __must_check int rzi_lorawan_set_join_backoff_bypass(bool enabled);
  */
 __must_check int rzi_lorawan_start(void);
 
+/** @} */
+
+/** @name Credentials
+ *  @{
+ */
+
 /**
- * @brief Request OTAA or ABP network activation.
+ * @brief Read the stored DevEUI.
  *
- * The configuration is copied before this function returns. A return value of
- * zero means the request was accepted; completion is reported through
- * on_event() as RZI_LORAWAN_EVENT_JOINED or RZI_LORAWAN_EVENT_JOIN_FAILED.
+ * @param[out] eui Destination for the 8-byte identifier.
+ * @param len Size of eui. Must be 8.
  *
- * @param config Activation mode and credentials.
+ * @retval 0 Identifier copied.
+ * @retval -RZI_ERR_INVALID eui is NULL or len is not 8.
+ * @retval -RZI_ERR_NO_DATA No DevEUI has been stored.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored credentials could not be loaded.
  *
- * @retval 0 Request accepted.
- * @retval -RZI_ERR_INVALID The configuration is NULL or contains an invalid mode.
- * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
- * @retval -RZI_ERR_BUSY The backend is processing a conflicting operation.
- * @retval -RZI_ERR_IO The backend operation failed.
- * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not support the activation mode.
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_dev_eui(uint8_t *eui, size_t len);
+
+/**
+ * @brief Store the DevEUI used by the next join.
+ *
+ * @param eui 8-byte identifier copied before this function returns.
+ * @param len Size of eui. Must be 8.
+ *
+ * @retval 0 Identifier stored.
+ * @retval -RZI_ERR_INVALID eui is NULL or len is not 8.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The identifier could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_dev_eui(const uint8_t *eui, size_t len);
+
+/**
+ * @brief Read the stored AppEUI.
+ *
+ * AppEUI is the RUI3 name for the LoRaWAN JoinEUI.
+ *
+ * @param[out] eui Destination for the 8-byte identifier.
+ * @param len Size of eui. Must be 8.
+ *
+ * @retval 0 Identifier copied.
+ * @retval -RZI_ERR_INVALID eui is NULL or len is not 8.
+ * @retval -RZI_ERR_NO_DATA No AppEUI has been stored.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_app_eui(uint8_t *eui, size_t len);
+
+/**
+ * @brief Store the AppEUI used by the next join.
+ *
+ * AppEUI is the RUI3 name for the LoRaWAN JoinEUI.
+ *
+ * @param eui 8-byte identifier copied before this function returns.
+ * @param len Size of eui. Must be 8.
+ *
+ * @retval 0 Identifier stored.
+ * @retval -RZI_ERR_INVALID eui is NULL or len is not 8.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The identifier could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_app_eui(const uint8_t *eui, size_t len);
+
+/**
+ * @brief Read the stored AppKey.
+ *
+ * @param[out] key Destination for the 16-byte key.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key copied.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_NO_DATA No AppKey has been stored.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_app_key(uint8_t *key, size_t len);
+
+/**
+ * @brief Store the AppKey used by the next join.
+ *
+ * The value is the LoRaWAN 1.0.x AppKey and the 1.1 NwkKey. When no GenAppKey
+ * is stored, join also uses this value as the application key.
+ *
+ * @param key 16-byte key copied before this function returns.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key stored.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The key could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_app_key(const uint8_t *key, size_t len);
+
+/**
+ * @brief Read the stored GenAppKey.
+ *
+ * @param[out] key Destination for the 16-byte key.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key copied.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_NO_DATA No GenAppKey has been stored.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_gen_app_key(uint8_t *key, size_t len);
+
+/**
+ * @brief Store the GenAppKey used by the next OTAA join.
+ *
+ * USP/LBM uses this as GenAppKey. The Zephyr backend maps it to join app_key.
+ * Leave it unset to reuse the AppKey.
+ *
+ * @param key 16-byte key copied before this function returns.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key stored.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The key could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_gen_app_key(const uint8_t *key, size_t len);
+
+/**
+ * @brief Read the device address.
+ *
+ * ABP returns the stored address. OTAA returns 0 until the device has
+ * joined, then the address assigned by the network.
+ *
+ * @param[out] dev_addr Device address in host byte order.
+ *
+ * @retval 0 Address copied.
+ * @retval -RZI_ERR_INVALID dev_addr is NULL.
+ * @retval -RZI_ERR_NO_DATA ABP is selected and no address has been stored.
+ * @retval -RZI_ERR_NOT_SUPPORTED OTAA is joined and this backend cannot read the address.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The stack read failed, or stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_dev_addr(uint32_t *dev_addr);
+
+/**
+ * @brief Store the ABP device address used by the next join.
+ *
+ * @param dev_addr Device address in host byte order.
+ *
+ * @retval 0 Address stored.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The address could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next ABP join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_dev_addr(uint32_t dev_addr);
+
+/**
+ * @brief Read the network session key.
+ *
+ * ABP returns the stored NwkSKey. OTAA returns 16 zero bytes until the
+ * device has joined, then NwkSEncKey from the active stack.
+ *
+ * @param[out] key Destination for the 16-byte key.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key copied.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_NO_DATA ABP is selected and no key has been stored.
+ * @retval -RZI_ERR_NOT_SUPPORTED OTAA is joined and this backend cannot export the key.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The stack read failed, or stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_nwk_skey(uint8_t *key, size_t len);
+
+/**
+ * @brief Store the ABP network session key used by the next join.
+ *
+ * @param key 16-byte key copied before this function returns.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key stored.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The key could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next ABP join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_nwk_skey(const uint8_t *key, size_t len);
+
+/**
+ * @brief Read the application session key.
+ *
+ * ABP returns the stored AppSKey. OTAA returns 16 zero bytes until the
+ * device has joined, then AppSKey from the active stack.
+ *
+ * @param[out] key Destination for the 16-byte key.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key copied.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_NO_DATA ABP is selected and no key has been stored.
+ * @retval -RZI_ERR_NOT_SUPPORTED OTAA is joined and this backend cannot export the key.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The stack read failed, or stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_app_skey(uint8_t *key, size_t len);
+
+/**
+ * @brief Store the ABP application session key used by the next join.
+ *
+ * @param key 16-byte key copied before this function returns.
+ * @param len Size of key. Must be 16.
+ *
+ * @retval 0 Key stored.
+ * @retval -RZI_ERR_INVALID key is NULL or len is not 16.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The key could not be persisted.
+ *
+ * @note Thread context only. The value is applied on the next ABP join.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_app_skey(const uint8_t *key, size_t len);
+
+/** @} */
+
+/** @name Join
+ *  @{
+ */
+
+/**
+ * @brief Read the stored activation method.
+ *
+ * @param[out] mode OTAA or ABP. OTAA until a caller stores another method.
+ *
+ * @retval 0 Mode copied.
+ * @retval -RZI_ERR_INVALID mode is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored credentials could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_activation(enum rzi_lorawan_activation *mode);
+
+/**
+ * @brief Store the activation method used by the next join.
+ *
+ * @param mode OTAA or ABP.
+ *
+ * @retval 0 Mode stored.
+ * @retval -RZI_ERR_INVALID mode is not OTAA or ABP.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not support mode.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO The mode could not be persisted.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_activation(enum rzi_lorawan_activation mode);
+
+/**
+ * @brief Read whether a join sequence starts after the next boot.
+ *
+ * @param[out] enabled True when automatic join is stored.
+ *
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored join settings could not be loaded.
+ *
+ * @note Thread context only. A stored automatic join does not start the
+ *       service and does not join by itself.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_auto_join(bool *enabled);
+
+/**
+ * @brief Read the stored delay between join attempts.
+ *
+ * @param[out] interval_s Delay in seconds.
+ *
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID interval_s is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored join settings could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_join_interval(uint8_t *interval_s);
+
+/**
+ * @brief Read how many join retries follow the first attempt.
+ *
+ * @param[out] attempts Retry count after the first attempt. Zero means one
+ *                      attempt in total.
+ *
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID attempts is NULL.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_IO Stored join settings could not be loaded.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_join_attempts(uint8_t *attempts);
+
+/**
+ * @brief Start or stop a join sequence using the stored credentials.
+ *
+ * `start`, `auto_join`, `interval`, and `attempts` follow the RUI3
+ * `service_lora_join()` arguments. @ref RZI_LORAWAN_JOIN_KEEP leaves that
+ * stored value unchanged. `start` of 1 uses the stored NJM and credentials.
+ * `start` of 0 cancels a pending retry and does not leave the session.
+ * A return value of zero means the request was accepted. Completion is
+ * reported through on_event() as RZI_LORAWAN_EVENT_JOINED, or as
+ * RZI_LORAWAN_EVENT_JOIN_FAILED after the configured attempts are exhausted.
+ *
+ * @param start 1 to join, 0 to cancel retries, or @ref RZI_LORAWAN_JOIN_KEEP.
+ * @param auto_join 1 to join after the next boot, 0 to disable that, or
+ *                  @ref RZI_LORAWAN_JOIN_KEEP.
+ * @param interval Seconds between attempts, from
+ *                 @ref RZI_LORAWAN_JOIN_INTERVAL_MIN to
+ *                 @ref RZI_LORAWAN_JOIN_INTERVAL_MAX, or
+ *                 @ref RZI_LORAWAN_JOIN_KEEP. The default is
+ *                 @ref RZI_LORAWAN_JOIN_INTERVAL_DEFAULT.
+ * @param attempts Retries after the first attempt, 0 through 255, or
+ *                 @ref RZI_LORAWAN_JOIN_KEEP. The default is 0.
+ *
+ * @retval 0 Request accepted, or a stop/update completed.
+ * @retval -RZI_ERR_INVALID An argument is outside its accepted range.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_BUSY A join sequence is already active.
+ * @retval -RZI_ERR_NOT_SUPPORTED The stored join mode is not supported.
+ * @retval -RZI_ERR_IO The backend rejected the attempt or settings could not
+ *         be persisted.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
- * @pre on_event() has reported RZI_LORAWAN_EVENT_READY.
+ * @pre For `start` of 1, on_event() has reported RZI_LORAWAN_EVENT_READY.
  * @note Thread context only.
- * @since 0.2
+ * @since 0.4
  */
-__must_check int rzi_lorawan_join(const struct rzi_lorawan_join_config *config);
+__must_check int rzi_lorawan_join(int32_t start, int32_t auto_join, int32_t interval,
+				  int32_t attempts);
+
+/** @} */
+
+/** @name Uplink
+ *  @{
+ */
 
 /**
  * @brief Leave the current network session.
@@ -531,6 +868,12 @@ __must_check int rzi_lorawan_leave(void);
  */
 __must_check int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size,
 				  enum rzi_lorawan_message_type type);
+
+/** @} */
+
+/** @name Link check and device time
+ *  @{
+ */
 
 /**
  * @brief Read the current LinkCheckReq mode.
@@ -618,6 +961,12 @@ __must_check int rzi_lorawan_request_device_time(bool enabled);
  */
 __must_check int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time);
 
+/** @} */
+
+/** @name Class
+ *  @{
+ */
+
 /**
  * @brief Change the LoRaWAN device class.
  *
@@ -658,6 +1007,12 @@ __must_check int rzi_lorawan_is_joined(bool *joined);
  * @since 0.2
  */
 uint32_t rzi_lorawan_get_capabilities(void);
+
+/** @} */
+
+/** @name MAC parameters
+ *  @{
+ */
 
 /**
  * @brief Return the region selected by rzi_lorawan_set_region().
@@ -1131,6 +1486,12 @@ __must_check int rzi_lorawan_get_lbt_scan_time(uint32_t *time_ms);
  */
 __must_check int rzi_lorawan_set_lbt_scan_time(uint32_t time_ms);
 
+/** @} */
+
+/** @name Channels
+ *  @{
+ */
+
 /**
  * @brief Read the current channel mask.
  *
@@ -1228,6 +1589,12 @@ __must_check int rzi_lorawan_get_fixed_channel(uint32_t *frequency_hz);
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_fixed_channel(uint32_t frequency_hz);
+
+/** @} */
+
+/** @name Status
+ *  @{
+ */
 
 /**
  * @brief Read RSSI of the last application downlink.
@@ -1349,6 +1716,12 @@ __must_check int rzi_lorawan_query_tx_possible(size_t size);
  * @since 0.3
  */
 __must_check int rzi_lorawan_is_busy(bool *busy);
+
+/** @} */
+
+/** @name Class B
+ *  @{
+ */
 
 /**
  * @brief Read Class B ping-slot periodicity.
@@ -1476,6 +1849,8 @@ __must_check int rzi_lorawan_get_class_b_state(enum rzi_lorawan_class_b_state *s
  * @since 0.3
  */
 __must_check int rzi_lorawan_stop_class_b(void);
+
+/** @} */
 
 /** @} */
 

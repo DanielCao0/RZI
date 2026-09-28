@@ -635,6 +635,7 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.query_tx_possible = usp_query_tx_possible,
 	.is_busy = usp_is_busy,
 	.network = &usp_network_ops,
+	.session = &usp_session_ops,
 	.class_b = &usp_class_b_ops,
 	.mac = &usp_mac_ops,
 	.multicast = &usp_multicast_ops,

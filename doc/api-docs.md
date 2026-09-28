@@ -86,23 +86,27 @@ Example:
 
 ```c
 /**
- * @brief Request LoRaWAN network activation.
+ * @brief Start or stop a join sequence using the stored credentials.
  *
- * The configuration is copied before this function returns. A return value of
- * zero means accepted; completion is reported through on_event().
+ * A return value of zero means accepted; completion is reported through
+ * on_event().
  *
- * @param config Activation configuration.
+ * @param start 1 to join, 0 to cancel retries, or RZI_LORAWAN_JOIN_KEEP.
+ * @param auto_join 1 to join after boot, 0 to disable that, or
+ *                  RZI_LORAWAN_JOIN_KEEP.
+ * @param interval Seconds between attempts, or RZI_LORAWAN_JOIN_KEEP.
+ * @param attempts Retries after the first attempt, or RZI_LORAWAN_JOIN_KEEP.
  *
  * @retval 0 Request accepted.
- * @retval -RZI_ERR_INVALID Invalid configuration.
+ * @retval -RZI_ERR_INVALID An argument is outside its accepted range.
  * @retval -RZI_ERR_NOT_READY Backend not ready.
  * @retval -RZI_ERR_NOT_SUPPORTED Activation mode unsupported.
  *
  * @note Thread context only; this function must not be called from an ISR.
- * @since 0.2
+ * @since 0.4
  */
-__must_check int rzi_lorawan_join(
-	const struct rzi_lorawan_join_config *config);
+__must_check int rzi_lorawan_join(int32_t start, int32_t auto_join,
+				  int32_t interval, int32_t attempts);
 ```
 
 ## 4. Constraint annotations

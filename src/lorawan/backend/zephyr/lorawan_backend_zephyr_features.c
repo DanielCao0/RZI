@@ -169,6 +169,53 @@ int zephyr_query_tx_possible(size_t size)
 	return size > next_size ? -RZI_ERR_TOO_LARGE : 0;
 }
 
+static int zephyr_map_mib(int rc)
+{
+	if (rc == 0) {
+		return 0;
+	}
+	if (rc == -ENOTSUP) {
+		return -RZI_ERR_NOT_SUPPORTED;
+	}
+	return -RZI_ERR_IO;
+}
+
+static int zephyr_get_dev_addr(uint32_t *dev_addr)
+{
+	int rc = rzi_lorawan_zephyr_lock_started();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = zephyr_map_mib(rzi_lorawan_zephyr_mib_dev_addr(dev_addr));
+	rzi_lorawan_zephyr_unlock();
+	return rc;
+}
+
+static int zephyr_get_nwk_skey(uint8_t *key)
+{
+	int rc = rzi_lorawan_zephyr_lock_started();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = zephyr_map_mib(rzi_lorawan_zephyr_mib_nwk_skey(key));
+	rzi_lorawan_zephyr_unlock();
+	return rc;
+}
+
+static int zephyr_get_app_skey(uint8_t *key)
+{
+	int rc = rzi_lorawan_zephyr_lock_started();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = zephyr_map_mib(rzi_lorawan_zephyr_mib_app_skey(key));
+	rzi_lorawan_zephyr_unlock();
+	return rc;
+}
+
 static int zephyr_get_dev_nonce(uint16_t *dev_nonce)
 {
 	int rc = rzi_lorawan_zephyr_lock_started();
@@ -208,6 +255,9 @@ int zephyr_is_busy(bool *busy)
 const struct rzi_lorawan_session_ops zephyr_session_ops = {
 	.get_dev_nonce = zephyr_get_dev_nonce,
 	.set_dev_nonce = zephyr_set_dev_nonce,
+	.get_dev_addr = zephyr_get_dev_addr,
+	.get_nwk_skey = zephyr_get_nwk_skey,
+	.get_app_skey = zephyr_get_app_skey,
 };
 
 static int zephyr_link_check_request(void)

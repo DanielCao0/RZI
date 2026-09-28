@@ -113,6 +113,34 @@ runs:
           git apply -v "${patch}"
         done
 
+    - name: Apply the RZI USP patches
+      shell: bash
+      working-directory: modules/lib/usp
+      run: |
+        set -eux
+        rev="$(python3 - <<'PY'
+        import os
+        import pathlib
+
+        import yaml
+
+        root = pathlib.Path(os.environ["GITHUB_WORKSPACE"])
+        projects = yaml.safe_load((root / "rzi/west.yml").read_text())["manifest"]["projects"]
+        for project in projects:
+            if project["name"] == "usp":
+                print(project["revision"])
+                raise SystemExit(0)
+        raise SystemExit("usp revision missing from rzi/west.yml")
+        PY
+        )"
+        # Same cache hazard as usp_zephyr: a restored tree may already contain
+        # the previous run's patch, so reset before applying.
+        git reset --hard "${rev}"
+        git clean -fd
+        for patch in "${GITHUB_WORKSPACE}"/rzi/zephyr/patches/usp/*.patch; do
+          git apply -v "${patch}"
+        done
+
     - name: Mount RZI as an extra module
       shell: bash
       run: echo "ZEPHYR_EXTRA_MODULES=${GITHUB_WORKSPACE}/rzi" >> "${GITHUB_ENV}"

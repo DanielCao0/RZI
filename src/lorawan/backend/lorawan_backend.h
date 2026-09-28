@@ -6,7 +6,7 @@
 #ifndef RZI_LORAWAN_BACKEND_H
 #define RZI_LORAWAN_BACKEND_H
 
-#include <rzi/lorawan/lorawan.h>
+#include "../lorawan_priv.h"
 
 #include "ops/lorawan_certification_ops.h"
 #include "ops/lorawan_channel_ops.h"

@@ -13,46 +13,55 @@
 
 struct key_command {
 	const char *response_name;
-	const char *nvm_key;
-	uint8_t *value;
 	size_t size;
+	int (*get)(uint8_t *value, size_t len);
+	int (*set)(const uint8_t *value, size_t len);
 };
 
 static int handle_key(const struct rzi_at_request *request, void *user_data)
 {
 	const struct key_command *command = user_data;
+	uint8_t value[16];
+	int rc;
 
 	if (request->operation == RZI_AT_OP_READ) {
 		char hex[33];
 
-		rzi_at_lorawan_bin_to_hex(command->value, command->size, hex);
+		rc = command->get(value, command->size);
+		if (rc == -RZI_ERR_NO_DATA) {
+			memset(value, 0, command->size);
+		} else if (rc != 0) {
+			return rc;
+		}
+		rzi_at_lorawan_bin_to_hex(value, command->size, hex);
 		return rzi_at_respond_value("%s=%s", command->response_name, hex);
 	}
 
-	uint8_t parsed[16];
-	int rc = rzi_at_lorawan_hex_to_bin(request->argument, parsed, command->size);
-
+	rc = rzi_at_lorawan_hex_to_bin(request->argument, value, command->size);
 	if (rc != 0) {
 		return rc;
 	}
-	memcpy(command->value, parsed, command->size);
-	rc = rzi_at_lorawan_nvm_save(command->nvm_key, command->value, command->size);
-	if (rc != 0) {
-		return rc;
-	}
-	return rzi_at_respond_status(RZI_AT_STATUS_OK);
+	rc = command->set(value, command->size);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
 static int handle_devaddr(const struct rzi_at_request *request, void *user_data)
 {
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 	uint8_t bytes[4];
 	char hex[9];
 	int rc;
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		sys_put_be32(context->dev_addr, bytes);
+		uint32_t dev_addr = 0;
+
+		rc = rzi_lorawan_get_dev_addr(&dev_addr);
+		if (rc == -RZI_ERR_NO_DATA) {
+			dev_addr = 0;
+		} else if (rc != 0) {
+			return rc;
+		}
+		sys_put_be32(dev_addr, bytes);
 		rzi_at_lorawan_bin_to_hex(bytes, sizeof(bytes), hex);
 		return rzi_at_respond_value("AT+DEVADDR=%s", hex);
 	}
@@ -60,8 +69,7 @@ static int handle_devaddr(const struct rzi_at_request *request, void *user_data)
 	if (rc != 0) {
 		return rc;
 	}
-	context->dev_addr = sys_get_be32(bytes);
-	rc = rzi_at_lorawan_nvm_save("devaddr", &context->dev_addr, sizeof(context->dev_addr));
+	rc = rzi_lorawan_set_dev_addr(sys_get_be32(bytes));
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
@@ -99,48 +107,53 @@ static int handle_netid(const struct rzi_at_request *request, void *user_data)
 
 static int handle_mcrootkey(const struct rzi_at_request *request, void *user_data)
 {
+	uint8_t key[16] = {0};
 	char hex[33];
+	int rc;
 
 	ARG_UNUSED(request);
 	ARG_UNUSED(user_data);
-	rzi_at_lorawan_bin_to_hex(rzi_at_lorawan_context.app_key,
-				  sizeof(rzi_at_lorawan_context.app_key), hex);
+	rc = rzi_lorawan_get_app_key(key, sizeof(key));
+	if (rc != 0 && rc != -RZI_ERR_NO_DATA) {
+		return rc;
+	}
+	rzi_at_lorawan_bin_to_hex(key, sizeof(key), hex);
 	return rzi_at_respond_value("AT+MCROOTKEY=%s", hex);
 }
 
 static struct key_command dev_eui = {
 	.response_name = "AT+DEVEUI",
-	.nvm_key = "deveui",
-	.value = rzi_at_lorawan_context.dev_eui,
-	.size = sizeof(rzi_at_lorawan_context.dev_eui),
+	.size = 8,
+	.get = rzi_lorawan_get_dev_eui,
+	.set = rzi_lorawan_set_dev_eui,
 };
 
 static struct key_command join_eui = {
 	.response_name = "AT+APPEUI",
-	.nvm_key = "joineui",
-	.value = rzi_at_lorawan_context.join_eui,
-	.size = sizeof(rzi_at_lorawan_context.join_eui),
+	.size = 8,
+	.get = rzi_lorawan_get_app_eui,
+	.set = rzi_lorawan_set_app_eui,
 };
 
 static struct key_command app_key = {
 	.response_name = "AT+APPKEY",
-	.nvm_key = "appkey",
-	.value = rzi_at_lorawan_context.app_key,
-	.size = sizeof(rzi_at_lorawan_context.app_key),
+	.size = 16,
+	.get = rzi_lorawan_get_app_key,
+	.set = rzi_lorawan_set_app_key,
 };
 
 static struct key_command nwk_skey = {
 	.response_name = "AT+NWKSKEY",
-	.nvm_key = "nwkskey",
-	.value = rzi_at_lorawan_context.nwk_skey,
-	.size = sizeof(rzi_at_lorawan_context.nwk_skey),
+	.size = 16,
+	.get = rzi_lorawan_get_nwk_skey,
+	.set = rzi_lorawan_set_nwk_skey,
 };
 
 static struct key_command app_skey = {
 	.response_name = "AT+APPSKEY",
-	.nvm_key = "appskey",
-	.value = rzi_at_lorawan_context.app_skey,
-	.size = sizeof(rzi_at_lorawan_context.app_skey),
+	.size = 16,
+	.get = rzi_lorawan_get_app_skey,
+	.set = rzi_lorawan_set_app_skey,
 };
 
 static const struct rzi_at_command commands[] = {

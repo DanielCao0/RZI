@@ -42,13 +42,14 @@ separate `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 
 ## 2. Relationship to Zephyr and RUI3
 
-RZI keeps Zephyr's main operation order and concepts:
+RZI keeps Zephyr's main operation order and uses RUI3's credential and join shape:
 
 ```text
-set_region -> start -> join(config) -> send(port, data, size, type)
+set_region -> set credentials -> start -> join(start, auto_join, interval, attempts) -> send
 ```
 
-- `join` takes a separate activation config;
+- DevEUI, AppEUI, AppKey, GenAppKey, and ABP credentials are stored before join;
+- `join` uses those stored values. `RZI_LORAWAN_JOIN_KEEP` (`-1`) leaves one argument unchanged;
 - `send` uses a confirmed/unconfirmed message type;
 - Region, activation, device class, and message type are explicit enums;
 - Standard capabilities the backend does not support return `-RZI_ERR_NOT_SUPPORTED`.
@@ -69,10 +70,14 @@ static const struct rzi_lorawan_callbacks callbacks = {
 };
 
 rzi_lorawan_register_callbacks(&callbacks, &handle);
+rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
+rzi_lorawan_set_app_eui(app_eui, sizeof(app_eui));
+rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
 rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868);
 rzi_lorawan_start();
 /* after on_event(RZI_LORAWAN_EVENT_READY) */
-rzi_lorawan_join(&join_config);
+rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0);
 ```
 
 Rules:
@@ -97,17 +102,35 @@ completion produces one public event; it does not also produce a duplicate
 
 ## 4. Activation
 
-`rzi_lorawan_join_config` aligns with Zephyr `lorawan_join_config` and uses
-an activation enum plus a union:
+Credentials and the join mode are stored with `rzi_lorawan_set_*` /
+`rzi_lorawan_set_activation()` and applied on the next `rzi_lorawan_join()`. The
+backend still receives one private join configuration:
 
-- OTAA: `dev_eui`, `join_eui`, `network_key`, `application_key`.
-  The current USP backend maps `network_key` to the LoRaWAN 1.0.x AppKey
-  and `application_key` to **GenAppKey** (the ChirpStack FUOTA multicast /
-  fragmentation root key);
-- ABP: `dev_addr`, `network_session_key`, `application_session_key`.
+- OTAA: DevEUI, AppEUI (JoinEUI), and AppKey. AppKey is both the LoRaWAN
+  1.0.x AppKey and the NwkKey. `rzi_lorawan_set_gen_app_key()` stores the
+  USP/LBM GenAppKey; when it is unset, join copies AppKey into that field.
+  The Zephyr backend maps GenAppKey to its join `app_key`;
+- ABP: `dev_addr`, NwkSKey, and AppSKey.
+
+`rzi_lorawan_get_dev_addr()`, `rzi_lorawan_get_nwk_skey()`, and
+`rzi_lorawan_get_app_skey()` follow RUI3. ABP returns the stored values.
+OTAA returns zeros until the device has joined, then the address and
+session keys from the active stack. DevAddr is host byte order; AT prints
+it as big-endian hex. A secure element that cannot export keys, such as
+the LR11xx crypto engine, returns `-RZI_ERR_NOT_SUPPORTED` for the two
+session-key reads after an OTAA join. DevAddr is still read from the MAC.
+
+`rzi_lorawan_join(start, auto_join, interval, attempts)` follows RUI3
+`service_lora_join()`. `start` of 1 joins. `start` of 0 cancels a pending
+retry and does not leave the session. `RZI_LORAWAN_JOIN_KEEP` leaves that
+argument unchanged. The default interval is 8 seconds. The default attempt
+count is 0, meaning one attempt. Further attempts stay inside the LoRaWAN
+service: subscribers see `RZI_LORAWAN_EVENT_JOIN_FAILED` only after those
+attempts are exhausted.
 
 The public API can express OTAA and ABP. A backend that does not implement
-a mode or ops table returns `-RZI_ERR_NOT_SUPPORTED`.
+a mode returns `-RZI_ERR_NOT_SUPPORTED` from `rzi_lorawan_set_activation()` and
+from `rzi_lorawan_join()`.
 `rzi_lorawan_get_capabilities()` is optional discovery for portable code
 and the AT package; typical applications do not need to call it.
 
@@ -116,18 +139,19 @@ and the AT package; typical applications do not need to call it.
 | USP | OTAA, Class A/B/C, NETWORK, MAC, MULTICAST, CERTIFICATION | Adds FUOTA |
 | Zephyr | OTAA, ABP, Class A/C, NETWORK, CHANNEL, SESSION, MAC | Adds FUOTA |
 
-AT `AT+APPKEY` copies the same 16 bytes into both `network_key` and
-`application_key`. Native C callers that need a separate ChirpStack
-GenAppKey must fill the two fields themselves; the AT package cannot.
+`AT+APPKEY` stores one AppKey. Native C callers that need a separate
+ChirpStack GenAppKey call `rzi_lorawan_set_gen_app_key()`. The AT package
+does not expose that key.
 
-The join config is deep-copied before `rzi_lorawan_join()` returns. The
-caller may then free or mutate the original object. A return of `0` only
-means the backend accepted the request. `RZI_LORAWAN_EVENT_JOINED` means
-network activation finished. `RZI_LORAWAN_EVENT_JOIN_FAILED` carries a
-negative `RZI_ERR_*` when this attempt ended without joining.
+Credential setters copy their input before returning. A return of `0` from
+`rzi_lorawan_join()` only means the backend accepted the request.
+`RZI_LORAWAN_EVENT_JOINED` means network activation finished.
+`RZI_LORAWAN_EVENT_JOIN_FAILED` carries a negative `RZI_ERR_*` when the
+configured attempts ended without joining.
 
-Retry policy belongs to the application or the AT service. The RZI LoRaWAN
-service does not hide an infinite retry loop.
+When `CONFIG_RZI_STORAGE=y`, the service persists credentials and join
+policy in the `lorawan` namespace. A missing key is copied once from the
+older AT `rzi/<key>` entry. Without storage, the values stay in RAM.
 
 ## 5. Uplink and downlink
 

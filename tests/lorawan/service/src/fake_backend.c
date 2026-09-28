@@ -489,10 +489,41 @@ static int fake_info_is_busy(bool *value)
 	return 0;
 }
 
+uint32_t fake_otaa_dev_addr = 0x01234567U;
+uint8_t fake_otaa_nwk_skey[16] = {
+	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+	0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+};
+uint8_t fake_otaa_app_skey[16] = {
+	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+	0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+};
+
+static int fake_get_dev_addr(uint32_t *value)
+{
+	*value = fake_otaa_dev_addr;
+	return 0;
+}
+
+static int fake_get_nwk_skey(uint8_t *key)
+{
+	memcpy(key, fake_otaa_nwk_skey, sizeof(fake_otaa_nwk_skey));
+	return 0;
+}
+
+static int fake_get_app_skey(uint8_t *key)
+{
+	memcpy(key, fake_otaa_app_skey, sizeof(fake_otaa_app_skey));
+	return 0;
+}
+
 static const struct rzi_lorawan_session_ops fake_session_ops = {
 	.get_net_id = fake_get_net_id,
 	.get_dev_nonce = fake_get_dev_nonce,
 	.set_dev_nonce = fake_set_dev_nonce,
+	.get_dev_addr = fake_get_dev_addr,
+	.get_nwk_skey = fake_get_nwk_skey,
+	.get_app_skey = fake_get_app_skey,
 };
 
 static int fake_link_check_request(void)

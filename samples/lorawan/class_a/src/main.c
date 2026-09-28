@@ -23,13 +23,28 @@ static volatile bool stack_ready;
 static volatile bool joined;
 static volatile bool join_failed;
 
-static const struct rzi_lorawan_join_config join_config = {
-	.activation = RZI_LORAWAN_ACTIVATION_OTAA,
-	.otaa.dev_eui = DT_PROP(USER_NODE, user_lorawan_device_eui),
-	.otaa.join_eui = DT_PROP(USER_NODE, user_lorawan_join_eui),
-	.otaa.network_key = DT_PROP(USER_NODE, user_lorawan_app_key),
-	.otaa.application_key = DT_PROP(USER_NODE, user_lorawan_gen_app_key),
-};
+static int configure_credentials(void)
+{
+	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
+	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
+	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
+	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
+	int rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
+
+	if (rc == 0) {
+		rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
+	}
+	return rc;
+}
 
 static void wait_until(volatile bool *flag)
 {
@@ -84,7 +99,7 @@ static int request_join(void)
 
 	joined = false;
 	join_failed = false;
-	rc = rzi_lorawan_join(&join_config);
+	rc = rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0);
 	if (rc != 0) {
 		LOG_WRN("Join request rejected: %d", rc);
 		return rc;
@@ -112,8 +127,11 @@ int main(void)
 		LOG_ERR("Callback registration failed: %d", rc);
 		return rc;
 	}
-	rc = rzi_lorawan_set_region(
-		REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region)));
+	rc = configure_credentials();
+	if (rc == 0) {
+		rc = rzi_lorawan_set_region(
+			REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region)));
+	}
 	if (rc == 0) {
 		rc = rzi_lorawan_start();
 	}

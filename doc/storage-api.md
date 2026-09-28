@@ -34,21 +34,40 @@ another service's namespace.
 
 Callers must stay in thread context.
 
-## AT keys
+## LoRaWAN credentials
 
-The LoRaWAN AT package uses namespace `rzi` and these keys, so firmware
-that already stored credentials stays compatible:
+The LoRaWAN service uses namespace `lorawan` when `CONFIG_RZI_STORAGE=y`.
+The first time a key is missing there, the service copies it from the older
+AT namespace `rzi/<key>`.
 
 | Key | Content |
 |---|---|
 | `deveui` | 8-byte DevEUI |
-| `joineui` | 8-byte JoinEUI |
+| `joineui` | 8-byte JoinEUI (RUI3 AppEUI) |
 | `appkey` | 16-byte AppKey |
-| `band` | RUI3 band number |
-| `cfm` | Confirmed-uplink flag |
+| `genappkey` | 16-byte GenAppKey, absent until set |
+| `devaddr` | 4-byte ABP device address, host byte order |
+| `nwkskey` | 16-byte ABP network session key |
+| `appskey` | 16-byte ABP application session key |
+| `njm` | `0` ABP, `1` OTAA |
 | `autojoin` | Auto-join after boot |
 | `join_interval` | Retry interval in seconds |
 | `join_attempts` | Retry count after the first attempt |
+
+`devaddr`, `nwkskey`, and `appskey` are the ABP values used by the next
+ABP join. After an OTAA join, the matching getters read the stack instead
+of these stored bytes.
+
+## AT keys
+
+The LoRaWAN AT package uses namespace `rzi` for settings that stay in AT:
+
+| Key | Content |
+|---|---|
+| `band` | RUI3 band number |
+| `cfm` | Confirmed-uplink flag |
+| `rety` | Confirmed-uplink retry count |
+| `netid` | Stored NetID |
 
 ## Security and future work
 

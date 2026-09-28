@@ -88,14 +88,9 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 		.user_data = &stats,
 	};
 	rzi_lorawan_callback_handle_t handle;
-	const struct rzi_lorawan_join_config otaa = {
-		.activation = RZI_LORAWAN_ACTIVATION_OTAA,
-		.otaa.dev_eui = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07},
-		.otaa.join_eui = {0},
-		.otaa.network_key = {0x11},
-		.otaa.application_key = {0x11},
-		.otaa.dev_nonce = 7,
-	};
+	static const uint8_t dev_eui[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
+	static const uint8_t join_eui[8] = {0};
+	static const uint8_t app_key[16] = {0x11};
 	const uint8_t payload[] = {0x12, 0x34};
 	const uint8_t downlink[] = {0xab, 0xcd};
 	bool joined = false;
@@ -117,12 +112,50 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 	wait_for_callbacks(1);
 	zassert_equal(atomic_get(&stats.ready), 1);
 
-	zassert_ok(rzi_lorawan_join(&otaa));
+	{
+		uint32_t dev_addr = 1U;
+		uint8_t stored[16];
+		uint8_t key[16];
+		uint8_t zeros[16] = {0};
+
+		memset(stored, 0xab, sizeof(stored));
+		zassert_ok(rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_ABP));
+		zassert_ok(rzi_lorawan_set_dev_addr(0x01020304U));
+		zassert_ok(rzi_lorawan_set_nwk_skey(stored, sizeof(stored)));
+		zassert_ok(rzi_lorawan_set_app_skey(stored, sizeof(stored)));
+		zassert_ok(rzi_lorawan_get_dev_addr(&dev_addr));
+		zassert_equal(dev_addr, 0x01020304U);
+		zassert_ok(rzi_lorawan_get_nwk_skey(key, sizeof(key)));
+		zassert_mem_equal(key, stored, sizeof(stored));
+		zassert_ok(rzi_lorawan_get_app_skey(key, sizeof(key)));
+		zassert_mem_equal(key, stored, sizeof(stored));
+
+		zassert_ok(rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA));
+		zassert_ok(rzi_lorawan_get_dev_addr(&dev_addr));
+		zassert_equal(dev_addr, 0U);
+		zassert_ok(rzi_lorawan_get_nwk_skey(key, sizeof(key)));
+		zassert_mem_equal(key, zeros, sizeof(zeros));
+		zassert_ok(rzi_lorawan_get_app_skey(key, sizeof(key)));
+		zassert_mem_equal(key, zeros, sizeof(zeros));
+	}
+
+	zassert_ok(rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui)));
+	zassert_ok(rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui)));
+	zassert_ok(rzi_lorawan_set_app_key(app_key, sizeof(app_key)));
+	zassert_ok(rzi_lorawan_set_dev_nonce(7));
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0));
 	wait_for_callbacks(1);
 	zassert_equal(atomic_get(&stats.joined), 1);
 	zassert_equal(atomic_get(&stats.join_status), 0);
 	zassert_ok(rzi_lorawan_is_joined(&joined));
 	zassert_true(joined);
+	{
+		uint32_t dev_addr = 1U;
+
+		/* The emulator join does not run LoRaMac, so the address stays 0. */
+		zassert_ok(rzi_lorawan_get_dev_addr(&dev_addr));
+		zassert_equal(dev_addr, 0U);
+	}
 
 	zassert_ok(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_UNCONFIRMED));
 	wait_for_callbacks(1);

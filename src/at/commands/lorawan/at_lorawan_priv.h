@@ -16,13 +16,6 @@
 #include <rzi/at/at.h>
 #include <rzi/lorawan/lorawan.h>
 
-/** Default delay between join attempts in seconds. */
-#define RZI_AT_LORAWAN_JOIN_INTERVAL_DEFAULT 8U
-/** Minimum RUI3-compatible join retry interval. */
-#define RZI_AT_LORAWAN_JOIN_INTERVAL_MIN     7U
-/** Maximum RUI3-compatible join retry interval. */
-#define RZI_AT_LORAWAN_JOIN_INTERVAL_MAX     255U
-
 /** Last application downlink retained for AT+RECV. */
 struct rzi_at_lorawan_last_downlink {
 	/** True while one unread downlink is stored. */
@@ -41,46 +34,18 @@ struct rzi_at_lorawan_context {
 	bool service_started;
 	/** Defers the first join until backend readiness. */
 	atomic_t join_pending;
-	/** Guards one active manual or automatic join sequence. */
-	atomic_t join_sequence_active;
-	/** Number of retries remaining after the current attempt. */
-	atomic_t join_retries_remaining;
 	/** Registration handle for service callbacks. */
 	rzi_lorawan_callback_handle_t callback_handle;
-	/** OTAA device EUI. */
-	uint8_t dev_eui[8];
-	/** OTAA join EUI, exposed as APPEUI for RUI3 compatibility. */
-	uint8_t join_eui[8];
-	/** OTAA application key. */
-	uint8_t app_key[16];
-	/** ABP device address, host byte order. */
-	uint32_t dev_addr;
-	/** ABP network session key. */
-	uint8_t nwk_skey[16];
-	/** ABP application session key. */
-	uint8_t app_skey[16];
 	/** Stored NetID, 24-bit value. */
 	uint32_t net_id;
 	/** True when AT+NETID has been written. */
 	bool net_id_valid;
-	/** Network join mode: 1 = OTAA, 0 = ABP. */
-	uint8_t join_mode;
 	/** Confirmed-uplink retransmission count for AT+RETY. */
 	uint8_t retries;
 	/** Region selected by AT+BAND. */
 	enum rzi_lorawan_region region;
 	/** Device class selected by AT+CLASS. */
 	enum rzi_lorawan_class device_class;
-	/** Join configuration retained until backend readiness. */
-	struct rzi_lorawan_join_config pending_join_config;
-	/** Delayed work used for join retries. */
-	struct k_work_delayable join_retry_work;
-	/** Whether a join sequence starts automatically after boot. */
-	bool auto_join;
-	/** Delay between join attempts in seconds. */
-	uint8_t join_interval;
-	/** Number of retries after the initial join attempt. */
-	uint8_t join_attempts;
 	/** Confirmed-uplink setting selected by AT+CFM. */
 	atomic_t confirmed_uplink;
 	/** Last confirmed-uplink result exposed by AT+CFS. */

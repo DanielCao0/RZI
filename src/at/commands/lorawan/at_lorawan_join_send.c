@@ -16,31 +16,33 @@
 #include "at_lorawan_priv.h"
 
 struct join_parameters {
-	bool start;
-	bool auto_join;
-	uint8_t interval;
-	uint8_t attempts;
+	int32_t start;
+	int32_t auto_join;
+	int32_t interval;
+	int32_t attempts;
 };
 
 static int handle_njm(const struct rzi_at_request *request, void *user_data)
 {
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	enum rzi_lorawan_activation mode;
 	long parsed;
 	int rc;
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+NJM=%u", context->join_mode);
+		rc = rzi_lorawan_get_activation(&mode);
+		if (rc != 0) {
+			return rc;
+		}
+		return rzi_at_respond_value("AT+NJM=%u",
+					    mode == RZI_LORAWAN_ACTIVATION_ABP ? 0U : 1U);
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 1) {
 		return -RZI_ERR_INVALID;
 	}
-	if (parsed == 0 && (rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_ABP) == 0U) {
-		return -RZI_ERR_NOT_SUPPORTED;
-	}
-	context->join_mode = (uint8_t)parsed;
-	rc = rzi_at_lorawan_nvm_save("njm", &context->join_mode, sizeof(context->join_mode));
+	mode = parsed == 0 ? RZI_LORAWAN_ACTIVATION_ABP : RZI_LORAWAN_ACTIVATION_OTAA;
+	rc = rzi_lorawan_set_activation(mode);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
@@ -88,7 +90,6 @@ static int handle_cfs(const struct rzi_at_request *request, void *user_data)
 
 static int parse_join_parameters(const char *argument, struct join_parameters *parameters)
 {
-	const struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 	long values[4];
 	size_t count = 0;
 	const char *cursor = argument;
@@ -112,36 +113,16 @@ static int parse_join_parameters(const char *argument, struct join_parameters *p
 	}
 
 	if (*cursor != '\0' || count == 0 || values[0] > 1 || (count >= 2 && values[1] > 1) ||
-	    (count >= 3 && (values[2] < RZI_AT_LORAWAN_JOIN_INTERVAL_MIN ||
-			    values[2] > RZI_AT_LORAWAN_JOIN_INTERVAL_MAX))) {
+	    (count >= 3 && (values[2] < RZI_LORAWAN_JOIN_INTERVAL_MIN ||
+			    values[2] > RZI_LORAWAN_JOIN_INTERVAL_MAX))) {
 		return -RZI_ERR_INVALID;
 	}
 
-	parameters->start = values[0] != 0;
-	parameters->auto_join = count >= 2 ? values[1] != 0 : context->auto_join;
-	parameters->interval = count >= 3 ? (uint8_t)values[2] : context->join_interval;
-	parameters->attempts = count >= 4 ? (uint8_t)values[3] : context->join_attempts;
+	parameters->start = values[0];
+	parameters->auto_join = count >= 2 ? values[1] : RZI_LORAWAN_JOIN_KEEP;
+	parameters->interval = count >= 3 ? values[2] : RZI_LORAWAN_JOIN_KEEP;
+	parameters->attempts = count >= 4 ? values[3] : RZI_LORAWAN_JOIN_KEEP;
 	return 0;
-}
-
-static int save_join_parameters(const struct join_parameters *parameters)
-{
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
-	int rc;
-
-	context->auto_join = parameters->auto_join;
-	context->join_interval = parameters->interval;
-	context->join_attempts = parameters->attempts;
-	rc = rzi_at_lorawan_nvm_save("autojoin", &context->auto_join, sizeof(context->auto_join));
-	if (rc == 0) {
-		rc = rzi_at_lorawan_nvm_save("join_interval", &context->join_interval,
-					     sizeof(context->join_interval));
-	}
-	if (rc == 0) {
-		rc = rzi_at_lorawan_nvm_save("join_attempts", &context->join_attempts,
-					     sizeof(context->join_attempts));
-	}
-	return rc;
 }
 
 static int respond_to_result(int rc)
@@ -151,32 +132,59 @@ static int respond_to_result(int rc)
 
 static int handle_join(const struct rzi_at_request *request, void *user_data)
 {
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	struct join_parameters parameters;
+	bool auto_join = false;
+	uint8_t interval = RZI_LORAWAN_JOIN_INTERVAL_DEFAULT;
+	uint8_t attempts = 0;
+	int rc;
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+JOIN=1:%u:%u:%u", context->auto_join ? 1U : 0U,
-					    context->join_interval, context->join_attempts);
+		rc = rzi_lorawan_get_auto_join(&auto_join);
+		if (rc == 0) {
+			rc = rzi_lorawan_get_join_interval(&interval);
+		}
+		if (rc == 0) {
+			rc = rzi_lorawan_get_join_attempts(&attempts);
+		}
+		if (rc != 0) {
+			return rc;
+		}
+		return rzi_at_respond_value("AT+JOIN=1:%u:%u:%u", auto_join ? 1U : 0U, interval,
+					    attempts);
 	}
 	if (request->operation == RZI_AT_OP_RUN) {
 		return respond_to_result(rzi_at_lorawan_join_start());
 	}
 
-	struct join_parameters parameters;
-	int rc = parse_join_parameters(request->argument, &parameters);
+	rc = parse_join_parameters(request->argument, &parameters);
+	if (rc != 0) {
+		return rc;
+	}
+	if (parameters.start == 0) {
+		rc = rzi_lorawan_join(0, parameters.auto_join, parameters.interval,
+				      parameters.attempts);
+		if (rc != 0) {
+			return rc;
+		}
+		return respond_to_result(rzi_at_lorawan_join_stop());
+	}
+	if (rzi_at_lorawan_is_joined()) {
+		rc = rzi_lorawan_join(RZI_LORAWAN_JOIN_KEEP, parameters.auto_join,
+				      parameters.interval, parameters.attempts);
+		if (rc == 0) {
+			int published = rzi_at_publish_event("JOINED");
 
-	if (rc != 0) {
-		return rc;
+			ARG_UNUSED(published);
+		}
+		return respond_to_result(rc);
 	}
-	if (parameters.start && atomic_get(&context->join_sequence_active)) {
-		return -RZI_ERR_BUSY;
+
+	rc = rzi_lorawan_join(1, parameters.auto_join, parameters.interval, parameters.attempts);
+	if (rc == -RZI_ERR_NOT_READY) {
+		return respond_to_result(rzi_at_lorawan_join_start());
 	}
-	rc = save_join_parameters(&parameters);
-	if (rc != 0) {
-		return rc;
-	}
-	return respond_to_result(parameters.start ? rzi_at_lorawan_join_start()
-						  : rzi_at_lorawan_join_stop());
+	return respond_to_result(rc);
 }
 
 static int handle_send(const struct rzi_at_request *request, void *user_data)

@@ -150,9 +150,6 @@ ZTEST(rzi_lorawan_fuota, test_session_and_image_access)
 		.complete = on_complete,
 		.user_data = &stats,
 	};
-	const struct rzi_lorawan_join_config otaa = {
-		.activation = RZI_LORAWAN_ACTIVATION_OTAA,
-	};
 	struct rzi_fuota_status status = {0};
 	uint8_t image[sizeof(fake_image)] = {0};
 	const struct rzi_lorawan_backend_event started = {
@@ -170,7 +167,7 @@ ZTEST(rzi_lorawan_fuota, test_session_and_image_access)
 	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868));
 	zassert_ok(rzi_lorawan_start());
 	zassert_true((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_FUOTA) != 0U);
-	zassert_ok(rzi_lorawan_join(&otaa));
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0));
 	wait_for(1);
 	zassert_equal(atomic_get(&clock_sync_calls), 1);
 	zassert_equal(atomic_get(&stats.state), RZI_FUOTA_STATE_READY);

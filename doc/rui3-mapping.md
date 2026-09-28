@@ -15,9 +15,9 @@ See also: [lorawan-api.md](./lorawan-api.md),
 
 These signatures are the RZI LoRaWAN ABI. Unsupported backends return
 `-RZI_ERR_NOT_SUPPORTED`. The reference behavior is the RUI3 C service and C AT
-implementation, not `component/rui_v3_api/RAKLorawan.*`. Persistent
-OTAA/ABP credentials stay inputs to `rzi_lorawan_join()`. Join retry,
-confirm-default, and last-payload readback stay in the AT package.
+implementation, not `component/rui_v3_api/RAKLorawan.*`. OTAA/ABP credentials are `rzi_lorawan_get/set_*` inputs to
+`rzi_lorawan_join()`. Join retry lives in the LoRaWAN service. Confirm-default
+and last-payload readback stay in the AT package.
 P2P/FSK is `include/rzi/lora/lora.h`, not this ABI.
 
 `tx_power` is the LoRaWAN power index, not dBm. `sub_band` is 0 (all) or
@@ -38,7 +38,23 @@ int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t handle);
 int rzi_lorawan_set_region(enum rzi_lorawan_region region);
 int rzi_lorawan_set_join_backoff_bypass(bool enabled);
 int rzi_lorawan_start(void);
-int rzi_lorawan_join(const struct rzi_lorawan_join_config *config);
+int rzi_lorawan_get_dev_eui(uint8_t *eui, size_t len);
+int rzi_lorawan_set_dev_eui(const uint8_t *eui, size_t len);
+int rzi_lorawan_get_app_eui(uint8_t *eui, size_t len);
+int rzi_lorawan_set_app_eui(const uint8_t *eui, size_t len);
+int rzi_lorawan_get_app_key(uint8_t *key, size_t len);
+int rzi_lorawan_set_app_key(const uint8_t *key, size_t len);
+int rzi_lorawan_get_gen_app_key(uint8_t *key, size_t len);
+int rzi_lorawan_set_gen_app_key(const uint8_t *key, size_t len);
+int rzi_lorawan_get_dev_addr(uint32_t *dev_addr);
+int rzi_lorawan_set_dev_addr(uint32_t dev_addr);
+int rzi_lorawan_get_nwk_skey(uint8_t *key, size_t len);
+int rzi_lorawan_set_nwk_skey(const uint8_t *key, size_t len);
+int rzi_lorawan_get_app_skey(uint8_t *key, size_t len);
+int rzi_lorawan_set_app_skey(const uint8_t *key, size_t len);
+int rzi_lorawan_get_activation(enum rzi_lorawan_activation *mode);
+int rzi_lorawan_set_activation(enum rzi_lorawan_activation mode);
+int rzi_lorawan_join(int32_t start, int32_t auto_join, int32_t interval, int32_t attempts);
 int rzi_lorawan_leave(void);
 int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size,
                      enum rzi_lorawan_message_type type);
@@ -174,9 +190,7 @@ AT commands wrap these APIs. `-RZI_ERR_NOT_SUPPORTED` becomes `AT_ERROR`.
 
 Do not add these as `rzi_lorawan_*`:
 
-- credential get/set (`dev_eui`, `join_eui`, `app_key`, ABP keys) — `join()`
 - confirm default, last confirm status, send retry — AT `CFM` / `CFS` / `RETY`
-- auto-join period and attempt count — AT `JOIN`
 - last received payload buffer — AT `RECV`; C uses `downlink`
 - work-mode switch to P2P/FSK — `rzi_lora_*`
 - sleep / suspend / resume — `rzi_power_*`
@@ -203,14 +217,14 @@ commands, RAK3172 `AT+UID`, and transparent / binary API modes.
 | Lifecycle | `service_lora_get/set_band` | `rzi_lorawan_get/set_region` | limited | No EU433 / LA915 enum |
 | Lifecycle | `service_lora_region_isActive` | — | missing | No public “region compiled in?” probe |
 | Lifecycle | `service_lora_set_lora_default` | `ATR` / `AT+FACTORY` | AT-only | Not a C ABI |
-| Credentials | `get/set` AppEUI, AppKey, DevEUI, DevAddr, NwkSKey, AppSKey | `rzi_lorawan_join()` inputs; AT keys | AT-only | Stay in `join()` / AT |
+| Credentials | `get/set` AppEUI, AppKey, DevEUI, DevAddr, NwkSKey, AppSKey | `rzi_lorawan_get/set_*` | present | AppEUI is the JoinEUI. GenAppKey is separate. OTAA DevAddr, NwkSKey, and AppSKey are read from the stack after join |
 | Credentials | `get/set_nwk_id` | `rzi_lorawan_get_net_id`; AT `NETID` | AT-only | Set stays in AT |
 | Credentials | `get_McRoot_key` | AT `MCROOTKEY` | AT-only | |
-| Join / send | `service_lora_join` | `rzi_lorawan_join` | present | Auto-join period/count stay AT `JOIN=` |
-| Join / send | `get/set_njm`, `get_njs` | `join()` mode; `rzi_lorawan_is_joined` | present | NJM also AT |
+| Join / send | `service_lora_join` | `rzi_lorawan_join` | present | `start, auto_join, interval, attempts`; `-1` keeps the stored value |
+| Join / send | `get/set_njm`, `get_njs` | `rzi_lorawan_get/set_activation`; `rzi_lorawan_is_joined` | present | `AT+NJM` maps 0/1 onto the activation enum |
 | Join / send | `get/set_nwm` | `rzi_lora_start/stop`; AT `NWM` | AT-only | P2P vs LoRaWAN is not LoRaWAN ABI |
 | Join / send | `get/set_retry`, `get/set_cfm`, `get_cfs` | AT `RETY` / `CFM` / `CFS` | AT-only | |
-| Join / send | `get/set_join_start`, `auto_join*` | AT `JOIN=` fields | AT-only | |
+| Join / send | `get/set_join_start`, `auto_join*` | `rzi_lorawan_join` policy | present | AT starts the service when auto-join is stored |
 | Join / send | `service_lora_send` | `rzi_lorawan_send` | present | Confirm flag comes from AT context |
 | Join / send | `get_last_recv` | AT `RECV` | AT-only | |
 | Join / send | `service_lora_lptp_send` | AT `LPSEND` | missing | LPSEND is one frame, max 242, not LPTP |
@@ -259,6 +273,6 @@ C API still missing if the goal is parity with `service_lora*`:
   standalone `check_runtime_*`
 - Radio-test hopping (`TCONF` hop fields, `TTH`/`TRTH` as RUI implements them)
 
-Intentional: credentials / CFM / RETY / auto-join / last payload stay
-AT-only; `LPSEND` is not LPTP; P2P encrypt is XOR; EU433 / LA915 are not
-regions.
+Intentional: CFM / RETY / last payload stay AT-only; `LPSEND` is not LPTP;
+P2P encrypt is XOR; EU433 / LA915 are not regions. Auto-join is stored by
+`rzi_lorawan_join()` and started by the AT package after the service is ready.

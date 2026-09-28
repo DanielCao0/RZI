@@ -4,6 +4,19 @@ checkout-command: git checkout .
 clean-command: ""
 
 patches:
+  - path: usp/0001-export-secure-element-session-keys.patch
+    sha256sum: e36f6f69a855a12969801a8c19f19e13903c7503683a5d7a2c074a33fe78b27a
+    module: usp
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-09-28
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Export session keys from the software secure element so OTAA getters
+      can read NwkSKey and AppSKey after join. The LR11xx crypto engine
+      cannot export key material and returns an error.
+
   - path: usp_zephyr/0001-zephyr-4.4-warning-fixes.patch
     sha256sum: a3c81f07fe69807ad0fe2a1dc15a610ff16c2297945021ea55b1c21160e1483a
     module: usp_zephyr

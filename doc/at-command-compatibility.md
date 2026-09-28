@@ -96,7 +96,8 @@ accepted, not that the radio operation has completed.
 
 ### OTAA credentials
 
-These commands are compatible with RUI3. Values are hexadecimal, MSB first.
+These commands are compatible with RUI3 and call `rzi_lorawan_get/set_*`.
+Values are hexadecimal, MSB first.
 
 - `AT+DEVEUI`: read or write the 8-byte DevEUI.
 - `AT+APPEUI`: read or write the 8-byte JoinEUI. The `APPEUI` name is retained

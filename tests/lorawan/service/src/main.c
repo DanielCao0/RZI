@@ -19,6 +19,9 @@ K_SEM_DEFINE(callback_sem, 0, 8);
 
 extern rzi_lorawan_event_sink_t fake_sink;
 extern int fake_set_class_error;
+extern uint32_t fake_otaa_dev_addr;
+extern uint8_t fake_otaa_nwk_skey[16];
+extern uint8_t fake_otaa_app_skey[16];
 
 struct callback_stats {
 	atomic_t ready;
@@ -131,12 +134,6 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	struct rzi_lorawan_callbacks second_callbacks = callbacks;
 	rzi_lorawan_callback_handle_t first_handle;
 	rzi_lorawan_callback_handle_t second_handle;
-	const struct rzi_lorawan_join_config otaa = {
-		.activation = RZI_LORAWAN_ACTIVATION_OTAA,
-	};
-	const struct rzi_lorawan_join_config abp = {
-		.activation = RZI_LORAWAN_ACTIVATION_ABP,
-	};
 	const uint8_t payload[] = {0x12, 0x34};
 	bool joined = false;
 
@@ -160,11 +157,42 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	zassert_equal(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_CONFIRMED),
 		      -RZI_ERR_NOT_JOINED);
 
-	zassert_equal(rzi_lorawan_join(&abp), -RZI_ERR_NOT_SUPPORTED);
-	zassert_ok(rzi_lorawan_join(&otaa));
+	zassert_equal(rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_ABP),
+		      -RZI_ERR_NOT_SUPPORTED);
+	{
+		uint32_t dev_addr = 0xffffffffU;
+		uint8_t stored[16];
+		uint8_t key[16];
+		uint8_t zeros[16] = {0};
+
+		memset(stored, 0x5a, sizeof(stored));
+		zassert_ok(rzi_lorawan_set_dev_addr(0xaabbccddU));
+		zassert_ok(rzi_lorawan_set_nwk_skey(stored, sizeof(stored)));
+		zassert_ok(rzi_lorawan_set_app_skey(stored, sizeof(stored)));
+		zassert_ok(rzi_lorawan_get_dev_addr(&dev_addr));
+		zassert_equal(dev_addr, 0U);
+		memset(key, 0xff, sizeof(key));
+		zassert_ok(rzi_lorawan_get_nwk_skey(key, sizeof(key)));
+		zassert_mem_equal(key, zeros, sizeof(zeros));
+		memset(key, 0xff, sizeof(key));
+		zassert_ok(rzi_lorawan_get_app_skey(key, sizeof(key)));
+		zassert_mem_equal(key, zeros, sizeof(zeros));
+	}
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0));
 	wait_for_callbacks(2);
 	zassert_equal(atomic_get(&first.joined), 1);
 	zassert_equal(atomic_get(&second.joined), 1);
+	{
+		uint32_t dev_addr = 0;
+		uint8_t key[16];
+
+		zassert_ok(rzi_lorawan_get_dev_addr(&dev_addr));
+		zassert_equal(dev_addr, fake_otaa_dev_addr);
+		zassert_ok(rzi_lorawan_get_nwk_skey(key, sizeof(key)));
+		zassert_mem_equal(key, fake_otaa_nwk_skey, sizeof(key));
+		zassert_ok(rzi_lorawan_get_app_skey(key, sizeof(key)));
+		zassert_mem_equal(key, fake_otaa_app_skey, sizeof(key));
+	}
 	zassert_equal(atomic_get(&second.states), 2);
 	zassert_equal(atomic_get(&second.last_state), RZI_LORAWAN_STATE_JOINING);
 
