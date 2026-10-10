@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * rak3362 describes the SX1262 with the legacy semtech,sx1262 binding.
+ * USP enables CONFIG_SEMTECH_SX126X only for semtech,sx1262-new.
+ * A board overlay replaces app.overlay, so pull that file in first.
+ */
+
+#include "../app.overlay"
+#include <zephyr/dt-bindings/usp/sx126x.h>
+
+&lora {
+	compatible = "semtech,sx1262-new";
+	/delete-property/ dio2-tx-enable;
+	/delete-property/ dio3-tcxo-voltage;
+	/delete-property/ tcxo-power-startup-delay-ms;
+
+	dio2-as-rf-switch;
+	dio3-as-tcxo-control;
+	tcxo-voltage = <SX126X_TCXO_SUPPLY_1_8V>;
+	tcxo-wakeup-time = <5>;
+	reg-mode = <SX126X_REG_MODE_DCDC>;
+};

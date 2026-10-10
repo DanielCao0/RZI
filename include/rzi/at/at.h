@@ -149,6 +149,21 @@ __must_check int rzi_at_register(const struct rzi_at_command *commands, size_t c
 __must_check int rzi_at_start(const struct rzi_at_io *io);
 
 /**
+ * @brief Write the registered command list, then OK.
+ *
+ * The text matches the built-in `AT?` response.
+ *
+ * @retval 0 The list was written.
+ * @retval -RZI_ERR_NOT_READY The AT service has not started.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @pre rzi_at_start() has succeeded.
+ * @note Thread context only.
+ * @since 0.2
+ */
+__must_check int rzi_at_print_commands(void);
+
+/**
  * @brief Supply received bytes to the AT parser.
  *
  * The bytes are copied into the internal ring buffer before this function

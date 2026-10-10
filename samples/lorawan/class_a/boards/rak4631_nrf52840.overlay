@@ -1,0 +1,30 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Upstream Zephyr rak4631 describes the SX1262 with the legacy semtech,sx1262
+ * binding and a 3.3 V TCXO. USP enables CONFIG_SEMTECH_SX126X only for
+ * semtech,sx1262-new. The board already selects the USB CDC console.
+ * A board overlay replaces app.overlay, so pull that file in first.
+ */
+
+#include "../app.overlay"
+#include <zephyr/dt-bindings/usp/sx126x.h>
+
+/ {
+	chosen {
+		zephyr,lorawan-transceiver = &lora;
+	};
+};
+
+&lora {
+	compatible = "semtech,sx1262-new";
+	/delete-property/ dio2-tx-enable;
+	/delete-property/ dio3-tcxo-voltage;
+	/delete-property/ tcxo-power-startup-delay-ms;
+	/delete-property/ rx-enable-gpios;
+
+	dio2-as-rf-switch;
+	dio3-as-tcxo-control;
+	tcxo-voltage = <SX126X_TCXO_SUPPLY_3_3V>;
+	tcxo-wakeup-time = <5>;
+	reg-mode = <SX126X_REG_MODE_DCDC>;
+};

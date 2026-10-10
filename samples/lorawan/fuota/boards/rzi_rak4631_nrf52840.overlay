@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * rzi_rak4631 has a USB device controller. Use the CDC ACM UART as the
+ * console. A board overlay replaces app.overlay, so pull that file in first.
+ */
+
+#include "../app.overlay"
+
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+	};
+};

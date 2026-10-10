@@ -21,6 +21,9 @@ Requirements
 
 Replace the placeholder keys in ``app.overlay``. Hardware, partitions and
 USP radio compatibility live on the ``rzi_rak4631`` board, not in this sample.
+On RAK4631 the console is USB CDC ACM (``cdc_acm_uart0``). Open the virtual COM
+port at 115200 baud after Windows enumerates; log output is delayed 4 s so the
+first join lines are not lost.
 
 Building
 ********

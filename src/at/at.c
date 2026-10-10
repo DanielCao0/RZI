@@ -252,3 +252,14 @@ int rzi_at_start(const struct rzi_at_io *io)
 	k_thread_name_set(&at_thread, "rzi_at");
 	return 0;
 }
+
+int rzi_at_print_commands(void)
+{
+	if (k_is_in_isr()) {
+		return -RZI_ERR_WOULDBLOCK;
+	}
+	if (!atomic_get(&started)) {
+		return -RZI_ERR_NOT_READY;
+	}
+	return rzi_at_registry_write_all_help();
+}

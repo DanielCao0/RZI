@@ -5,6 +5,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
+#include <rzi/at/at.h>
 #include <rzi/at/uart.h>
 #include <rzi/err.h>
 
@@ -35,5 +36,11 @@ int main(void)
 	}
 
 	/* The AT service owns the UART from here on. */
-	return rzi_at_uart_start(at_uart);
+	int rc = rzi_at_uart_start(at_uart);
+
+	if (rc != 0) {
+		return rc;
+	}
+	/* Same text as AT?, so a host sees the command list without sending one. */
+	return rzi_at_print_commands();
 }
