@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/dts-v1/;
+
+#include <rak3162/rak3162_cpuapp.dtsi>
+#include "rzi_rak3362_cpuapp_common.dtsi"
+
+/ {
+	chosen {
+		zephyr,code-partition = &slot0_partition;
+		zephyr,sram = &cpuapp_sram;
+	};
+};
+
+#include <vendor/nordic/nrf54l15_cpuapp_partition.dtsi>

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# GPIO
+CONFIG_GPIO=y
+
+# Execute from SRAM
+CONFIG_XIP=n

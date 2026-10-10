@@ -1,0 +1,11 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "rzi_rak3362_nrf54l15_cpuflpr.dts"
+
+/* XIP: execute from RRAM; SRAM shrinks from 96 KB to 68 KB */
+&cpuflpr_sram {
+	reg = <0x2002f000 DT_SIZE_K(68)>;
+	ranges = <0x0 0x2002f000 0x11000>;
+};
