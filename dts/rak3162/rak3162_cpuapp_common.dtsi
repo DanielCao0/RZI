@@ -40,13 +40,13 @@
 &hfxo {
 	status = "okay";
 	load-capacitors = "internal";
-	load-capacitance-femtofarad = <15000>;
+	load-capacitance-femtofarad = <5000>;
 };
 
 &lfxo {
 	status = "okay";
 	load-capacitors = "internal";
-	load-capacitance-femtofarad = <16000>;
+	load-capacitance-femtofarad = <8000>;
 };
 
 &regulators {
