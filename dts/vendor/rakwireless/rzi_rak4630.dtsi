@@ -1,0 +1,217 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * RAK4630 WisDuo module: nRF52840, the SX1262 on SPI1, and the pinmux of
+ * the module pads. A product board includes this and adds the carrier
+ * (LEDs, USB, flash, partition map).
+ */
+
+#include <nordic/nrf52840_qiaa.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/lora/sx126x.h>
+#include <zephyr/dt-bindings/usp/sx126x.h>
+
+&pinctrl {
+	uart0_default: uart0_default {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 0, 20)>,
+				<NRF_PSEL(UART_RX, 0, 19)>;
+		};
+	};
+
+	uart0_sleep: uart0_sleep {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 0, 20)>,
+				<NRF_PSEL(UART_RX, 0, 19)>;
+			low-power-enable;
+		};
+	};
+
+	uart1_default: uart1_default {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 0, 16)>,
+				<NRF_PSEL(UART_RX, 0, 15)>;
+		};
+	};
+
+	uart1_sleep: uart1_sleep {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 0, 16)>,
+				<NRF_PSEL(UART_RX, 0, 15)>;
+			low-power-enable;
+		};
+	};
+
+	i2c0_default: i2c0_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 13)>,
+				<NRF_PSEL(TWIM_SCL, 0, 14)>;
+		};
+	};
+
+	i2c0_sleep: i2c0_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 13)>,
+				<NRF_PSEL(TWIM_SCL, 0, 14)>;
+			low-power-enable;
+		};
+	};
+
+	i2c1_default: i2c1_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 24)>,
+				<NRF_PSEL(TWIM_SCL, 0, 25)>;
+		};
+	};
+
+	i2c1_sleep: i2c1_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 24)>,
+				<NRF_PSEL(TWIM_SCL, 0, 25)>;
+			low-power-enable;
+		};
+	};
+
+	spi1_default: spi1_default {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 1, 11)>,
+				<NRF_PSEL(SPIM_MOSI, 1, 12)>,
+				<NRF_PSEL(SPIM_MISO, 1, 13)>;
+		};
+	};
+
+	spi1_sleep: spi1_sleep {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 1, 11)>,
+				<NRF_PSEL(SPIM_MOSI, 1, 12)>,
+				<NRF_PSEL(SPIM_MISO, 1, 13)>;
+			low-power-enable;
+		};
+	};
+};
+
+&reg0 {
+	status = "okay";
+};
+
+&reg1 {
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&uicr {
+	gpio-as-nreset;
+	nfct-pins-as-gpios;
+};
+
+&gpiote {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+
+	rf_power: rf-power {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+
+	rf_control: rf-control {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		input;
+	};
+};
+
+&uart0 {
+	compatible = "nordic,nrf-uart";
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-1 = <&uart0_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&uart1 {
+	compatible = "nordic,nrf-uarte";
+	current-speed = <115200>;
+	status = "okay";
+	pinctrl-0 = <&uart1_default>;
+	pinctrl-1 = <&uart1_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c0 {
+	compatible = "nordic,nrf-twi";
+	status = "okay";
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-1 = <&i2c0_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c1 {
+	compatible = "nordic,nrf-twi";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-1 = <&i2c1_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&spi1 {
+	compatible = "nordic,nrf-spi";
+	status = "okay";
+	cs-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-1 = <&spi1_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	lora: lora@0 {
+		compatible = "semtech,sx1262-new";
+		reg = <0>;
+		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+		busy-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		dio1-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+		dio2-as-rf-switch;
+		dio3-as-tcxo-control;
+		tcxo-voltage = <SX126X_TCXO_SUPPLY_3_3V>;
+		tcxo-wakeup-time = <5>;
+		reg-mode = <SX126X_REG_MODE_DCDC>;
+		/* SX1262 PA table, one entry per dBm from -9 to 22. */
+		tx-power-cfg =
+			<(  1) 0x01 0x01>,
+			<(  4) 0x00 0x01>,
+			<(  4) 0x01 0x01>,
+			<(  7) 0x00 0x01>,
+			<(  2) 0x00 0x02>,
+			<(  7) 0x03 0x01>,
+			<(  8) 0x03 0x01>,
+			<(  9) 0x03 0x01>,
+			<( 13) 0x00 0x01>,
+			<( 16) 0x00 0x01>,
+			<( 19) 0x00 0x01>,
+			<( 20) 0x00 0x01>,
+			<( 18) 0x03 0x01>,
+			<( 21) 0x00 0x01>,
+			<( 16) 0x00 0x02>,
+			<( 22) 0x00 0x01>,
+			<( 22) 0x01 0x01>,
+			<( 22) 0x02 0x01>,
+			<( 22) 0x03 0x01>,
+			<( 22) 0x04 0x01>,
+			<( 22) 0x00 0x02>,
+			<( 22) 0x01 0x02>,
+			<( 22) 0x02 0x02>,
+			<( 22) 0x03 0x02>,
+			<( 22) 0x01 0x03>,
+			<( 22) 0x02 0x03>,
+			<( 22) 0x00 0x05>,
+			<( 22) 0x01 0x05>,
+			<( 22) 0x02 0x05>,
+			<( 22) 0x03 0x06>,
+			<( 22) 0x04 0x06>,
+			<( 22) 0x04 0x07>;
+		spi-max-frequency = <1000000>;
+	};
+};
