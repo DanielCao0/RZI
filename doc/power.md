@@ -179,7 +179,7 @@ sequenceDiagram
 Applications must **not** `sleep(fixed time)` after TX or compute RX1/RX2
 themselves. The USP thread already `interruptible_msleep()`s on the value
 returned by `smtc_modem_run_engine()` (see
-`usp_zephyr/subsys/usp/zephyr_usp_thread.c`).
+`modules/usp_zephyr/subsys/usp/zephyr_usp_thread.c`).
 
 `set_wake_deadline()` only constrains the next work time the application
 already knows. It is not an RX-window calculator. The periodic LoRaWAN path

@@ -30,7 +30,7 @@ runs:
           ${{ github.workspace }}/modules
           ${{ github.workspace }}/bootloader
           ${{ github.workspace }}/tools
-          ${{ github.workspace }}/usp_zephyr
+          ${{ github.workspace }}/modules/usp_zephyr
         key: west-blobless-${{ inputs.zephyr-revision }}-${{ hashFiles('rzi/west.yml') }}
         restore-keys: west-blobless-${{ inputs.zephyr-revision }}-
 
@@ -75,9 +75,9 @@ runs:
         cd "${GITHUB_WORKSPACE}"
         # A cache hit restores usp_zephyr with the previous run's patches
         # still in the worktree. west update will not discard those edits.
-        if [[ -d usp_zephyr/.git ]]; then
-          git -C usp_zephyr reset --hard
-          git -C usp_zephyr clean -fd
+        if [[ -d modules/usp_zephyr/.git ]]; then
+          git -C modules/usp_zephyr reset --hard
+          git -C modules/usp_zephyr clean -fd
         fi
         west init -l manifest
         # Blobless narrow fetch. clone-depth 1 plus a pinned SHA is rejected
@@ -86,7 +86,7 @@ runs:
 
     - name: Apply the RZI backend patches
       shell: bash
-      working-directory: usp_zephyr
+      working-directory: modules/usp_zephyr
       run: |
         set -eux
         rev="$(python3 - <<'PY'

@@ -45,9 +45,9 @@ rzi-workspace/
 ├── app/                    Customer manifest repository
 ├── rzi/                              Independent RZI SDK repository
 ├── zephyr/                           Revision selected by the application
-└── modules/lib/
+└── modules/
     ├── usp_zephyr/                   USP Zephyr glue (backend)
-    └── usp/                          USP / LoRa Basics Modem
+    └── lib/usp/                      USP / LoRa Basics Modem
 ```
 
 The application declares RZI and imports its dependency manifest:
