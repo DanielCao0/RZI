@@ -23,9 +23,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Zephyr revision validated with the pinned USP backend and the patches
-  # under zephyr/patches/. Bump together with the patches and doc/ci.md.
-  ZEPHYR_REVISION: 7d713288b4baab1cffecadf16f258d9a3885d713
+  # Zephyr 4.5.0-rc1, validated with USP v1.2.1 and the patches under
+  # zephyr/patches/. Bump together with the patches and doc/ci.md.
+  ZEPHYR_REVISION: 920074c07cf4b503f70670cf424e4add4325d05a
   ZEPHYR_SDK_VERSION: "1.0.1"
   CLANG_FORMAT_VERSION: "23.1.0"
   DOXYGEN_VERSION: "1.13.2"

@@ -16,24 +16,20 @@ rzi/
     ├── patches.yml
     └── patches/
         └── usp_zephyr/
-            ├── 0001-zephyr-4.4-warning-fixes.patch
-            ├── 0002-fix-lr-fhss-src-path.patch
-            ├── 0003-disable-duplicate-xiao-board-root.patch
-            ├── 0004-sx1262-pa-compile-definitions.patch
             ├── 0005-stm32wl-subghz-radio.patch
             └── 0006-zephyr-4.5-warning-fixes.patch
         └── usp/
             └── 0001-export-secure-element-session-keys.patch
 ```
 
-The third patch stops `usp_zephyr` from exporting its historical
-`xiao_nrf54l15` board root because the pinned Zephyr 4.4 revision already owns
-that board. USP devicetree bindings, shields, and module extensions remain
-exported. The fifth patch teaches the USP SX126x driver the STM32WL on-chip
-SUBGHZ radio used by RAK3372. The sixth patch replaces the deprecated
-`<zephyr/sys_clock.h>` include and `SPI_OP_MODE_MASTER` on Zephyr 4.5-dev.
-The `usp` patch exports session keys from the software secure element.
-The LR11xx crypto engine cannot export key material and returns an error.
+Pins are USP v1.2.1 and Zephyr 4.5.0-rc1. v1.2.1 already contains the former
+Zephyr 4.4 warning fixes, the LR-FHSS source path, removal of the duplicate
+`xiao_nrf54l15` board, and the global SX1262 compile definition.
+`0005` teaches the USP SX126x driver the STM32WL on-chip SUBGHZ radio used by
+RAK3372. `0006` replaces the deprecated `<zephyr/sys_clock.h>` include and
+`SPI_OP_MODE_MASTER` on Zephyr 4.5.0-rc1. The `usp` patch exports session keys
+from the software secure element. The LR11xx crypto engine cannot export key
+material and returns an error.
 
 ## Applying the patches
 

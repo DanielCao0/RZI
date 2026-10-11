@@ -17,61 +17,8 @@ patches:
       can read NwkSKey and AppSKey after join. The LR11xx crypto engine
       cannot export key material and returns an error.
 
-  - path: usp_zephyr/0001-zephyr-4.4-warning-fixes.patch
-    sha256sum: a3c81f07fe69807ad0fe2a1dc15a610ff16c2297945021ea55b1c21160e1483a
-    module: usp_zephyr
-    author: rzi
-    email: patches@rzi.local
-    date: 2026-09-01
-    upstreamable: true
-    apply-command: git apply
-    comments: |
-      Update for Zephyr 4.4 APIs: remove the deprecated SPI_DT_SPEC_GET delay
-      argument, use FIXED_PARTITION_ID, remove an unused nvs.h include, and avoid
-      the pf_led_pin warning when TX/RX LEDs are absent.
-
-  - path: usp_zephyr/0002-fix-lr-fhss-src-path.patch
-    sha256sum: ad1a1be0d36382f324085e1a419c9e05c1697852bcec347d14ba43399f7e29a8
-    module: usp_zephyr
-    author: rzi
-    email: patches@rzi.local
-    date: 2026-09-01
-    upstreamable: true
-    apply-command: git apply
-    comments: |
-      In this tree lr_fhss_mac.c is in the same directory as the SX126x driver;
-      there is no lr_fhss_driver/ directory. Without this patch CMake cannot find
-      the source and the link fails.
-
-  - path: usp_zephyr/0003-disable-duplicate-xiao-board-root.patch
-    sha256sum: a55bb5040a3d288e10604151b9e5796e4f59ca81b00299ffb04f5fa09e295f80
-    module: usp_zephyr
-    author: rzi
-    email: patches@rzi.local
-    date: 2026-09-08
-    upstreamable: true
-    apply-command: git apply
-    comments: |
-      Zephyr 4.4 already provides the xiao_nrf54l15 board. Stop exporting the
-      duplicate USP board root while retaining the USP devicetree bindings,
-      shields, and module extensions.
-
-  - path: usp_zephyr/0004-sx1262-pa-compile-definitions.patch
-    sha256sum: 271d33f77ac39d716bba057c8fe280c917d76fa0c5e43c73f4b9acee76959489
-    module: usp_zephyr
-    author: rzi
-    email: patches@rzi.local
-    date: 2026-09-05
-    upstreamable: true
-    apply-command: git apply
-    comments: |
-      Promote the SX1261/2/8 model macro to a global compile definition. It was
-      previously visible only to the USP library, so the separate BSP library
-      compiled sx126x_ral_bsp.c as SX1261 (device_sel=1, hp_max=0) and selected
-      the 60 mA over-current limit.
-
   - path: usp_zephyr/0005-stm32wl-subghz-radio.patch
-    sha256sum: 77dcc2af705baac4b55b7de935e5e45527a0a48a1ee5cfa8985fd6ec49e81fa6
+    sha256sum: 8dcaad970167a2a00daa0cbb05ea120b1d848a33705d1b8d778319010891ac75
     module: usp_zephyr
     author: rzi
     email: patches@rzi.local
@@ -84,7 +31,7 @@ patches:
       rfo-hp, and tx/rx-enable GPIOs track SetTx/SetRx.
 
   - path: usp_zephyr/0006-zephyr-4.5-warning-fixes.patch
-    sha256sum: 364a140ab1cdffb48d6ba5751a9934f1d8c483546b8461e99e3838e1c4663b80
+    sha256sum: 4efddffabb89bec2f54c11ffeb7356baed8d5fff92ea4c75a10e597855276eba
     module: usp_zephyr
     author: rzi
     email: patches@rzi.local
@@ -92,6 +39,6 @@ patches:
     upstreamable: true
     apply-command: git apply
     comments: |
-      Update for Zephyr 4.5 APIs: include zephyr/sys/clock.h instead of the
-      deprecated sys_clock.h wrapper, and replace SPI_OP_MODE_MASTER with
+      Update for Zephyr 4.5.0-rc1 APIs: include zephyr/sys/clock.h instead of
+      the deprecated sys_clock.h wrapper, and replace SPI_OP_MODE_MASTER with
       SPI_OP_MODE_CONTROLLER in the USP radio board files.

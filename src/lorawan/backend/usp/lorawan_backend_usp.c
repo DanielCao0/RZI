@@ -32,8 +32,8 @@ void lorawan_fragmentation_package_get_file_size(uint8_t stack_id, uint32_t *fil
 	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_NETWORK | RZI_LORAWAN_CAP_MAC |                 \
 	 RZI_LORAWAN_CAP_MULTICAST | RZI_LORAWAN_CAP_CERTIFICATION |                               \
 	 (IS_ENABLED(CONFIG_RZI_LORAWAN_FUOTA) ? RZI_LORAWAN_CAP_FUOTA : 0U))
-/* usp_zephyr currently leaves registration to its integrating application. */
-LOG_MODULE_REGISTER(usp, CONFIG_USP_LOG_LEVEL);
+/* usp_zephyr v1.2.1 registers the usp log module in smtc_sw_platform_helper.c. */
+LOG_MODULE_DECLARE(usp, CONFIG_USP_LOG_LEVEL);
 BUILD_ASSERT(CONFIG_USP_THREADS_MUTEXES, "RZI needs USP serialization");
 BUILD_ASSERT(RZI_LORAWAN_MAX_PAYLOAD == SMTC_MODEM_MAX_LORAWAN_PAYLOAD_LENGTH);
 
