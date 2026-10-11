@@ -41,7 +41,6 @@ static enum rzi_lorawan_class configured_class = RZI_LORAWAN_CLASS_A;
 static bool configured_join_backoff_bypass;
 static atomic_t started;
 static atomic_t overflow;
-static atomic_t tx_outstanding;
 static atomic_t join_sequence_active;
 static atomic_t join_retries_remaining;
 static bool last_downlink_valid;
@@ -104,7 +103,6 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		out->error = event->error != 0 ? event->error : -RZI_ERR_TIMEOUT;
 		return true;
 	case RZI_LORAWAN_BACKEND_TX_DONE:
-		atomic_clear(&tx_outstanding);
 		out->type = RZI_LORAWAN_EVENT_TX_DONE;
 		out->tx.status = event->tx_status;
 		out->tx.error = event->error;
@@ -119,6 +117,10 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		out->downlink.rssi_dbm = event->downlink.rssi_dbm;
 		out->downlink.snr_quarter_db = event->downlink.snr_quarter_db;
 		out->downlink.flags = event->downlink.flags;
+		out->downlink.window = event->downlink.window;
+		out->downlink.multicast_group = event->downlink.multicast_group;
+		out->downlink.data_rate = event->downlink.data_rate;
+		out->downlink.frequency_hz = event->downlink.frequency_hz;
 		out->downlink.data = event->downlink.data;
 		return true;
 	case RZI_LORAWAN_BACKEND_ERROR:
@@ -141,49 +143,33 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		out->type = RZI_LORAWAN_EVENT_CLASS_B;
 		out->class_b = event->class_b;
 		return true;
+	case RZI_LORAWAN_BACKEND_DUTY_CYCLE:
+		out->type = RZI_LORAWAN_EVENT_DUTY_CYCLE;
+		out->duty_cycle_limited = event->duty_cycle_limited;
+		return true;
+	case RZI_LORAWAN_BACKEND_NO_DOWNLINK:
+		out->type = RZI_LORAWAN_EVENT_NO_DOWNLINK;
+		out->no_downlink = event->no_downlink;
+		return true;
 	case RZI_LORAWAN_BACKEND_FUOTA:
 	default:
 		return false;
 	}
 }
 
-static void join_retry_handler(struct k_work *work)
-{
-	struct rzi_lorawan_join_config config;
-	int rc;
-
-	ARG_UNUSED(work);
-	if (!atomic_get(&join_sequence_active)) {
-		return;
-	}
-	rc = rzi_lorawan_credentials_build_config(&config);
-	if (rc == 0) {
-		rc = rzi_lorawan_backend.join(&config);
-	}
-	if (rc != 0) {
-		const struct rzi_lorawan_backend_event failed = {
-			.type = RZI_LORAWAN_BACKEND_JOIN_FAILED,
-			.error = rc,
-		};
-
-		publish(&failed);
-	}
-}
-
-K_WORK_DELAYABLE_DEFINE(join_retry_work, join_retry_handler);
-
 static void clear_join_sequence(void)
 {
 	atomic_clear(&join_sequence_active);
 	atomic_set(&join_retries_remaining, 0);
 	rzi_lorawan_credentials_set_join_active(false);
-	(void)k_work_cancel_delayable(&join_retry_work);
 }
 
+/*
+ * The backend keeps retrying after each JOIN_FAILED until JOINED or leave().
+ * The service only counts attempts and stops the backend at the limit.
+ */
 static bool swallow_join_event(const struct rzi_lorawan_backend_event *event)
 {
-	uint8_t interval = RZI_LORAWAN_JOIN_INTERVAL_DEFAULT;
-
 	if (event->type == RZI_LORAWAN_BACKEND_JOINED) {
 		clear_join_sequence();
 		return false;
@@ -193,13 +179,10 @@ static bool swallow_join_event(const struct rzi_lorawan_backend_event *event)
 	}
 	if (atomic_get(&join_retries_remaining) > 0) {
 		atomic_dec(&join_retries_remaining);
-		if (rzi_lorawan_get_join_interval(&interval) != 0) {
-			interval = RZI_LORAWAN_JOIN_INTERVAL_DEFAULT;
-		}
-		(void)k_work_schedule(&join_retry_work, K_SECONDS(interval));
 		return true;
 	}
 	clear_join_sequence();
+	(void)rzi_lorawan_backend.leave();
 	publish_state(RZI_LORAWAN_STATE_READY);
 	return false;
 }
@@ -403,6 +386,33 @@ int rzi_lorawan_set_join_backoff_bypass(bool enabled)
 	return rc;
 }
 
+static __maybe_unused bool capability_matches(uint32_t capability, const void *ops)
+{
+	return ((rzi_lorawan_backend.capabilities & capability) != 0U) == (ops != NULL);
+}
+
+static void check_backend_contract(void)
+{
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_NETWORK, rzi_lorawan_backend.network),
+		 "network ops do not match RZI_LORAWAN_CAP_NETWORK");
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_CLASS_B, rzi_lorawan_backend.class_b),
+		 "class_b ops do not match RZI_LORAWAN_CAP_CLASS_B");
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_SESSION, rzi_lorawan_backend.session),
+		 "session ops do not match RZI_LORAWAN_CAP_SESSION");
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_MAC, rzi_lorawan_backend.mac),
+		 "mac ops do not match RZI_LORAWAN_CAP_MAC");
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_MULTICAST, rzi_lorawan_backend.multicast),
+		 "multicast ops do not match RZI_LORAWAN_CAP_MULTICAST");
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_CERTIFICATION,
+				    rzi_lorawan_backend.certification),
+		 "certification ops do not match RZI_LORAWAN_CAP_CERTIFICATION");
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	__ASSERT(capability_matches(RZI_LORAWAN_CAP_FUOTA, rzi_lorawan_backend.fuota),
+		 "fuota ops do not match RZI_LORAWAN_CAP_FUOTA");
+#endif
+	__ASSERT(rzi_lorawan_backend.is_busy != NULL, "backend must report busy");
+}
+
 int rzi_lorawan_start(void)
 {
 	enum rzi_lorawan_region region;
@@ -413,6 +423,7 @@ int rzi_lorawan_start(void)
 		return -RZI_ERR_WOULDBLOCK;
 	}
 
+	check_backend_contract();
 	k_mutex_lock(&config_lock, K_FOREVER);
 	if (!atomic_cas(&started, 0, 1)) {
 		k_mutex_unlock(&config_lock);
@@ -505,6 +516,30 @@ static int begin_join(void)
 	return rc;
 }
 
+static int stop_join(void)
+{
+	bool was_active = atomic_get(&join_sequence_active) != 0;
+	bool joined = false;
+	int rc;
+
+	clear_join_sequence();
+	if (!was_active || check_context() != 0) {
+		return 0;
+	}
+	rc = rzi_lorawan_backend.is_joined(&joined);
+	if (rc == 0 && !joined) {
+		/* Abort an attempt still waiting for Join-Accept. */
+		rc = rzi_lorawan_backend.leave();
+		if (rc == -RZI_ERR_NOT_SUPPORTED) {
+			rc = 0;
+		}
+	}
+	if (rc == 0 && !joined) {
+		publish_state(RZI_LORAWAN_STATE_READY);
+	}
+	return rc;
+}
+
 int rzi_lorawan_join(int32_t start, int32_t auto_join, int32_t interval, int32_t attempts)
 {
 	int rc = rzi_lorawan_check_thread();
@@ -523,8 +558,7 @@ int rzi_lorawan_join(int32_t start, int32_t auto_join, int32_t interval, int32_t
 		return rc;
 	}
 	if (start == 0) {
-		clear_join_sequence();
-		return 0;
+		return stop_join();
 	}
 	if (start != 1) {
 		return 0;
@@ -550,44 +584,77 @@ int rzi_lorawan_leave(void)
 	return rc;
 }
 
+static bool message_type_valid(enum rzi_lorawan_message_type type)
+{
+	return type == RZI_LORAWAN_MSG_UNCONFIRMED || type == RZI_LORAWAN_MSG_CONFIRMED;
+}
+
+static int check_joined(void)
+{
+	bool joined = false;
+	int rc = check_context();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_lorawan_backend.is_joined(&joined);
+	if (rc != 0) {
+		return rc;
+	}
+	return joined ? 0 : -RZI_ERR_NOT_JOINED;
+}
+
 int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size,
 		     enum rzi_lorawan_message_type type)
 {
 	int rc;
 
-	if ((data == NULL && size != 0U) || port == 0 || port > 223 ||
-	    (type != RZI_LORAWAN_MSG_UNCONFIRMED && type != RZI_LORAWAN_MSG_CONFIRMED)) {
+	if ((data == NULL && size != 0U) || port == 0 || port > 223 || !message_type_valid(type)) {
 		return -RZI_ERR_INVALID;
 	}
 	if (size > RZI_LORAWAN_MAX_PAYLOAD) {
 		return -RZI_ERR_TOO_LARGE;
 	}
+	rc = check_joined();
+	if (rc != 0) {
+		return rc;
+	}
+	rzi_lorawan_mac_commands_on_uplink();
+	return rzi_lorawan_backend.send(port, data, size, type);
+}
+
+int rzi_lorawan_send_empty(bool with_port, uint8_t port, enum rzi_lorawan_message_type type)
+{
+	const struct rzi_lorawan_network_ops *ops = rzi_lorawan_backend.network;
+	int rc;
+
+	if ((with_port && (port == 0 || port > 223)) || !message_type_valid(type)) {
+		return -RZI_ERR_INVALID;
+	}
 	rc = check_context();
 	if (rc != 0) {
 		return rc;
 	}
-	{
-		bool joined = false;
-
-		rc = rzi_lorawan_backend.is_joined(&joined);
-		if (rc != 0) {
-			return rc;
-		}
-		if (!joined) {
-			return -RZI_ERR_NOT_JOINED;
-		}
+	if (ops == NULL || ops->send_empty == NULL) {
+		return -RZI_ERR_NOT_SUPPORTED;
+	}
+	rc = check_joined();
+	if (rc != 0) {
+		return rc;
 	}
 	rzi_lorawan_mac_commands_on_uplink();
-	rc = rzi_lorawan_backend.send(port, data, size, type);
-	if (rc == 0) {
-		atomic_set(&tx_outstanding, 1);
-	}
-	return rc;
+	return ops->send_empty(with_port, port, type);
 }
 
 int rzi_lorawan_set_class(enum rzi_lorawan_class device_class)
 {
 	int rc;
+
+	static const uint32_t class_caps[] = {
+		[RZI_LORAWAN_CLASS_A] = RZI_LORAWAN_CAP_CLASS_A,
+		[RZI_LORAWAN_CLASS_B] = RZI_LORAWAN_CAP_CLASS_B,
+		[RZI_LORAWAN_CLASS_C] = RZI_LORAWAN_CAP_CLASS_C,
+	};
 
 	if ((unsigned int)device_class > RZI_LORAWAN_CLASS_C) {
 		return -RZI_ERR_INVALID;
@@ -595,6 +662,9 @@ int rzi_lorawan_set_class(enum rzi_lorawan_class device_class)
 	rc = check_context();
 	if (rc != 0) {
 		return rc;
+	}
+	if ((rzi_lorawan_backend.capabilities & class_caps[device_class]) == 0U) {
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 	rc = rzi_lorawan_backend.set_class(device_class);
 	if (rc == 0) {
@@ -719,15 +789,9 @@ int rzi_lorawan_is_busy(bool *busy)
 	if (busy == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	if (rzi_lorawan_backend.is_busy != NULL) {
-		rc = rzi_lorawan_backend.is_busy(busy);
-		if (rc == 0) {
-			return 0;
-		}
-		if (rc != -RZI_ERR_NOT_SUPPORTED) {
-			return rc;
-		}
+	if (!atomic_get(&started)) {
+		*busy = false;
+		return 0;
 	}
-	*busy = atomic_get(&tx_outstanding) != 0;
-	return 0;
+	return rzi_lorawan_backend.is_busy(busy);
 }

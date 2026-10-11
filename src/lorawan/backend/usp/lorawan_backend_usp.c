@@ -9,7 +9,6 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/lorawan_lbm/lorawan_hal_init.h>
-#include <zephyr/usp/smtc_sw_platform_helper.h>
 #include <smtc_modem_api.h>
 #include <smtc_modem_utilities.h>
 #include <smtc_modem_hal.h>
@@ -18,26 +17,25 @@
 
 #include "../lorawan_backend.h"
 #include "lorawan_backend_usp_priv.h"
-
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-#ifdef CONFIG_LORA_BASICS_MODEM_FUOTA_V2
-void lorawan_fragmentation_package_get_file_size(uint8_t stack_id, uint32_t *file_size);
-#endif
-#endif
+#include "lorawan_backend_usp_lbm.h"
 
 #define STACK_ID RZI_LORAWAN_USP_STACK_ID
 
+/* Class B, Class C and multicast follow the LBM build options. */
 #define USP_CAPABILITIES                                                                           \
-	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CLASS_B |                \
-	 RZI_LORAWAN_CAP_CLASS_C | RZI_LORAWAN_CAP_NETWORK | RZI_LORAWAN_CAP_MAC |                 \
-	 RZI_LORAWAN_CAP_MULTICAST | RZI_LORAWAN_CAP_CERTIFICATION |                               \
+	(RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_NETWORK |                \
+	 RZI_LORAWAN_CAP_CHANNEL | RZI_LORAWAN_CAP_SESSION | RZI_LORAWAN_CAP_MAC |                 \
+	 RZI_LORAWAN_CAP_CERTIFICATION |                                                           \
+	 (IS_ENABLED(CONFIG_LORA_BASICS_MODEM_CLASS_B) ? RZI_LORAWAN_CAP_CLASS_B : 0U) |           \
+	 (IS_ENABLED(CONFIG_LORA_BASICS_MODEM_CLASS_C) ? RZI_LORAWAN_CAP_CLASS_C : 0U) |           \
+	 (IS_ENABLED(CONFIG_LORA_BASICS_MODEM_MULTICAST) ? RZI_LORAWAN_CAP_MULTICAST : 0U) |       \
 	 (IS_ENABLED(CONFIG_RZI_LORAWAN_FUOTA) ? RZI_LORAWAN_CAP_FUOTA : 0U))
 /* usp_zephyr v1.2.1 registers the usp log module in smtc_sw_platform_helper.c. */
 LOG_MODULE_DECLARE(usp, CONFIG_USP_LOG_LEVEL);
-BUILD_ASSERT(CONFIG_USP_THREADS_MUTEXES, "RZI needs USP serialization");
 BUILD_ASSERT(RZI_LORAWAN_MAX_PAYLOAD == SMTC_MODEM_MAX_LORAWAN_PAYLOAD_LENGTH);
+BUILD_ASSERT(SMTC_MODEM_CHANNEL_MASK_MAX_LENGTH == 2 * RZI_LORAWAN_CHANNEL_MASK_WORDS);
 
-/* Protected by rac_api_mutex, also held by the USP engine callback. */
+/* Protected by the USP lock, also held by the USP engine callback. */
 static bool ready;
 static bool tx_pending;
 static bool credentials_valid;
@@ -49,28 +47,6 @@ static enum rzi_lorawan_class_b_state class_b_state = RZI_LORAWAN_CLASS_B_IDLE;
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 static bool fuota_image_ready;
 #endif
-
-int rzi_lorawan_usp_result(smtc_modem_return_code_t rc)
-{
-	switch (rc) {
-	case SMTC_MODEM_RC_OK:
-		return 0;
-	case SMTC_MODEM_RC_NOT_INIT:
-		return -RZI_ERR_NOT_READY;
-	case SMTC_MODEM_RC_INVALID:
-	case SMTC_MODEM_RC_INVALID_STACK_ID:
-		return -RZI_ERR_INVALID;
-	case SMTC_MODEM_RC_BUSY:
-		return -RZI_ERR_BUSY;
-	case SMTC_MODEM_RC_NO_TIME:
-	case SMTC_MODEM_RC_NO_EVENT:
-		return -RZI_ERR_NO_DATA;
-	case SMTC_MODEM_RC_FAIL:
-		return -RZI_ERR_IO;
-	default:
-		return -RZI_ERR_IO;
-	}
-}
 
 static const smtc_modem_region_t regions[] = {
 	[RZI_LORAWAN_REGION_EU_868] = SMTC_MODEM_REGION_EU_868,
@@ -116,19 +92,19 @@ static int configure_credentials(void)
 	int rc;
 	const struct rzi_lorawan_join_otaa *otaa = &join_settings.otaa;
 
-	rc = rzi_lorawan_usp_result(smtc_modem_set_deveui(STACK_ID, otaa->dev_eui));
+	rc = rzi_usp_result(smtc_modem_set_deveui(STACK_ID, otaa->dev_eui));
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_set_joineui(STACK_ID, otaa->join_eui));
+	rc = rzi_usp_result(smtc_modem_set_joineui(STACK_ID, otaa->join_eui));
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_set_appkey(STACK_ID, otaa->application_key));
+	rc = rzi_usp_result(smtc_modem_set_appkey(STACK_ID, otaa->application_key));
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_set_nwkkey(STACK_ID, otaa->network_key));
+	rc = rzi_usp_result(smtc_modem_set_nwkkey(STACK_ID, otaa->network_key));
 	if (rc != 0) {
 		return rc;
 	}
@@ -136,15 +112,57 @@ static int configure_credentials(void)
 	return 0;
 }
 
+/* usp/0003: LBM ANDs this mask into every default channel mask from the next join on. */
+static int configure_channel_mask(void)
+{
+	uint8_t mask[SMTC_MODEM_CHANNEL_MASK_MAX_LENGTH];
+	smtc_modem_return_code_t result;
+
+	if (region != SMTC_MODEM_REGION_US_915 && region != SMTC_MODEM_REGION_AU_915) {
+		return 0;
+	}
+	if (!join_settings.channel_mask_set) {
+		return rzi_usp_result(smtc_modem_set_channel_mask(STACK_ID, NULL, 0));
+	}
+	for (size_t word = 0; word < RZI_LORAWAN_CHANNEL_MASK_WORDS; ++word) {
+		mask[2U * word] = (uint8_t)join_settings.channel_mask[word];
+		mask[2U * word + 1U] = (uint8_t)(join_settings.channel_mask[word] >> 8);
+	}
+	result = smtc_modem_set_channel_mask(STACK_ID, mask, sizeof(mask));
+	return result == SMTC_MODEM_RC_FAIL ? -RZI_ERR_NOT_SUPPORTED : rzi_usp_result(result);
+}
+
+static int check_region_built(void)
+{
+	uint8_t built[32];
+	uint8_t count = 0;
+	int rc = rzi_usp_result(smtc_modem_get_list_region(STACK_ID, built, &count));
+
+	if (rc != 0) {
+		return rc;
+	}
+	for (uint8_t i = 0; i < MIN(count, sizeof(built)); ++i) {
+		if (built[i] == region) {
+			return 0;
+		}
+	}
+	LOG_ERR("Region %d is not enabled in the LoRa Basics Modem build", region);
+	return -RZI_ERR_NOT_SUPPORTED;
+}
+
 static int configure_service(void)
 {
 	int rc;
 
-	rc = rzi_lorawan_usp_result(smtc_modem_set_region(STACK_ID, region));
+	rc = check_region_built();
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(
+	rc = rzi_usp_result(smtc_modem_set_region(STACK_ID, region));
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_usp_result(
 		smtc_modem_set_join_duty_cycle_backoff_bypass(STACK_ID, join_backoff_bypass));
 	if (rc != 0) {
 		return rc;
@@ -153,201 +171,256 @@ static int configure_service(void)
 	return 0;
 }
 
-static void modem_event_callback(void)
+static enum rzi_lorawan_rx_window map_window(smtc_modem_dl_window_t window, uint32_t *flags,
+					     uint8_t *group)
 {
-	smtc_modem_event_t source;
-	uint8_t pending = 0;
+	switch (window) {
+	case SMTC_MODEM_DL_WINDOW_RX1:
+		return RZI_LORAWAN_RX_WINDOW_RX1;
+	case SMTC_MODEM_DL_WINDOW_RX2:
+		return RZI_LORAWAN_RX_WINDOW_RX2;
+	case SMTC_MODEM_DL_WINDOW_RXC:
+		return RZI_LORAWAN_RX_WINDOW_RXC;
+	case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP0:
+	case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP1:
+	case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP2:
+	case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP3:
+		*flags |= RZI_LORAWAN_DOWNLINK_MULTICAST;
+		*group = window - SMTC_MODEM_DL_WINDOW_RXC_MC_GRP0;
+		return RZI_LORAWAN_RX_WINDOW_RXC;
+	case SMTC_MODEM_DL_WINDOW_RXB:
+		return RZI_LORAWAN_RX_WINDOW_RXB;
+	case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP0:
+	case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP1:
+	case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP2:
+	case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP3:
+		*flags |= RZI_LORAWAN_DOWNLINK_MULTICAST;
+		*group = window - SMTC_MODEM_DL_WINDOW_RXB_MC_GRP0;
+		return RZI_LORAWAN_RX_WINDOW_RXB;
+	default:
+		return RZI_LORAWAN_RX_WINDOW_UNKNOWN;
+	}
+}
+
+static void publish_downlinks(void)
+{
+	struct rzi_lorawan_backend_event event = {
+		.type = RZI_LORAWAN_BACKEND_DOWNLINK,
+	};
+	uint8_t remaining = 0;
 
 	do {
-		smtc_modem_return_code_t rc = smtc_modem_get_event(&source, &pending);
-		struct rzi_lorawan_backend_event event = {0};
+		smtc_modem_dl_metadata_t meta = {0};
+		smtc_modem_return_code_t rc;
 
-		if (rc == SMTC_MODEM_RC_NO_EVENT) {
-			break;
-		}
+		rc = smtc_modem_get_downlink_data(event.downlink.data, &event.downlink.size, &meta,
+						  &remaining);
 		if (rc != SMTC_MODEM_RC_OK) {
-			publish_error(rzi_lorawan_usp_result(rc));
+			publish_error(rzi_usp_result(rc));
 			break;
 		}
-		switch (source.event_type) {
-		case SMTC_MODEM_EVENT_RESET: {
-			int error;
+		event.downlink.port = meta.fport;
+		event.downlink.rssi_dbm = (int16_t)meta.rssi - 64;
+		event.downlink.snr_quarter_db = meta.snr;
+		event.downlink.flags = meta.fpending_bit != 0U ? RZI_LORAWAN_DOWNLINK_FPENDING : 0U;
+		event.downlink.multicast_group = 0U;
+		event.downlink.window = map_window(meta.window, &event.downlink.flags,
+						   &event.downlink.multicast_group);
+		event.downlink.data_rate = (enum rzi_lorawan_data_rate)meta.datarate;
+		event.downlink.frequency_hz = meta.frequency_hz;
+		rzi_lorawan_usp_publish(&event);
+	} while (remaining > 0);
+}
 
-			ready = false;
-			tx_pending = false;
+static void handle_event(const smtc_modem_event_t *source, int error)
+{
+	struct rzi_lorawan_backend_event event = {0};
+
+	if (source == NULL) {
+		publish_error(error);
+		return;
+	}
+	if (source->missed_events > 0U) {
+		LOG_WRN("LBM dropped %u events of type %d", source->missed_events,
+			source->event_type);
+		publish_error(-RZI_ERR_OVERFLOW);
+	}
+	switch (source->event_type) {
+	case SMTC_MODEM_EVENT_RESET: {
+		int rc;
+
+		ready = false;
+		tx_pending = false;
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
-			fuota_image_ready = false;
+		fuota_image_ready = false;
 #endif
-			error = configure_service();
-			if (error == 0 && credentials_valid) {
-				error = configure_credentials();
-			}
-			if (error != 0) {
-				publish_error(error);
-				break;
-			}
-			ready = true;
-			event.type = RZI_LORAWAN_BACKEND_READY;
-			rzi_lorawan_usp_publish(&event);
+		rc = configure_service();
+		if (rc == 0 && credentials_valid) {
+			rc = configure_credentials();
+		}
+		if (rc != 0) {
+			publish_error(rc);
 			break;
 		}
-		case SMTC_MODEM_EVENT_JOINED:
+		ready = true;
+		event.type = RZI_LORAWAN_BACKEND_READY;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	}
+	case SMTC_MODEM_EVENT_JOINED:
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
-			fuota_image_ready = false;
+		fuota_image_ready = false;
 #endif
-			event.type = RZI_LORAWAN_BACKEND_JOINED;
-			rzi_lorawan_usp_publish(&event);
+		event.type = RZI_LORAWAN_BACKEND_JOINED;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_JOINFAIL:
+		/*
+		 * One attempt failed. LBM has already queued the next
+		 * one with the regional join backoff; the service stops
+		 * it through leave() when its attempt limit is reached.
+		 * No Join-Accept is reported as timeout.
+		 */
+		event.type = RZI_LORAWAN_BACKEND_JOIN_FAILED;
+		event.error = -RZI_ERR_TIMEOUT;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_TXDONE:
+		tx_pending = false;
+		event.type = RZI_LORAWAN_BACKEND_TX_DONE;
+		switch (source->event_data.txdone.status) {
+		case SMTC_MODEM_EVENT_TXDONE_CONFIRMED:
+			event.tx_status = RZI_LORAWAN_TX_ACKED;
 			break;
-		case SMTC_MODEM_EVENT_JOINFAIL:
-			/*
-			 * USP reports join failure without a subclass. The
-			 * catalog value is timeout: the MAC exhausted retries.
-			 */
-			event.type = RZI_LORAWAN_BACKEND_JOIN_FAILED;
-			event.error = -RZI_ERR_TIMEOUT;
-			rzi_lorawan_usp_publish(&event);
+		case SMTC_MODEM_EVENT_TXDONE_SENT:
+			event.tx_status = RZI_LORAWAN_TX_SENT;
 			break;
-		case SMTC_MODEM_EVENT_TXDONE:
-			tx_pending = false;
-			event.type = RZI_LORAWAN_BACKEND_TX_DONE;
-			switch (source.event_data.txdone.status) {
-			case SMTC_MODEM_EVENT_TXDONE_CONFIRMED:
-				event.tx_status = RZI_LORAWAN_TX_ACKED;
-				break;
-			case SMTC_MODEM_EVENT_TXDONE_SENT:
-				event.tx_status = RZI_LORAWAN_TX_SENT;
-				break;
-			default:
-				event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
-				event.error = -RZI_ERR_IO;
-				break;
-			}
-			rzi_lorawan_usp_publish(&event);
+		default:
+			event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
+			event.error = -RZI_ERR_IO;
 			break;
-		case SMTC_MODEM_EVENT_DOWNDATA: {
-			uint8_t remaining = 0;
+		}
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_DOWNDATA:
+		publish_downlinks();
+		break;
+	case SMTC_MODEM_EVENT_REGIONAL_DUTY_CYCLE:
+		event.type = RZI_LORAWAN_BACKEND_DUTY_CYCLE;
+		event.duty_cycle_limited = source->event_data.regional_duty_cycle.status != 0U;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_NO_DOWNLINK_THRESHOLD:
+		event.type = RZI_LORAWAN_BACKEND_NO_DOWNLINK;
+		if ((source->event_data.no_downlink.status &
+		     SMTC_MODEM_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END) != 0U) {
+			event.no_downlink |= RZI_LORAWAN_NO_DOWNLINK_ADR_BACKOFF_END;
+		}
+		if ((source->event_data.no_downlink.status &
+		     SMTC_MODEM_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD) != 0U) {
+			event.no_downlink |= RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD;
+		}
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_LINK_CHECK:
+		if (source->event_data.link_check.status == SMTC_MODEM_EVENT_MAC_REQUEST_ANSWERED) {
+			uint8_t margin = 0;
+			uint8_t gateways = 0;
 
-			do {
-				smtc_modem_dl_metadata_t meta = {0};
-
-				event.type = RZI_LORAWAN_BACKEND_DOWNLINK;
-				rc = smtc_modem_get_downlink_data(event.downlink.data,
-								  &event.downlink.size, &meta,
-								  &remaining);
-				if (rc != SMTC_MODEM_RC_OK) {
-					publish_error(rzi_lorawan_usp_result(rc));
-					break;
-				}
-				event.downlink.port = meta.fport;
-				event.downlink.rssi_dbm = (int16_t)meta.rssi - 64;
-				event.downlink.snr_quarter_db = meta.snr;
+			if (smtc_modem_get_lorawan_link_check_data(STACK_ID, &margin, &gateways) ==
+			    SMTC_MODEM_RC_OK) {
+				event.type = RZI_LORAWAN_BACKEND_LINK_CHECK;
+				event.link_check.demod_margin = margin;
+				event.link_check.gateway_count = gateways;
 				rzi_lorawan_usp_publish(&event);
-			} while (remaining > 0);
-			break;
+			}
 		}
-		case SMTC_MODEM_EVENT_LINK_CHECK:
-			if (source.event_data.link_check.status ==
-			    SMTC_MODEM_EVENT_MAC_REQUEST_ANSWERED) {
-				uint8_t margin = 0;
-				uint8_t gateways = 0;
-
-				if (smtc_modem_get_lorawan_link_check_data(
-					    STACK_ID, &margin, &gateways) == SMTC_MODEM_RC_OK) {
-					event.type = RZI_LORAWAN_BACKEND_LINK_CHECK;
-					event.link_check.demod_margin = margin;
-					event.link_check.gateway_count = gateways;
-					rzi_lorawan_usp_publish(&event);
-				}
-			}
-			break;
-		case SMTC_MODEM_EVENT_LORAWAN_MAC_TIME:
-			event.type = RZI_LORAWAN_BACKEND_DEVICE_TIME;
-			event.error = source.event_data.lorawan_mac_time.status ==
-						      SMTC_MODEM_EVENT_MAC_REQUEST_ANSWERED
-					      ? 0
-					      : -RZI_ERR_TIMEOUT;
-			rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_LORAWAN_MAC_TIME:
+		event.type = RZI_LORAWAN_BACKEND_DEVICE_TIME;
+		event.error = source->event_data.lorawan_mac_time.status ==
+					      SMTC_MODEM_EVENT_MAC_REQUEST_ANSWERED
+				      ? 0
+				      : -RZI_ERR_TIMEOUT;
+		rzi_lorawan_usp_publish(&event);
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
-			if (event.error == 0) {
-				event.type = RZI_LORAWAN_BACKEND_FUOTA;
-				event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_CLOCK_SYNCED;
-				event.fuota.successful = true;
-				rzi_lorawan_usp_publish(&event);
-			}
-#endif
-			break;
-		case SMTC_MODEM_EVENT_CLASS_B_STATUS: {
-			enum rzi_lorawan_class_b_state next;
-
-			if (source.event_data.class_b_status.status ==
-			    SMTC_MODEM_EVENT_CLASS_B_READY) {
-				next = RZI_LORAWAN_CLASS_B_ACTIVE;
-			} else if (source.event_data.class_b_status.status ==
-				   SMTC_MODEM_EVENT_CLASS_B_NOT_READY) {
-				next = RZI_LORAWAN_CLASS_B_IDLE;
-			} else {
-				break;
-			}
-			if (rzi_lorawan_usp_set_class_b_state(next)) {
-				rzi_lorawan_usp_publish_class_b(next);
-			}
-			break;
-		}
-#ifdef CONFIG_RZI_LORAWAN_FUOTA
-		case SMTC_MODEM_EVENT_ALCSYNC_TIME:
+		if (event.error == 0) {
 			event.type = RZI_LORAWAN_BACKEND_FUOTA;
 			event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_CLOCK_SYNCED;
 			event.fuota.successful = true;
 			rzi_lorawan_usp_publish(&event);
-			break;
-		case SMTC_MODEM_EVENT_NEW_MULTICAST_SESSION_CLASS_C:
-		case SMTC_MODEM_EVENT_NEW_MULTICAST_SESSION_CLASS_B:
-			event.type = RZI_LORAWAN_BACKEND_FUOTA;
-			event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_SESSION_STARTED;
-			event.fuota.successful = true;
-			rzi_lorawan_usp_publish(&event);
-			break;
-		case SMTC_MODEM_EVENT_NO_MORE_MULTICAST_SESSION_CLASS_C:
-		case SMTC_MODEM_EVENT_NO_MORE_MULTICAST_SESSION_CLASS_B:
-			event.type = RZI_LORAWAN_BACKEND_FUOTA;
-			event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_SESSION_ENDED;
-			event.fuota.successful = true;
-			rzi_lorawan_usp_publish(&event);
-			break;
-		case SMTC_MODEM_EVENT_LORAWAN_FUOTA_DONE:
-			event.type = RZI_LORAWAN_BACKEND_FUOTA;
-			event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_TRANSFER_DONE;
-			event.fuota.successful = source.event_data.fuota_status.successful;
-			fuota_image_ready = event.fuota.successful;
-#ifdef CONFIG_LORA_BASICS_MODEM_FUOTA_V2
-			if (event.fuota.successful) {
-				lorawan_fragmentation_package_get_file_size(
-					STACK_ID, &event.fuota.image_size);
-			}
+		}
 #endif
-			rzi_lorawan_usp_publish(&event);
-			break;
-		case SMTC_MODEM_EVENT_FIRMWARE_MANAGEMENT:
-			if (source.event_data.fmp.status ==
-			    SMTC_MODEM_EVENT_FMP_REBOOT_IMMEDIATELY) {
-				event.type = RZI_LORAWAN_BACKEND_FUOTA;
-				event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_REBOOT_REQUESTED;
-				event.fuota.successful = true;
-				rzi_lorawan_usp_publish(&event);
-			}
-			break;
-#endif
-		default:
+		break;
+	case SMTC_MODEM_EVENT_CLASS_B_STATUS: {
+		enum rzi_lorawan_class_b_state next;
+
+		if (source->event_data.class_b_status.status == SMTC_MODEM_EVENT_CLASS_B_READY) {
+			next = RZI_LORAWAN_CLASS_B_ACTIVE;
+		} else if (source->event_data.class_b_status.status ==
+			   SMTC_MODEM_EVENT_CLASS_B_NOT_READY) {
+			next = RZI_LORAWAN_CLASS_B_IDLE;
+		} else {
 			break;
 		}
-	} while (pending > 0);
+		if (rzi_lorawan_usp_set_class_b_state(next)) {
+			rzi_lorawan_usp_publish_class_b(next);
+		}
+		break;
+	}
+#ifdef CONFIG_RZI_LORAWAN_FUOTA
+	case SMTC_MODEM_EVENT_ALCSYNC_TIME:
+		event.type = RZI_LORAWAN_BACKEND_FUOTA;
+		event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_CLOCK_SYNCED;
+		event.fuota.successful = true;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_NEW_MULTICAST_SESSION_CLASS_C:
+	case SMTC_MODEM_EVENT_NEW_MULTICAST_SESSION_CLASS_B:
+		event.type = RZI_LORAWAN_BACKEND_FUOTA;
+		event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_SESSION_STARTED;
+		event.fuota.successful = true;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_NO_MORE_MULTICAST_SESSION_CLASS_C:
+	case SMTC_MODEM_EVENT_NO_MORE_MULTICAST_SESSION_CLASS_B:
+		event.type = RZI_LORAWAN_BACKEND_FUOTA;
+		event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_SESSION_ENDED;
+		event.fuota.successful = true;
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_LORAWAN_FUOTA_DONE:
+		event.type = RZI_LORAWAN_BACKEND_FUOTA;
+		event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_TRANSFER_DONE;
+		event.fuota.successful = source->event_data.fuota_status.successful;
+		fuota_image_ready = event.fuota.successful;
+#ifdef CONFIG_LORA_BASICS_MODEM_FUOTA_V2
+		if (event.fuota.successful) {
+			lorawan_fragmentation_package_get_file_size(STACK_ID,
+								    &event.fuota.image_size);
+		}
+#endif
+		rzi_lorawan_usp_publish(&event);
+		break;
+	case SMTC_MODEM_EVENT_FIRMWARE_MANAGEMENT:
+		if (source->event_data.fmp.status == SMTC_MODEM_EVENT_FMP_REBOOT_IMMEDIATELY) {
+			event.type = RZI_LORAWAN_BACKEND_FUOTA;
+			event.fuota.kind = RZI_LORAWAN_BACKEND_FUOTA_REBOOT_REQUESTED;
+			event.fuota.successful = true;
+			rzi_lorawan_usp_publish(&event);
+		}
+		break;
+#endif
+	default:
+		break;
+	}
 }
 
 int rzi_lorawan_usp_enter(void)
 {
-	k_mutex_lock(&rac_api_mutex, K_FOREVER);
+	rzi_usp_lock();
 	if (!ready) {
-		k_mutex_unlock(&rac_api_mutex);
+		rzi_usp_unlock();
 		return -RZI_ERR_NOT_READY;
 	}
 	return 0;
@@ -355,14 +428,29 @@ int rzi_lorawan_usp_enter(void)
 
 int rzi_lorawan_usp_finish(int rc)
 {
-	k_mutex_unlock(&rac_api_mutex);
-	smtc_modem_hal_wake_up();
+	rzi_usp_unlock();
 	return rc;
+}
+
+int rzi_lorawan_usp_require_joined(void)
+{
+	smtc_modem_status_mask_t status = 0;
+	int rc = rzi_usp_result(smtc_modem_get_status(STACK_ID, &status));
+
+	if (rc != 0) {
+		return rc;
+	}
+	return (status & SMTC_MODEM_STATUS_JOINED) != 0U ? 0 : -RZI_ERR_NOT_JOINED;
 }
 
 bool rzi_lorawan_usp_tx_pending(void)
 {
 	return tx_pending;
+}
+
+void rzi_lorawan_usp_set_tx_pending(void)
+{
+	tx_pending = true;
 }
 
 bool rzi_lorawan_usp_set_class_b_state(enum rzi_lorawan_class_b_state state)
@@ -405,10 +493,13 @@ static int usp_join(const struct rzi_lorawan_join_config *config)
 	join_settings = *config;
 	credentials_valid = true;
 	rc = configure_credentials();
+	if (rc == 0) {
+		rc = configure_channel_mask();
+	}
 	if (rc != 0) {
 		return rzi_lorawan_usp_finish(rc);
 	}
-	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(smtc_modem_join_network(STACK_ID)));
+	return rzi_lorawan_usp_finish(rzi_usp_result(smtc_modem_join_network(STACK_ID)));
 }
 
 static int usp_leave(void)
@@ -425,7 +516,7 @@ static int usp_leave(void)
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 	fuota_image_ready = false;
 #endif
-	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(smtc_modem_leave_network(STACK_ID)));
+	return rzi_lorawan_usp_finish(rzi_usp_result(smtc_modem_leave_network(STACK_ID)));
 }
 
 static int usp_send(uint8_t port, const uint8_t *data, size_t size,
@@ -439,7 +530,7 @@ static int usp_send(uint8_t port, const uint8_t *data, size_t size,
 	if (tx_pending) {
 		return rzi_lorawan_usp_finish(-RZI_ERR_BUSY);
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_request_uplink(
+	rc = rzi_usp_result(smtc_modem_request_uplink(
 		STACK_ID, port, type == RZI_LORAWAN_MSG_CONFIRMED, data, size));
 	if (rc == 0) {
 		tx_pending = true;
@@ -455,7 +546,7 @@ static int usp_is_joined(bool *joined)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_get_status(STACK_ID, &status));
+	rc = rzi_usp_result(smtc_modem_get_status(STACK_ID, &status));
 	if (rc == 0) {
 		*joined = (status & SMTC_MODEM_STATUS_JOINED) != 0;
 	}
@@ -491,7 +582,7 @@ static int usp_set_class(enum rzi_lorawan_class device_class)
 	}
 	previous = rzi_lorawan_usp_class_b_state();
 	changed = rzi_lorawan_usp_set_class_b_state(next);
-	rc = rzi_lorawan_usp_result(smtc_modem_set_class(STACK_ID, mapped));
+	rc = rzi_usp_result(smtc_modem_set_class(STACK_ID, mapped));
 	if (rc != 0 && changed) {
 		(void)rzi_lorawan_usp_set_class_b_state(previous);
 		changed = false;
@@ -551,7 +642,7 @@ static int usp_fuota_start_clock_sync(void)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_start_alcsync_service(STACK_ID));
+	rc = rzi_usp_result(smtc_modem_start_alcsync_service(STACK_ID));
 	if (rc == 0) {
 		(void)smtc_modem_trig_lorawan_mac_request(STACK_ID,
 							  SMTC_MODEM_LORAWAN_MAC_REQ_DEVICE_TIME);
@@ -614,12 +705,10 @@ static int usp_start(enum rzi_lorawan_region selected_region, bool bypass,
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 	lorawan_register_fuota_callbacks(&usp_fuota_cb);
 #endif
-	SMTC_SW_PLATFORM_INIT();
-	k_mutex_lock(&rac_api_mutex, K_FOREVER);
-	smtc_rac_init();
-	smtc_modem_init(modem_event_callback);
-	k_mutex_unlock(&rac_api_mutex);
-	smtc_modem_hal_wake_up();
+	rzi_usp_init();
+	rzi_usp_lock();
+	rzi_usp_set_event_handler(handle_event);
+	rzi_usp_unlock();
 	return 0;
 }
 
@@ -636,9 +725,13 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.is_busy = usp_is_busy,
 	.network = &usp_network_ops,
 	.session = &usp_session_ops,
+#ifdef CONFIG_LORA_BASICS_MODEM_CLASS_B
 	.class_b = &usp_class_b_ops,
+#endif
 	.mac = &usp_mac_ops,
+#ifdef CONFIG_LORA_BASICS_MODEM_MULTICAST
 	.multicast = &usp_multicast_ops,
+#endif
 	.certification = &usp_cert_ops,
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 	.fuota = &usp_fuota_ops,

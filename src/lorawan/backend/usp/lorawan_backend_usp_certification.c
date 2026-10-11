@@ -15,7 +15,7 @@ static int usp_get_cert_mode(bool *enabled)
 	if (rc != 0) {
 		return rc;
 	}
-	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(
+	return rzi_lorawan_usp_finish(rzi_usp_result(
 		smtc_modem_get_certification_mode(RZI_LORAWAN_USP_STACK_ID, enabled)));
 }
 
@@ -26,7 +26,7 @@ static int usp_set_cert_mode(bool enabled)
 	if (rc != 0) {
 		return rc;
 	}
-	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(
+	return rzi_lorawan_usp_finish(rzi_usp_result(
 		smtc_modem_set_certification_mode(RZI_LORAWAN_USP_STACK_ID, enabled)));
 }
 

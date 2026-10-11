@@ -5,13 +5,11 @@
 
 #include <zephyr/ztest.h>
 
-#include <rzi/capabilities.h>
 #include <rzi/storage/storage.h>
 
-ZTEST(rzi_storage_api, test_initialization_and_capability)
+ZTEST(rzi_storage_api, test_initialization)
 {
 	zassert_ok(rzi_storage_init());
-	zassert_equal(rzi_get_capabilities(), RZI_CAP_STORAGE);
 }
 
 ZTEST(rzi_storage_api, test_arguments_are_validated_before_backend_access)

@@ -9,7 +9,6 @@
 #include "../lorawan_priv.h"
 
 #include "ops/lorawan_certification_ops.h"
-#include "ops/lorawan_channel_ops.h"
 #include "ops/lorawan_class_b_ops.h"
 #include "ops/lorawan_fuota_ops.h"
 #include "ops/lorawan_mac_ops.h"
@@ -41,6 +40,10 @@ enum rzi_lorawan_backend_event_type {
 	RZI_LORAWAN_BACKEND_DEVICE_TIME,
 	/** Class B acquisition state changed. */
 	RZI_LORAWAN_BACKEND_CLASS_B,
+	/** Regional duty cycle started or stopped delaying uplinks. */
+	RZI_LORAWAN_BACKEND_DUTY_CYCLE,
+	/** Uplinks went unanswered; carries RZI_LORAWAN_NO_DOWNLINK_* reasons. */
+	RZI_LORAWAN_BACKEND_NO_DOWNLINK,
 };
 
 /** FUOTA session kind carried by RZI_LORAWAN_BACKEND_FUOTA. */
@@ -66,7 +69,10 @@ enum rzi_lorawan_backend_fuota_kind {
 struct rzi_lorawan_backend_event {
 	/** Selects the active union member. */
 	enum rzi_lorawan_backend_event_type type;
-	/** Negative RZI_ERR_* for ERROR, JOIN_FAILED, DEVICE_TIME, and TX_DONE. */
+	/**
+	 * Negative RZI_ERR_* for ERROR, JOIN_FAILED, DEVICE_TIME, and TX_DONE.
+	 * ERROR with -RZI_ERR_OVERFLOW means the stack dropped events.
+	 */
 	int error;
 	union {
 		/** Uplink result for RZI_LORAWAN_BACKEND_TX_DONE. */
@@ -83,8 +89,16 @@ struct rzi_lorawan_backend_event {
 			int16_t rssi_dbm;
 			/** Signal-to-noise ratio in quarter-dB units. */
 			int8_t snr_quarter_db;
-			/** Backend-independent downlink flags. */
+			/** RZI_LORAWAN_DOWNLINK_* flags. */
 			uint32_t flags;
+			/** Receive window. */
+			enum rzi_lorawan_rx_window window;
+			/** Multicast group when flags has RZI_LORAWAN_DOWNLINK_MULTICAST. */
+			uint8_t multicast_group;
+			/** Downlink data rate. */
+			enum rzi_lorawan_data_rate data_rate;
+			/** Downlink frequency in hertz, or zero when unknown. */
+			uint32_t frequency_hz;
 			/** Payload copied into the service event queue. */
 			uint8_t data[RZI_LORAWAN_MAX_PAYLOAD];
 		} downlink;
@@ -101,6 +115,10 @@ struct rzi_lorawan_backend_event {
 		struct rzi_lorawan_link_check_result link_check;
 		/** Class B state for RZI_LORAWAN_BACKEND_CLASS_B. */
 		enum rzi_lorawan_class_b_state class_b;
+		/** True while the duty cycle delays uplinks, for DUTY_CYCLE. */
+		bool duty_cycle_limited;
+		/** RZI_LORAWAN_NO_DOWNLINK_* reasons for NO_DOWNLINK. */
+		uint8_t no_downlink;
 	};
 };
 
@@ -119,6 +137,15 @@ typedef void (*rzi_lorawan_event_sink_t)(const struct rzi_lorawan_backend_event 
  * return from join() or send() means accepted; completion is asynchronous
  * through the event sink. A NULL ops pointer means the whole group is
  * unsupported. A NULL member inside a table returns -RZI_ERR_NOT_SUPPORTED.
+ *
+ * The contract follows LoRa Basics Modem semantics; other backends emulate
+ * them. In particular join() starts a sequence the backend keeps retrying,
+ * publishing JOIN_FAILED per failed attempt, until JOINED or leave(). The
+ * stack owns runtime state such as busy and the current data rate; the
+ * service does not shadow it.
+ *
+ * Each optional table must be present exactly when its RZI_LORAWAN_CAP_* bit
+ * is set; rzi_lorawan_start() asserts this.
  */
 struct rzi_lorawan_backend_api {
 	/** Bitwise OR of enum rzi_lorawan_capability values. */
@@ -141,12 +168,10 @@ struct rzi_lorawan_backend_api {
 	int (*is_joined)(bool *joined);
 	/** Return whether the next uplink of this size can be sent, or NULL. */
 	int (*query_tx_possible)(size_t size);
-	/** Store whether the radio or MAC is busy, or NULL. */
+	/** Store whether the stack is still processing an uplink. */
 	int (*is_busy)(bool *busy);
 	/** MAC-parameter table, or NULL. */
 	const struct rzi_lorawan_network_ops *network;
-	/** Channel-plan table, or NULL. */
-	const struct rzi_lorawan_channel_ops *channel;
 	/** Class B table, or NULL. */
 	const struct rzi_lorawan_class_b_ops *class_b;
 	/** Session-identity table, or NULL. */

@@ -11,14 +11,19 @@
 #include <smtc_modem_api.h>
 
 #include "../lorawan_backend.h"
+#include "usp_platform.h"
 
 #define RZI_LORAWAN_USP_STACK_ID 0
 
+/** Take the USP lock; fails with -RZI_ERR_NOT_READY before LBM reported RESET. */
 int rzi_lorawan_usp_enter(void);
+/** Release the lock taken by rzi_lorawan_usp_enter() and return rc. */
 int rzi_lorawan_usp_finish(int rc);
-int rzi_lorawan_usp_result(smtc_modem_return_code_t rc);
+/** With the lock held: -RZI_ERR_NOT_JOINED unless a session is active. */
+int rzi_lorawan_usp_require_joined(void);
 void rzi_lorawan_usp_publish(const struct rzi_lorawan_backend_event *event);
 bool rzi_lorawan_usp_tx_pending(void);
+void rzi_lorawan_usp_set_tx_pending(void);
 bool rzi_lorawan_usp_set_class_b_state(enum rzi_lorawan_class_b_state state);
 void rzi_lorawan_usp_publish_class_b(enum rzi_lorawan_class_b_state state);
 enum rzi_lorawan_class_b_state rzi_lorawan_usp_class_b_state(void);

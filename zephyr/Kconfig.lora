@@ -22,11 +22,14 @@ config RZI_LORA_BACKEND_TEST
 	  production firmware.
 
 config RZI_LORA_BACKEND_USP
-	bool "Semtech USP LoRa Basics Modem test API"
+	bool "Semtech USP radio access controller"
 	depends on RZI_LORAWAN_BACKEND_USP
+	select RZI_USP
 	help
-	  Drive P2P and radio tests through the LoRa Basics Modem test API.
-	  The radio cannot be used for LoRaWAN at the same time.
+	  Run P2P send and receive as USP radio access controller (RAC)
+	  transactions below LoRaWAN priority, so P2P and LoRaWAN share the
+	  radio. Radio certification tests (CW, PER, RSSI) use the LoRa Basics
+	  Modem test mode, which suspends LoRaWAN until rzi_lora_stop().
 
 config RZI_LORA_BACKEND_ZEPHYR
 	bool "Zephyr LoRa driver"

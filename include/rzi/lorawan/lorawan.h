@@ -30,7 +30,7 @@ extern "C" {
 
 /** Maximum storage reserved for a LoRaWAN application payload. */
 #define RZI_LORAWAN_MAX_PAYLOAD             242
-/** Maximum channel-mask words for US915, AU915, and CN470. */
+/** Channel-mask words accepted by the channel API; US915 and AU915 use 5 (72 channels). */
 #define RZI_LORAWAN_CHANNEL_MASK_WORDS      6
 /** Sentinel that never identifies a registered callback subscriber. */
 #define RZI_LORAWAN_CALLBACK_HANDLE_INVALID 0U
@@ -100,7 +100,10 @@ enum rzi_lorawan_class {
  *
  * These names are the protocol index, not a promise that every value is
  * legal. `rzi_lorawan_set_data_rate()` uses the current region's uplink
- * table; `rzi_lorawan_set_rx2_data_rate()` and multicast use the RX2 /
+ * table;  * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
+`rzi_lorawan_set_rx2_data_rate()` and multicast use the RX2 /
  * downlink table. Other indexes return `-RZI_ERR_INVALID`.
  */
 enum rzi_lorawan_data_rate {
@@ -200,7 +203,7 @@ enum rzi_lorawan_capability {
 	RZI_LORAWAN_CAP_CLASS_C = (1U << 4),
 	/** Backend provides the MAC-parameter table. */
 	RZI_LORAWAN_CAP_NETWORK = (1U << 5),
-	/** Backend provides the channel-plan table. */
+	/** Backend applies the US915 / AU915 channel mask from the join configuration. */
 	RZI_LORAWAN_CAP_CHANNEL = (1U << 6),
 	/** Backend provides session-identity queries (NetID / DevNonce). */
 	RZI_LORAWAN_CAP_SESSION = (1U << 7),
@@ -246,6 +249,27 @@ struct rzi_lorawan_tx_result {
 	int error;
 };
 
+/** Receive window that carried a downlink. */
+enum rzi_lorawan_rx_window {
+	/** The backend does not report the window. */
+	RZI_LORAWAN_RX_WINDOW_UNKNOWN,
+	/** Class A first receive window. */
+	RZI_LORAWAN_RX_WINDOW_RX1,
+	/** Class A second receive window. */
+	RZI_LORAWAN_RX_WINDOW_RX2,
+	/** Class C continuous receive window. */
+	RZI_LORAWAN_RX_WINDOW_RXC,
+	/** Class B ping slot. */
+	RZI_LORAWAN_RX_WINDOW_RXB,
+};
+
+/** The network has more downlink data pending (FPending bit). */
+#define RZI_LORAWAN_DOWNLINK_FPENDING     (1U << 0)
+/** The downlink updated the network time (DeviceTimeAns). */
+#define RZI_LORAWAN_DOWNLINK_TIME_UPDATED (1U << 1)
+/** The downlink was received on a multicast session; see multicast_group. */
+#define RZI_LORAWAN_DOWNLINK_MULTICAST    (1U << 2)
+
 /** Downlink metadata and payload. Data is valid only for the callback duration. */
 struct rzi_lorawan_downlink {
 	/** LoRaWAN application port. */
@@ -256,11 +280,24 @@ struct rzi_lorawan_downlink {
 	int16_t rssi_dbm;
 	/** Signal-to-noise ratio in quarter-dB units. */
 	int8_t snr_quarter_db;
-	/** Backend-independent downlink flags. */
+	/** Bitwise OR of RZI_LORAWAN_DOWNLINK_* flags. */
 	uint32_t flags;
+	/** Receive window, or RZI_LORAWAN_RX_WINDOW_UNKNOWN. */
+	enum rzi_lorawan_rx_window window;
+	/** Multicast group index when flags has RZI_LORAWAN_DOWNLINK_MULTICAST. */
+	uint8_t multicast_group;
+	/** Downlink data rate, or RZI_LORAWAN_DR_0 when unknown. */
+	enum rzi_lorawan_data_rate data_rate;
+	/** Downlink frequency in hertz, or zero when unknown. */
+	uint32_t frequency_hz;
 	/** Dispatcher-owned payload valid only during the callback. */
 	const uint8_t *data;
 };
+
+/** RZI_LORAWAN_EVENT_NO_DOWNLINK reasons. */
+#define RZI_LORAWAN_NO_DOWNLINK_ADR_BACKOFF_END (1U << 0)
+/** The threshold set by rzi_lorawan_set_no_downlink_threshold() was reached. */
+#define RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD  (1U << 1)
 
 /** Opaque callback subscriber registration handle. */
 typedef uint16_t rzi_lorawan_callback_handle_t;
@@ -291,6 +328,16 @@ enum rzi_lorawan_event_type {
 	RZI_LORAWAN_EVENT_DEVICE_TIME,
 	/** Class B acquisition state changed. Active member is class_b. */
 	RZI_LORAWAN_EVENT_CLASS_B,
+	/**
+	 * Regional duty cycle started or stopped delaying uplinks. Active member
+	 * is duty_cycle_limited.
+	 */
+	RZI_LORAWAN_EVENT_DUTY_CYCLE,
+	/**
+	 * Uplinks went unanswered for too long. Active member is no_downlink,
+	 * a bitwise OR of RZI_LORAWAN_NO_DOWNLINK_* reasons.
+	 */
+	RZI_LORAWAN_EVENT_NO_DOWNLINK,
 };
 
 /**
@@ -315,6 +362,10 @@ struct rzi_lorawan_event {
 		struct rzi_lorawan_link_check_result link_check;
 		/** Class B state for RZI_LORAWAN_EVENT_CLASS_B. */
 		enum rzi_lorawan_class_b_state class_b;
+		/** True while the regional duty cycle delays uplinks. */
+		bool duty_cycle_limited;
+		/** RZI_LORAWAN_NO_DOWNLINK_* reasons. */
+		uint8_t no_downlink;
 	};
 };
 
@@ -787,7 +838,11 @@ __must_check int rzi_lorawan_get_join_attempts(uint8_t *attempts);
  * `start`, `auto_join`, `interval`, and `attempts` follow the RUI3
  * `service_lora_join()` arguments. @ref RZI_LORAWAN_JOIN_KEEP leaves that
  * stored value unchanged. `start` of 1 uses the stored NJM and credentials.
- * `start` of 0 cancels a pending retry and does not leave the session.
+ * `start` of 0 stops the join sequence, including an attempt still waiting
+ * for Join-Accept. It does not leave a joined session. The stack schedules
+ * retries itself; the service counts failed attempts and stops the stack
+ * when `attempts` is exhausted. USP spaces attempts with the LoRaWAN
+ * regional join backoff and ignores `interval`.
  * A return value of zero means the request was accepted. Completion is
  * reported through on_event() as RZI_LORAWAN_EVENT_JOINED, or as
  * RZI_LORAWAN_EVENT_JOIN_FAILED after the configured attempts are exhausted.
@@ -795,7 +850,8 @@ __must_check int rzi_lorawan_get_join_attempts(uint8_t *attempts);
  * @param start 1 to join, 0 to cancel retries, or @ref RZI_LORAWAN_JOIN_KEEP.
  * @param auto_join 1 to join after the next boot, 0 to disable that, or
  *                  @ref RZI_LORAWAN_JOIN_KEEP.
- * @param interval Seconds between attempts, from
+ * @param interval Seconds between attempts on backends without their own
+ *                 join backoff (ignored by USP), from
  *                 @ref RZI_LORAWAN_JOIN_INTERVAL_MIN to
  *                 @ref RZI_LORAWAN_JOIN_INTERVAL_MAX, or
  *                 @ref RZI_LORAWAN_JOIN_KEEP. The default is
@@ -1118,6 +1174,9 @@ __must_check int rzi_lorawan_set_data_rate(enum rzi_lorawan_data_rate data_rate)
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only. The value is a LoRaWAN power index, not dBm.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_tx_power(uint8_t *tx_power);
@@ -1134,6 +1193,9 @@ __must_check int rzi_lorawan_get_tx_power(uint8_t *tx_power);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_tx_power(uint8_t tx_power);
@@ -1150,6 +1212,9 @@ __must_check int rzi_lorawan_set_tx_power(uint8_t tx_power);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_duty_cycle(bool *enabled);
@@ -1165,6 +1230,9 @@ __must_check int rzi_lorawan_get_duty_cycle(bool *enabled);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_duty_cycle(bool enabled);
@@ -1181,6 +1249,9 @@ __must_check int rzi_lorawan_set_duty_cycle(bool enabled);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_rx1_delay(uint32_t *delay_ms);
@@ -1197,6 +1268,9 @@ __must_check int rzi_lorawan_get_rx1_delay(uint32_t *delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_rx1_delay(uint32_t delay_ms);
@@ -1213,6 +1287,9 @@ __must_check int rzi_lorawan_set_rx1_delay(uint32_t delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_rx2_delay(uint32_t *delay_ms);
@@ -1229,6 +1306,9 @@ __must_check int rzi_lorawan_get_rx2_delay(uint32_t *delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_rx2_delay(uint32_t delay_ms);
@@ -1245,6 +1325,9 @@ __must_check int rzi_lorawan_set_rx2_delay(uint32_t delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_rx2_data_rate(enum rzi_lorawan_data_rate *data_rate);
@@ -1277,6 +1360,9 @@ __must_check int rzi_lorawan_set_rx2_data_rate(enum rzi_lorawan_data_rate data_r
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_rx2_frequency(uint32_t *frequency_hz);
@@ -1293,6 +1379,9 @@ __must_check int rzi_lorawan_get_rx2_frequency(uint32_t *frequency_hz);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_rx2_frequency(uint32_t frequency_hz);
@@ -1309,6 +1398,9 @@ __must_check int rzi_lorawan_set_rx2_frequency(uint32_t frequency_hz);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_join_accept_delay1(uint32_t *delay_ms);
@@ -1325,6 +1417,9 @@ __must_check int rzi_lorawan_get_join_accept_delay1(uint32_t *delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_join_accept_delay1(uint32_t delay_ms);
@@ -1341,6 +1436,9 @@ __must_check int rzi_lorawan_set_join_accept_delay1(uint32_t delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_join_accept_delay2(uint32_t *delay_ms);
@@ -1357,6 +1455,9 @@ __must_check int rzi_lorawan_get_join_accept_delay2(uint32_t *delay_ms);
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @note Reserved for RUI3 compatibility. Every current backend returns
+ *       -RZI_ERR_NOT_SUPPORTED: LoRa Basics Modem takes this parameter from
+ *       the regional parameters and network MAC commands.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_join_accept_delay2(uint32_t delay_ms);
@@ -1488,53 +1589,412 @@ __must_check int rzi_lorawan_set_lbt_scan_time(uint32_t time_ms);
 
 /** @} */
 
-/** @name Channels
+/** @name Link control
+ *
+ * Uplink-strategy controls modeled on LoRa Basics Modem. Every function
+ * returns -RZI_ERR_NOT_SUPPORTED when the backend lacks the control.
  *  @{
  */
 
 /**
- * @brief Read the current channel mask.
+ * Number of slots in a custom ADR or join data-rate distribution. Each slot
+ * holds a data rate (0 through 15); the stack picks the data rate of each
+ * frame from the slots, so a data rate's share is the number of slots holding
+ * it. Slots holding a data rate illegal for the region are ignored.
+ */
+#define RZI_LORAWAN_DR_DISTRIBUTION_LENGTH 16U
+
+/** Uplink data-rate strategy. */
+enum rzi_lorawan_adr_profile {
+	/** The network controls data rate and NbTrans through ADR. */
+	RZI_LORAWAN_ADR_NETWORK,
+	/** Device-side strategy favoring range (low data rates). */
+	RZI_LORAWAN_ADR_MOBILE_LONG_RANGE,
+	/** Device-side strategy favoring battery life (high data rates). */
+	RZI_LORAWAN_ADR_MOBILE_LOW_POWER,
+	/** Device-side strategy from a user distribution. */
+	RZI_LORAWAN_ADR_CUSTOM,
+};
+
+/** CSMA (channel activity detection before transmit) parameters. */
+struct rzi_lorawan_csma_params {
+	/** Channel changes allowed before giving up on a busy channel. */
+	uint8_t max_channel_changes;
+	/** Back off on the same channel before changing channel. */
+	bool backoff_enabled;
+	/** Maximum number of back-offs per channel. */
+	uint8_t max_backoffs;
+};
+
+/**
+ * @brief Read the uplink data-rate strategy.
  *
- * @param[out] mask Buffer of @ref RZI_LORAWAN_CHANNEL_MASK_WORDS words.
- * @param words Number of 16-bit words in mask.
+ * @param[out] profile Stored profile.
  *
- * @retval 0 Mask copied.
- * @retval -RZI_ERR_INVALID mask is NULL or words is zero.
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID profile is NULL.
  * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support channel management.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support ADR profiles.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_adr_profile(enum rzi_lorawan_adr_profile *profile);
+
+/**
+ * @brief Select the uplink data-rate strategy.
+ *
+ * @param profile Strategy to apply.
+ * @param distribution For RZI_LORAWAN_ADR_CUSTOM, RZI_LORAWAN_DR_DISTRIBUTION_LENGTH
+ *        data-rate slots as described there. Ignored for the other profiles
+ *        and may be NULL.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_INVALID The profile is unknown, or CUSTOM has a NULL
+ *         distribution or no slot legal for the region.
+ * @retval -RZI_ERR_NOT_JOINED No network session is active.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support ADR profiles.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only. rzi_lorawan_set_adr() and
+ *       rzi_lorawan_set_data_rate() select the network profile and a custom
+ *       profile pinned to one data rate respectively.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_adr_profile(enum rzi_lorawan_adr_profile profile,
+					     const uint8_t *distribution);
+
+/**
+ * @brief Read the number of transmissions of each unconfirmed uplink.
+ *
+ * @param[out] nb_trans Stored NbTrans, 1 through 15.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID nb_trans is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_nb_trans(uint8_t *nb_trans);
+
+/**
+ * @brief Set the number of transmissions of each unconfirmed uplink.
+ *
+ * @param nb_trans NbTrans, 1 through 15.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_INVALID nb_trans is out of range or the ADR profile is
+ *         network-controlled, where the network owns NbTrans.
+ * @retval -RZI_ERR_NOT_JOINED No network session is active.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_nb_trans(uint8_t nb_trans);
+
+/**
+ * @brief Read the ADR back-off parameters.
+ *
+ * @param[out] limit ADR_ACK_LIMIT uplinks.
+ * @param[out] delay ADR_ACK_DELAY uplinks.
+ *
+ * @retval 0 Values stored.
+ * @retval -RZI_ERR_INVALID A pointer is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_adr_ack(uint8_t *limit, uint8_t *delay);
+
+/**
+ * @brief Set the ADR back-off parameters.
+ *
+ * @param limit ADR_ACK_LIMIT, 2 through 127 uplinks.
+ * @param delay ADR_ACK_DELAY, 2 through 127 uplinks.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_INVALID A value is out of range.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_adr_ack(uint8_t limit, uint8_t delay);
+
+/**
+ * @brief Set the data-rate distribution used by join requests.
+ *
+ * @param distribution RZI_LORAWAN_DR_DISTRIBUTION_LENGTH data-rate slots, as
+ *        for rzi_lorawan_set_adr_profile().
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_INVALID distribution is NULL or illegal for the region.
+ * @retval -RZI_ERR_BUSY A join is in progress or a session is active.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_join_data_rates(const uint8_t *distribution);
+
+/**
+ * @brief Read the regional duty-cycle budget.
+ *
+ * @param[out] time_ms Positive: transmit time still available. Negative:
+ *             time to wait before the next uplink is allowed.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID time_ms is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not track duty cycle.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only. RZI_LORAWAN_EVENT_DUTY_CYCLE reports changes.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_duty_cycle_status(int32_t *time_ms);
+
+/**
+ * @brief Read whether CSMA is enabled.
+ *
+ * @param[out] enabled True when CSMA is enabled.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend or build lacks CSMA.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_csma(bool *enabled);
+
+/**
+ * @brief Enable or disable CSMA.
+ *
+ * @param enabled True to run channel activity detection before each uplink.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend or build lacks CSMA.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_csma(bool enabled);
+
+/**
+ * @brief Read the CSMA parameters.
+ *
+ * @param[out] params Stored parameters.
+ *
+ * @retval 0 Values stored.
+ * @retval -RZI_ERR_INVALID params is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend or build lacks CSMA.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_csma_params(struct rzi_lorawan_csma_params *params);
+
+/**
+ * @brief Set the CSMA parameters.
+ *
+ * @param params Parameters to apply.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_INVALID params is NULL or out of range.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend or build lacks CSMA.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_csma_params(const struct rzi_lorawan_csma_params *params);
+
+/**
+ * @brief Read the number of uplinks sent since the last downlink.
+ *
+ * @param[out] count Stored counter.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID count is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not track this counter.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_lost_connection_count(uint16_t *count);
+
+/**
+ * @brief Read the number of unanswered uplinks that raises
+ *        RZI_LORAWAN_EVENT_NO_DOWNLINK with RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD.
+ *
+ * @param[out] uplinks Stored threshold; zero means disabled.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID uplinks is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_no_downlink_threshold(uint16_t *uplinks);
+
+/**
+ * @brief Set the number of unanswered uplinks that raises
+ *        RZI_LORAWAN_EVENT_NO_DOWNLINK with RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD.
+ *
+ * @param uplinks Threshold; zero disables the event.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_no_downlink_threshold(uint16_t uplinks);
+
+/**
+ * @brief Read the crystal error compensated in receive windows.
+ *
+ * @param[out] ppm Stored error in parts per million.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID ppm is NULL.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_crystal_error(uint32_t *ppm);
+
+/**
+ * @brief Set the crystal error compensated in receive windows.
+ *
+ * @param ppm Error in parts per million.
+ *
+ * @retval 0 Setting applied.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this setting.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_set_crystal_error(uint32_t ppm);
+
+/**
+ * @brief Request an uplink without application payload.
+ *
+ * Use it to flush MAC answers or open receive windows. Completion is reported
+ * as RZI_LORAWAN_EVENT_TX_DONE, like rzi_lorawan_send().
+ *
+ * @param with_port Include FPort; false sends a frame with no FPort.
+ * @param port FPort, 1 through 223, used when with_port is true.
+ * @param type Unconfirmed or confirmed uplink.
+ *
+ * @retval 0 Request accepted.
+ * @retval -RZI_ERR_INVALID port or type is invalid.
+ * @retval -RZI_ERR_NOT_JOINED No network session is active.
+ * @retval -RZI_ERR_BUSY Another uplink is outstanding.
+ * @retval -RZI_ERR_NOT_READY The service has not started.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support empty uplinks.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_send_empty(bool with_port, uint8_t port,
+					enum rzi_lorawan_message_type type);
+
+/** @} */
+
+/** @name Channels
+ *
+ * US915 and AU915 only. Bit n of word n / 16 is uplink channel n: channels
+ * 0-63 are the 125 kHz channels and 64-71 the 500 kHz channels. The core
+ * stores one channel mask, persists it with the credentials, and hands it to
+ * the backend at the next join; sub-band and fixed-channel calls are views of
+ * it. A channel mask from the network (LinkADRReq) replaces it until the next
+ * join. Other regions, including CN470, and backends without
+ * @ref RZI_LORAWAN_CAP_CHANNEL return -RZI_ERR_NOT_SUPPORTED.
+ *  @{
+ */
+
+/**
+ * @brief Read the channel mask used at the next join.
+ *
+ * @param[out] mask Buffer of at least 5 words; extra words are cleared.
+ * @param words Number of 16-bit words in mask.
+ *
+ * @retval 0 Mask copied; every channel is set when no mask is stored.
+ * @retval -RZI_ERR_INVALID mask is NULL or words is less than 5.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only. Works before @ref rzi_lorawan_start.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_channel_mask(uint16_t *mask, size_t words);
 
 /**
- * @brief Set the channel mask.
+ * @brief Store the channel mask used from the next join on.
+ *
+ * A mask with every channel set removes the restriction.
  *
  * @param mask Channel-mask words copied before return.
- * @param words Number of 16-bit words in mask.
+ * @param words Number of 16-bit words in mask, 5 or 6.
  *
- * @retval 0 Mask applied.
- * @retval -RZI_ERR_INVALID mask is NULL or words is invalid for the region.
- * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support channel management.
+ * @retval 0 Mask stored.
+ * @retval -RZI_ERR_INVALID mask is NULL, words is out of range, no channel
+ *         is set, or a channel above 71 is set.
+ * @retval -RZI_ERR_BUSY A join sequence is running.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
- * @note Thread context only.
+ * @note Thread context only. Works before @ref rzi_lorawan_start.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_channel_mask(const uint16_t *mask, size_t words);
 
 /**
- * @brief Read the 8-channel sub-band selection.
+ * @brief Read the LoRaWAN frequency sub-band (FSB) of the stored mask.
  *
- * @param[out] sub_band 0 for all channels, or 1 through 8.
+ * @param[out] sub_band 0 when every channel is enabled, or 1 through 8.
  *
  * @retval 0 Value stored.
  * @retval -RZI_ERR_INVALID sub_band is NULL.
- * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support sub-bands.
+ * @retval -RZI_ERR_NO_DATA The mask is not exactly one sub-band.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
@@ -1543,14 +2003,18 @@ __must_check int rzi_lorawan_set_channel_mask(const uint16_t *mask, size_t words
 __must_check int rzi_lorawan_get_sub_band(uint8_t *sub_band);
 
 /**
- * @brief Select an 8-channel sub-band for US915, AU915, or CN470.
+ * @brief Select a LoRaWAN frequency sub-band (FSB).
+ *
+ * Sub-band n enables 125 kHz channels 8(n-1) to 8(n-1)+7 and 500 kHz
+ * channel 63+n. RUI3 AT+CHE uses blocks without the 500 kHz channel; the AT
+ * layer builds those masks with @ref rzi_lorawan_set_channel_mask.
  *
  * @param sub_band 0 for all channels, or 1 through 8.
  *
- * @retval 0 Setting applied.
+ * @retval 0 Setting stored.
  * @retval -RZI_ERR_INVALID sub_band is greater than 8.
- * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support sub-bands.
+ * @retval -RZI_ERR_BUSY A join sequence is running.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
@@ -1559,14 +2023,14 @@ __must_check int rzi_lorawan_get_sub_band(uint8_t *sub_band);
 __must_check int rzi_lorawan_set_sub_band(uint8_t sub_band);
 
 /**
- * @brief Read the fixed-channel frequency in hertz.
+ * @brief Read the fixed uplink channel in hertz.
  *
- * @param[out] frequency_hz Stored frequency, or zero when all channels are used.
+ * @param[out] frequency_hz Frequency of the only enabled channel, or zero
+ *             when more than one channel is enabled.
  *
  * @retval 0 Value stored.
  * @retval -RZI_ERR_INVALID frequency_hz is NULL.
- * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support a fixed channel.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.
@@ -1575,14 +2039,17 @@ __must_check int rzi_lorawan_set_sub_band(uint8_t sub_band);
 __must_check int rzi_lorawan_get_fixed_channel(uint32_t *frequency_hz);
 
 /**
- * @brief Restrict US915, AU915, or CN470 to one uplink channel.
+ * @brief Restrict uplinks to one channel.
  *
- * @param frequency_hz Channel frequency, or zero to restore the sub-band mask.
+ * US915: 902.3 MHz + 200 kHz * n (n = 0-63) and 903.0 MHz + 1.6 MHz * (n - 64).
+ * AU915: 915.2 MHz + 200 kHz * n and 915.9 MHz + 1.6 MHz * (n - 64).
  *
- * @retval 0 Setting applied.
- * @retval -RZI_ERR_INVALID The frequency is not a regional channel.
- * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support a fixed channel.
+ * @param frequency_hz Channel frequency, or zero to enable every channel.
+ *
+ * @retval 0 Setting stored.
+ * @retval -RZI_ERR_INVALID The frequency is not a regional uplink channel.
+ * @retval -RZI_ERR_BUSY A join sequence is running.
+ * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
  *
  * @note Thread context only.

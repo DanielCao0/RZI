@@ -57,6 +57,12 @@ static int test_ok(void)
 	return 0;
 }
 
+static int test_get_rssi(int16_t *rssi_dbm)
+{
+	*rssi_dbm = -80;
+	return 0;
+}
+
 static int test_count(uint32_t packet_count)
 {
 	ARG_UNUSED(packet_count);
@@ -78,6 +84,7 @@ const struct rzi_lora_backend_api rzi_lora_backend = {
 	.send = test_send,
 	.receive = test_receive,
 	.test_rssi = test_ok,
+	.test_get_rssi = test_get_rssi,
 	.test_tone = test_ok,
 	.test_tx = test_count,
 	.test_rx = test_count,

@@ -101,14 +101,21 @@ static int fake_is_joined(bool *joined)
 	return 0;
 }
 
+static int fake_is_busy(bool *busy)
+{
+	*busy = false;
+	return 0;
+}
+
 const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
-	.capabilities = RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A,
+	.capabilities = RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CHANNEL,
 	.start = fake_start,
 	.join = fake_join,
 	.leave = fake_leave,
 	.send = fake_send,
 	.set_class = fake_set_class,
 	.is_joined = fake_is_joined,
+	.is_busy = fake_is_busy,
 };
 
 static void reset_output(void)
@@ -151,6 +158,40 @@ static void *setup(void)
 	return NULL;
 }
 
+/* Runs before the service starts; the channel commands work on the stored mask. */
+ZTEST(rzi_at_lorawan_command, test_channel_commands)
+{
+	send_command_until("AT+MASK=?\r", "AT_ERROR");
+	send_command_until("AT+BAND=5\r", "\r\nOK\r\n");
+	send_command_until("AT+MASK=?\r", "AT+MASK=01FF");
+	send_command_until("AT+CHE=?\r", "AT+CHE=0\r");
+	send_command_until("AT+CHS=?\r", "AT+CHS=0\r");
+
+	/* MASK bit 1: channels 8-15 and 65. */
+	send_command_until("AT+MASK=0002\r", "\r\nOK\r\n");
+	send_command_until("AT+MASK=?\r", "AT+MASK=0002");
+	send_command_until("AT+CHE=?\r", "AT+CHE=2\r");
+	send_command_until("AT+MASK=0200\r", "AT_PARAM_ERROR");
+	send_command_until("AT+MASK=12\r", "AT_PARAM_ERROR");
+
+	/* CHE 9: the 500 kHz channels 64-71. */
+	send_command_until("AT+CHE=1:9\r", "\r\nOK\r\n");
+	send_command_until("AT+CHE=?\r", "AT+CHE=1:9\r");
+	send_command_until("AT+MASK=?\r", "AT+MASK=0101");
+	send_command_until("AT+CHE=10\r", "AT_PARAM_ERROR");
+	send_command_until("AT+CHE=1:\r", "AT_PARAM_ERROR");
+
+	/* Channel 10. */
+	send_command_until("AT+CHS=904300000\r", "\r\nOK\r\n");
+	send_command_until("AT+CHS=?\r", "AT+CHS=904300000");
+	send_command_until("AT+CHE=?\r", "AT+CHE=2\r");
+	send_command_until("AT+CHS=904400000\r", "AT_PARAM_ERROR");
+
+	send_command_until("AT+CHE=0\r", "\r\nOK\r\n");
+	send_command_until("AT+MASK=?\r", "AT+MASK=01FF");
+	send_command_until("AT+BAND=4\r", "\r\nOK\r\n");
+}
+
 ZTEST(rzi_at_lorawan_command, test_rui3_compatible_otaa_workflow)
 {
 	static const uint8_t expected_dev_eui[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
@@ -177,6 +218,7 @@ ZTEST(rzi_at_lorawan_command, test_rui3_compatible_otaa_workflow)
 	send_command_until("AT+JOIN\r", "+EVT:JOINED");
 
 	zassert_equal(received_join_config.activation, RZI_LORAWAN_ACTIVATION_OTAA);
+	zassert_false(received_join_config.channel_mask_set);
 	zassert_mem_equal(received_join_config.otaa.dev_eui, expected_dev_eui,
 			  sizeof(expected_dev_eui));
 	zassert_mem_equal(received_join_config.otaa.join_eui, expected_join_eui,

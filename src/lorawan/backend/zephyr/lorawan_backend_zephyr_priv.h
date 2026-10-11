@@ -14,6 +14,7 @@
 int rzi_lorawan_zephyr_mib_dev_addr(uint32_t *dev_addr);
 int rzi_lorawan_zephyr_mib_nwk_skey(uint8_t key[16]);
 int rzi_lorawan_zephyr_mib_app_skey(uint8_t key[16]);
+int rzi_lorawan_zephyr_mib_set_channels(uint16_t mask[6]);
 int rzi_lorawan_zephyr_lock_started(void);
 void rzi_lorawan_zephyr_unlock(void);
 bool rzi_lorawan_zephyr_busy(void);
@@ -28,7 +29,6 @@ int zephyr_query_tx_possible(size_t size);
 int zephyr_is_busy(bool *busy);
 
 extern const struct rzi_lorawan_network_ops zephyr_network_ops;
-extern const struct rzi_lorawan_channel_ops zephyr_channel_ops;
 extern const struct rzi_lorawan_session_ops zephyr_session_ops;
 extern const struct rzi_lorawan_mac_ops zephyr_mac_ops;
 

@@ -107,6 +107,12 @@ static const struct rzi_lorawan_fuota_ops fake_fuota_ops = {
 	.reboot = fake_reboot,
 };
 
+static int fake_is_busy(bool *busy)
+{
+	*busy = false;
+	return 0;
+}
+
 const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.capabilities = RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CLASS_C |
 			RZI_LORAWAN_CAP_FUOTA,
@@ -116,6 +122,7 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.send = fake_send,
 	.set_class = fake_set_class,
 	.is_joined = fake_is_joined,
+	.is_busy = fake_is_busy,
 	.fuota = &fake_fuota_ops,
 };
 

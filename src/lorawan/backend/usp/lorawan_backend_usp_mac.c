@@ -13,7 +13,7 @@ static int usp_link_check_request(void)
 	if (rc != 0) {
 		return rc;
 	}
-	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(smtc_modem_trig_lorawan_mac_request(
+	return rzi_lorawan_usp_finish(rzi_usp_result(smtc_modem_trig_lorawan_mac_request(
 		RZI_LORAWAN_USP_STACK_ID, SMTC_MODEM_LORAWAN_MAC_REQ_LINK_CHECK)));
 }
 
@@ -24,7 +24,7 @@ static int usp_device_time_request(void)
 	if (rc != 0) {
 		return rc;
 	}
-	return rzi_lorawan_usp_finish(rzi_lorawan_usp_result(smtc_modem_trig_lorawan_mac_request(
+	return rzi_lorawan_usp_finish(rzi_usp_result(smtc_modem_trig_lorawan_mac_request(
 		RZI_LORAWAN_USP_STACK_ID, SMTC_MODEM_LORAWAN_MAC_REQ_DEVICE_TIME)));
 }
 
@@ -35,7 +35,7 @@ static int usp_get_network_time(struct rzi_lorawan_network_time *time)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_get_lorawan_mac_time(
+	rc = rzi_usp_result(smtc_modem_get_lorawan_mac_time(
 		RZI_LORAWAN_USP_STACK_ID, &time->gps_seconds, &time->gps_subseconds));
 	return rzi_lorawan_usp_finish(rc);
 }

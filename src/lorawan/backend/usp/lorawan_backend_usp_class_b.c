@@ -16,7 +16,7 @@ int usp_get_class(enum rzi_lorawan_class *device_class)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_get_class(RZI_LORAWAN_USP_STACK_ID, &mapped));
+	rc = rzi_usp_result(smtc_modem_get_class(RZI_LORAWAN_USP_STACK_ID, &mapped));
 	if (rc == 0) {
 		switch (mapped) {
 		case SMTC_MODEM_CLASS_A:
@@ -44,7 +44,7 @@ static int usp_get_ping_slot(uint8_t *periodicity)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(
+	rc = rzi_usp_result(
 		smtc_modem_class_b_get_ping_slot_periodicity(RZI_LORAWAN_USP_STACK_ID, &mapped));
 	if (rc == 0) {
 		*periodicity = (uint8_t)mapped;
@@ -59,10 +59,9 @@ static int usp_set_ping_slot(uint8_t periodicity)
 	if (rc != 0) {
 		return rc;
 	}
-	return rzi_lorawan_usp_finish(
-		rzi_lorawan_usp_result(smtc_modem_class_b_set_ping_slot_periodicity(
-			RZI_LORAWAN_USP_STACK_ID,
-			(smtc_modem_class_b_ping_slot_periodicity_t)periodicity)));
+	return rzi_lorawan_usp_finish(rzi_usp_result(smtc_modem_class_b_set_ping_slot_periodicity(
+		RZI_LORAWAN_USP_STACK_ID,
+		(smtc_modem_class_b_ping_slot_periodicity_t)periodicity)));
 }
 
 static int usp_get_class_b_state(enum rzi_lorawan_class_b_state *state)
@@ -84,8 +83,7 @@ static int usp_stop_class_b(void)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(
-		smtc_modem_set_class(RZI_LORAWAN_USP_STACK_ID, SMTC_MODEM_CLASS_A));
+	rc = rzi_usp_result(smtc_modem_set_class(RZI_LORAWAN_USP_STACK_ID, SMTC_MODEM_CLASS_A));
 	if (rc == 0) {
 		notify = rzi_lorawan_usp_set_class_b_state(RZI_LORAWAN_CLASS_B_IDLE);
 	}

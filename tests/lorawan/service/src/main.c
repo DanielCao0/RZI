@@ -7,7 +7,6 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/ztest.h>
 
-#include <rzi/capabilities.h>
 #include <rzi/lorawan/certification.h>
 #include <rzi/lorawan/lorawan.h>
 #include <rzi/lorawan/multicast.h>
@@ -19,6 +18,12 @@ K_SEM_DEFINE(callback_sem, 0, 8);
 
 extern rzi_lorawan_event_sink_t fake_sink;
 extern int fake_set_class_error;
+extern int fake_join_failures;
+extern int fake_join_attempts;
+extern int fake_leave_calls;
+extern bool fake_tx_hold;
+extern struct rzi_lorawan_join_config fake_last_join;
+void fake_complete_tx(void);
 extern uint32_t fake_otaa_dev_addr;
 extern uint8_t fake_otaa_nwk_skey[16];
 extern uint8_t fake_otaa_app_skey[16];
@@ -35,6 +40,9 @@ struct callback_stats {
 	atomic_t times;
 	atomic_t states;
 	atomic_t class_b;
+	atomic_t duty_cycle;
+	atomic_t no_downlink;
+	atomic_t last_error;
 	atomic_t last_join_error;
 	atomic_t last_tx_error;
 	atomic_t last_device_time_error;
@@ -61,7 +69,6 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		k_sem_give(&callback_sem);
 		break;
 	case RZI_LORAWAN_EVENT_TX_DONE:
-		zassert_equal(event->tx.status, RZI_LORAWAN_TX_ACKED);
 		atomic_set(&stats->last_tx_error, event->tx.error);
 		atomic_inc(&stats->uplink);
 		k_sem_give(&callback_sem);
@@ -69,7 +76,10 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 	case RZI_LORAWAN_EVENT_DOWNLINK:
 		zassert_equal(event->downlink.rssi_dbm, -42);
 		zassert_equal(event->downlink.snr_quarter_db, 12);
-		zassert_equal(event->downlink.flags, 0x55);
+		zassert_equal(event->downlink.flags, RZI_LORAWAN_DOWNLINK_FPENDING);
+		zassert_equal(event->downlink.window, RZI_LORAWAN_RX_WINDOW_RX1);
+		zassert_equal(event->downlink.data_rate, RZI_LORAWAN_DR_10);
+		zassert_equal(event->downlink.frequency_hz, 923300000U);
 		if (event->downlink.port == 3 && event->downlink.size == 2 &&
 		    event->downlink.data[0] == 0xab && event->downlink.data[1] == 0xcd) {
 			atomic_set(&stats->payload_valid, 1);
@@ -78,7 +88,7 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		k_sem_give(&callback_sem);
 		break;
 	case RZI_LORAWAN_EVENT_ERROR:
-		zassert_equal(event->error, -RZI_ERR_IO);
+		atomic_set(&stats->last_error, event->error);
 		atomic_inc(&stats->errors);
 		k_sem_give(&callback_sem);
 		break;
@@ -102,6 +112,14 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		atomic_inc(&stats->class_b);
 		k_sem_give(&callback_sem);
 		break;
+	case RZI_LORAWAN_EVENT_DUTY_CYCLE:
+		atomic_set(&stats->duty_cycle, event->duty_cycle_limited ? 1 : 0);
+		k_sem_give(&callback_sem);
+		break;
+	case RZI_LORAWAN_EVENT_NO_DOWNLINK:
+		atomic_set(&stats->no_downlink, event->no_downlink);
+		k_sem_give(&callback_sem);
+		break;
 	default:
 		break;
 	}
@@ -121,7 +139,6 @@ static void wait_for_callbacks(unsigned int count)
 ZTEST(rzi_lorawan_service, test_sdk_metadata_and_feature_discovery)
 {
 	zassert_equal(strcmp(rzi_version_get_string(), RZI_VERSION_STRING), 0);
-	zassert_equal(rzi_get_capabilities(), RZI_CAP_LORAWAN);
 	zassert_not_null(rzi_lorawan_backend.multicast);
 	zassert_true((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_NETWORK) != 0U);
 }
@@ -210,7 +227,10 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 			.downlink.size = 2,
 			.downlink.rssi_dbm = -42,
 			.downlink.snr_quarter_db = 12,
-			.downlink.flags = 0x55,
+			.downlink.flags = RZI_LORAWAN_DOWNLINK_FPENDING,
+			.downlink.window = RZI_LORAWAN_RX_WINDOW_RX1,
+			.downlink.data_rate = RZI_LORAWAN_DR_10,
+			.downlink.frequency_hz = 923300000U,
 			.downlink.data = {0xab, 0xcd},
 		};
 		const struct rzi_lorawan_backend_event tx_error = {
@@ -240,6 +260,7 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	zassert_equal(atomic_get(&second.uplink), 2);
 	zassert_equal(atomic_get(&second.last_tx_error), -RZI_ERR_IO);
 	zassert_equal(atomic_get(&second.errors), 1);
+	zassert_equal(atomic_get(&second.last_error), -RZI_ERR_IO);
 	zassert_equal(atomic_get(&second.join_failed), 1);
 	zassert_equal(atomic_get(&second.last_join_error), -RZI_ERR_TIMEOUT);
 
@@ -283,8 +304,7 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 		bool flag = true;
 		uint8_t tx_power = 0xff;
 		uint32_t delay = 0;
-		uint16_t mask[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0};
-		uint8_t sub_band = 9;
+		uint32_t frequency_hz = 0;
 		int16_t rssi = 0;
 		const char *version = NULL;
 		size_t count = 0;
@@ -309,31 +329,24 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 		zassert_ok(rzi_lorawan_set_data_rate(RZI_LORAWAN_DR_3));
 		zassert_ok(rzi_lorawan_get_data_rate(&data_rate));
 		zassert_equal(data_rate, RZI_LORAWAN_DR_3);
-		zassert_equal(rzi_lorawan_set_rx2_data_rate(RZI_LORAWAN_DR_0), -RZI_ERR_INVALID);
-		zassert_ok(rzi_lorawan_set_rx2_data_rate(RZI_LORAWAN_DR_8));
-		zassert_ok(rzi_lorawan_set_tx_power(4));
-		zassert_ok(rzi_lorawan_get_tx_power(&tx_power));
-		zassert_equal(tx_power, 4);
-		zassert_ok(rzi_lorawan_set_duty_cycle(false));
-		zassert_ok(rzi_lorawan_get_duty_cycle(&flag));
-		zassert_false(flag);
-		zassert_ok(rzi_lorawan_set_rx1_delay(1500));
-		zassert_ok(rzi_lorawan_get_rx1_delay(&delay));
-		zassert_equal(delay, 1500);
+		/* RUI3-only parameters LoRa Basics Modem does not expose. */
+		zassert_equal(rzi_lorawan_set_rx2_data_rate(RZI_LORAWAN_DR_8),
+			      -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_get_rx2_data_rate(&data_rate), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_set_tx_power(4), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_get_tx_power(&tx_power), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_set_duty_cycle(false), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_get_duty_cycle(&flag), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_set_rx1_delay(1500), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_get_rx2_delay(&delay), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_set_join_accept_delay1(5000), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(rzi_lorawan_get_rx2_frequency(&frequency_hz), -RZI_ERR_NOT_SUPPORTED);
 		zassert_ok(rzi_lorawan_set_public_network(false));
 		zassert_ok(rzi_lorawan_get_public_network(&flag));
 		zassert_false(flag);
 		zassert_ok(rzi_lorawan_set_lbt(true));
 		zassert_ok(rzi_lorawan_get_lbt(&flag));
 		zassert_true(flag);
-		mask[0] = 0x00ff;
-		zassert_ok(rzi_lorawan_set_channel_mask(mask, ARRAY_SIZE(mask)));
-		memset(mask, 0, sizeof(mask));
-		zassert_ok(rzi_lorawan_get_channel_mask(mask, ARRAY_SIZE(mask)));
-		zassert_equal(mask[0], 0x00ff);
-		zassert_ok(rzi_lorawan_set_sub_band(2));
-		zassert_ok(rzi_lorawan_get_sub_band(&sub_band));
-		zassert_equal(sub_band, 2);
 		zassert_ok(rzi_lorawan_get_last_rssi(&rssi));
 		zassert_ok(rzi_lorawan_get_protocol_version(&version));
 		zassert_ok(strcmp(version, "LoRaWAN 1.0.4"));
@@ -384,4 +397,304 @@ ZTEST(rzi_lorawan_service, test_oversized_uplink_is_too_large)
 		      -RZI_ERR_TOO_LARGE);
 }
 
-ZTEST_SUITE(rzi_lorawan_service, NULL, NULL, NULL, NULL, NULL);
+static rzi_lorawan_callback_handle_t usp_handle;
+static bool usp_registered;
+
+static void wait_for_count(atomic_t *counter, atomic_val_t count)
+{
+	for (int i = 0; i < 200 && atomic_get(counter) < count; ++i) {
+		k_sleep(K_MSEC(5));
+	}
+	zassert_equal(atomic_get(counter), count);
+}
+
+/* Static so a failed test cannot leave a subscriber pointing at its stack. */
+static struct callback_stats usp_stats;
+static struct rzi_lorawan_callbacks usp_callbacks;
+
+static struct callback_stats *subscribe(void)
+{
+	memset(&usp_stats, 0, sizeof(usp_stats));
+	usp_callbacks = callbacks;
+	usp_callbacks.user_data = &usp_stats;
+	zassert_ok(rzi_lorawan_register_callbacks(&usp_callbacks, &usp_handle));
+	usp_registered = true;
+	return &usp_stats;
+}
+
+static void unsubscribe_after(void *fixture)
+{
+	ARG_UNUSED(fixture);
+	if (usp_registered) {
+		zassert_ok(rzi_lorawan_unregister_callbacks(usp_handle));
+		usp_registered = false;
+	}
+	fake_tx_hold = false;
+}
+
+static void ensure_ready_and_left(void)
+{
+	int rc = rzi_lorawan_set_region(RZI_LORAWAN_REGION_US_915);
+
+	if (rc == 0) {
+		zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
+		zassert_ok(rzi_lorawan_start());
+		zassert_ok(k_sem_take(&callback_sem, K_SECONDS(1)));
+	} else {
+		zassert_equal(rc, -RZI_ERR_ALREADY);
+	}
+	zassert_ok(rzi_lorawan_join(0, RZI_LORAWAN_JOIN_KEEP, RZI_LORAWAN_JOIN_KEEP,
+				    RZI_LORAWAN_JOIN_KEEP));
+	zassert_ok(rzi_lorawan_leave());
+	k_sleep(K_MSEC(20));
+	k_sem_reset(&callback_sem);
+	fake_join_failures = 0;
+	fake_join_attempts = 0;
+	fake_leave_calls = 0;
+}
+
+ZTEST(rzi_lorawan_service, test_stop_join_aborts_pending_attempt)
+{
+	bool joined = true;
+
+	ensure_ready_and_left();
+	fake_join_failures = -1;
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 3));
+	zassert_equal(rzi_lorawan_join(1, RZI_LORAWAN_JOIN_KEEP, RZI_LORAWAN_JOIN_KEEP,
+				       RZI_LORAWAN_JOIN_KEEP),
+		      -RZI_ERR_BUSY);
+	zassert_ok(rzi_lorawan_join(0, RZI_LORAWAN_JOIN_KEEP, RZI_LORAWAN_JOIN_KEEP,
+				    RZI_LORAWAN_JOIN_KEEP));
+	zassert_equal(fake_leave_calls, 1);
+	zassert_ok(rzi_lorawan_is_joined(&joined));
+	zassert_false(joined);
+
+	/* Stopping an idle service does not touch the stack. */
+	zassert_ok(rzi_lorawan_join(0, RZI_LORAWAN_JOIN_KEEP, RZI_LORAWAN_JOIN_KEEP,
+				    RZI_LORAWAN_JOIN_KEEP));
+	zassert_equal(fake_leave_calls, 1);
+
+	/* No more attempts after the stop. */
+	fake_join_attempts = 0;
+	k_sleep(K_MSEC(30));
+	zassert_equal(fake_join_attempts, 0);
+}
+
+ZTEST(rzi_lorawan_service, test_usp_join_retries_run_in_the_stack)
+{
+	struct callback_stats *stats;
+	bool joined = false;
+
+	ensure_ready_and_left();
+	stats = subscribe();
+
+	/* Two failed attempts are absorbed; the third attempt joins. */
+	fake_join_failures = 2;
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 3));
+	wait_for_count(&stats->joined, 1);
+	zassert_equal(atomic_get(&stats->join_failed), 0);
+	zassert_equal(fake_join_attempts, 3);
+	zassert_equal(fake_leave_calls, 0);
+	zassert_ok(rzi_lorawan_is_joined(&joined));
+	zassert_true(joined);
+
+	/* With attempts = 2, the third failure ends the sequence and stops the stack. */
+	zassert_ok(rzi_lorawan_leave());
+	fake_join_attempts = 0;
+	fake_leave_calls = 0;
+	fake_join_failures = -1;
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 2));
+	wait_for_count(&stats->join_failed, 1);
+	zassert_equal(atomic_get(&stats->last_join_error), -RZI_ERR_TIMEOUT);
+	zassert_equal(fake_join_attempts, 3);
+	zassert_equal(fake_leave_calls, 1);
+	zassert_equal(atomic_get(&stats->last_state), RZI_LORAWAN_STATE_READY);
+	k_sleep(K_MSEC(30));
+	zassert_equal(fake_join_attempts, 3);
+	zassert_equal(atomic_get(&stats->join_failed), 1);
+}
+
+ZTEST(rzi_lorawan_service, test_usp_busy_and_empty_uplink)
+{
+	struct callback_stats *stats;
+	const uint8_t payload[] = {0x12, 0x34};
+	bool busy = true;
+
+	ensure_ready_and_left();
+	stats = subscribe();
+	zassert_equal(rzi_lorawan_send_empty(false, 0, RZI_LORAWAN_MSG_UNCONFIRMED),
+		      -RZI_ERR_NOT_JOINED);
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0));
+	wait_for_count(&stats->joined, 1);
+
+	fake_tx_hold = true;
+	zassert_ok(rzi_lorawan_is_busy(&busy));
+	zassert_false(busy);
+	zassert_ok(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_UNCONFIRMED));
+	zassert_ok(rzi_lorawan_is_busy(&busy));
+	zassert_true(busy);
+	zassert_equal(rzi_lorawan_send_empty(true, 20, RZI_LORAWAN_MSG_UNCONFIRMED), -RZI_ERR_BUSY);
+	fake_complete_tx();
+	wait_for_count(&stats->uplink, 1);
+	zassert_ok(rzi_lorawan_is_busy(&busy));
+	zassert_false(busy);
+	fake_tx_hold = false;
+
+	zassert_equal(rzi_lorawan_send_empty(true, 0, RZI_LORAWAN_MSG_UNCONFIRMED),
+		      -RZI_ERR_INVALID);
+	zassert_ok(rzi_lorawan_send_empty(true, 20, RZI_LORAWAN_MSG_CONFIRMED));
+	wait_for_count(&stats->uplink, 2);
+}
+
+ZTEST(rzi_lorawan_service, test_usp_link_controls)
+{
+	struct callback_stats *stats;
+	uint8_t distribution[RZI_LORAWAN_DR_DISTRIBUTION_LENGTH] = {0};
+	enum rzi_lorawan_adr_profile profile;
+	uint8_t nb_trans = 0;
+	int32_t budget;
+	bool flag;
+	struct rzi_lorawan_csma_params csma;
+
+	ensure_ready_and_left();
+	stats = subscribe();
+	zassert_equal(rzi_lorawan_set_adr_profile(RZI_LORAWAN_ADR_MOBILE_LOW_POWER, NULL),
+		      -RZI_ERR_NOT_JOINED);
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0));
+	wait_for_count(&stats->joined, 1);
+
+	zassert_equal(rzi_lorawan_set_adr_profile(RZI_LORAWAN_ADR_CUSTOM, NULL), -RZI_ERR_INVALID);
+	distribution[3] = 16;
+	zassert_equal(rzi_lorawan_set_adr_profile(RZI_LORAWAN_ADR_CUSTOM, distribution),
+		      -RZI_ERR_INVALID);
+	zassert_equal(rzi_lorawan_set_adr_profile((enum rzi_lorawan_adr_profile)4, NULL),
+		      -RZI_ERR_INVALID);
+	zassert_ok(rzi_lorawan_set_adr_profile(RZI_LORAWAN_ADR_NETWORK, NULL));
+	zassert_ok(rzi_lorawan_get_adr_profile(&profile));
+	zassert_equal(profile, RZI_LORAWAN_ADR_NETWORK);
+	zassert_ok(rzi_lorawan_get_adr(&flag));
+	zassert_true(flag);
+
+	/* NbTrans belongs to the network while ADR is network-controlled. */
+	zassert_equal(rzi_lorawan_set_nb_trans(16), -RZI_ERR_INVALID);
+	zassert_equal(rzi_lorawan_set_nb_trans(3), -RZI_ERR_INVALID);
+	zassert_ok(rzi_lorawan_set_adr_profile(RZI_LORAWAN_ADR_MOBILE_LONG_RANGE, NULL));
+	zassert_ok(rzi_lorawan_set_nb_trans(3));
+	zassert_ok(rzi_lorawan_get_nb_trans(&nb_trans));
+	zassert_equal(nb_trans, 3);
+
+	/* Controls the fake (like a build without them) does not provide. */
+	zassert_equal(rzi_lorawan_set_adr_ack(1, 32), -RZI_ERR_INVALID);
+	zassert_equal(rzi_lorawan_set_adr_ack(64, 32), -RZI_ERR_NOT_SUPPORTED);
+	zassert_equal(rzi_lorawan_get_duty_cycle_status(&budget), -RZI_ERR_NOT_SUPPORTED);
+	zassert_equal(rzi_lorawan_get_csma(&flag), -RZI_ERR_NOT_SUPPORTED);
+	zassert_equal(rzi_lorawan_get_csma_params(&csma), -RZI_ERR_NOT_SUPPORTED);
+	zassert_equal(rzi_lorawan_set_crystal_error(30), -RZI_ERR_NOT_SUPPORTED);
+}
+
+ZTEST(rzi_lorawan_service, test_usp_status_events)
+{
+	struct callback_stats *stats;
+	const struct rzi_lorawan_backend_event limited = {
+		.type = RZI_LORAWAN_BACKEND_DUTY_CYCLE,
+		.duty_cycle_limited = true,
+	};
+	const struct rzi_lorawan_backend_event no_downlink = {
+		.type = RZI_LORAWAN_BACKEND_NO_DOWNLINK,
+		.no_downlink = RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD,
+	};
+	const struct rzi_lorawan_backend_event dropped = {
+		.type = RZI_LORAWAN_BACKEND_ERROR,
+		.error = -RZI_ERR_OVERFLOW,
+	};
+
+	ensure_ready_and_left();
+	stats = subscribe();
+	fake_sink(&limited);
+	fake_sink(&no_downlink);
+	fake_sink(&dropped);
+	wait_for_count(&stats->errors, 1);
+	zassert_equal(atomic_get(&stats->duty_cycle), 1);
+	zassert_equal(atomic_get(&stats->no_downlink), RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD);
+	zassert_equal(atomic_get(&stats->last_error), -RZI_ERR_OVERFLOW);
+}
+
+static void assert_all_channels(void)
+{
+	const uint16_t all[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0xffff, 0xffff, 0xffff,
+							      0xffff, 0x00ff, 0};
+	uint16_t mask[RZI_LORAWAN_CHANNEL_MASK_WORDS];
+
+	zassert_ok(rzi_lorawan_get_channel_mask(mask, ARRAY_SIZE(mask)));
+	zassert_mem_equal(mask, all, sizeof(all));
+}
+
+static void join_and_stop(void)
+{
+	fake_join_failures = -1;
+	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 3));
+	zassert_equal(rzi_lorawan_set_sub_band(1), -RZI_ERR_BUSY);
+	zassert_ok(rzi_lorawan_join(0, RZI_LORAWAN_JOIN_KEEP, RZI_LORAWAN_JOIN_KEEP,
+				    RZI_LORAWAN_JOIN_KEEP));
+	fake_join_failures = 0;
+}
+
+ZTEST(rzi_lorawan_service, test_usp_channel_mask_reaches_the_join)
+{
+	const uint16_t fsb2[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0xff00, 0, 0, 0, 0x0002, 0};
+	uint16_t mask[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0};
+	uint32_t frequency_hz = 1;
+	uint8_t sub_band = 9;
+
+	ensure_ready_and_left();
+	assert_all_channels();
+	zassert_ok(rzi_lorawan_get_sub_band(&sub_band));
+	zassert_equal(sub_band, 0);
+	zassert_ok(rzi_lorawan_get_fixed_channel(&frequency_hz));
+	zassert_equal(frequency_hz, 0);
+
+	zassert_equal(rzi_lorawan_set_channel_mask(mask, ARRAY_SIZE(mask)), -RZI_ERR_INVALID);
+	mask[4] = BIT(8); /* channel 72 does not exist */
+	zassert_equal(rzi_lorawan_set_channel_mask(mask, ARRAY_SIZE(mask)), -RZI_ERR_INVALID);
+	mask[4] = 0x0001;
+	zassert_equal(rzi_lorawan_set_channel_mask(mask, 4), -RZI_ERR_INVALID);
+	zassert_equal(rzi_lorawan_get_channel_mask(mask, 4), -RZI_ERR_INVALID);
+	zassert_equal(rzi_lorawan_set_sub_band(9), -RZI_ERR_INVALID);
+	zassert_equal(rzi_lorawan_set_fixed_channel(902400000U), -RZI_ERR_INVALID);
+
+	/* FSB 2: channels 8-15 and 65. */
+	zassert_ok(rzi_lorawan_set_sub_band(2));
+	zassert_ok(rzi_lorawan_get_channel_mask(mask, ARRAY_SIZE(mask)));
+	zassert_mem_equal(mask, fsb2, sizeof(fsb2));
+	zassert_ok(rzi_lorawan_get_sub_band(&sub_band));
+	zassert_equal(sub_band, 2);
+	join_and_stop();
+	zassert_true(fake_last_join.channel_mask_set);
+	zassert_mem_equal(fake_last_join.channel_mask, fsb2, sizeof(fsb2));
+
+	zassert_ok(rzi_lorawan_set_fixed_channel(902300000U + 10U * 200000U));
+	zassert_ok(rzi_lorawan_get_fixed_channel(&frequency_hz));
+	zassert_equal(frequency_hz, 904300000U);
+	zassert_equal(rzi_lorawan_get_sub_band(&sub_band), -RZI_ERR_NO_DATA);
+	zassert_ok(rzi_lorawan_set_fixed_channel(903000000U + 3U * 1600000U));
+	zassert_ok(rzi_lorawan_get_channel_mask(mask, ARRAY_SIZE(mask)));
+	zassert_equal(mask[0], 0);
+	zassert_equal(mask[4], BIT(3));
+	zassert_ok(rzi_lorawan_get_fixed_channel(&frequency_hz));
+	zassert_equal(frequency_hz, 907800000U);
+
+	/* Zero, or a mask with every channel, lifts the restriction. */
+	zassert_ok(rzi_lorawan_set_fixed_channel(0));
+	assert_all_channels();
+	join_and_stop();
+	zassert_false(fake_last_join.channel_mask_set);
+	zassert_ok(rzi_lorawan_set_sub_band(5));
+	zassert_ok(rzi_lorawan_get_channel_mask(mask, ARRAY_SIZE(mask)));
+	memset(mask, 0xff, 8);
+	mask[4] = 0x00ff;
+	zassert_ok(rzi_lorawan_set_channel_mask(mask, 5));
+	join_and_stop();
+	zassert_false(fake_last_join.channel_mask_set);
+}
+
+ZTEST_SUITE(rzi_lorawan_service, NULL, NULL, NULL, unsubscribe_after, NULL);

@@ -50,6 +50,19 @@ struct rzi_lorawan_join_abp {
 struct rzi_lorawan_join_config {
 	/** Selects the active union member. */
 	enum rzi_lorawan_activation activation;
+	/**
+	 * Seconds between attempts for backends without their own join backoff.
+	 * USP ignores it and applies the LoRaWAN regional join duty cycle.
+	 */
+	uint8_t retry_interval_s;
+	/** True when channel_mask limits the uplink channels. */
+	bool channel_mask_set;
+	/**
+	 * Uplink channels for the join and the post-join defaults, in the
+	 * layout of @ref rzi_lorawan_set_channel_mask. A network LinkADRReq
+	 * replaces it until the next join.
+	 */
+	uint16_t channel_mask[RZI_LORAWAN_CHANNEL_MASK_WORDS];
 	union {
 		/** Parameters used when activation is OTAA. */
 		struct rzi_lorawan_join_otaa otaa;
@@ -58,13 +71,29 @@ struct rzi_lorawan_join_config {
 	};
 };
 
+/** US915 and AU915: 64 125 kHz uplink channels followed by 8 500 kHz channels. */
+#define RZI_LORAWAN_FIXED_PLAN_CHANNELS 72U
+/** First 500 kHz channel of US915 and AU915. */
+#define RZI_LORAWAN_FIXED_PLAN_WIDE     64U
+/** Mask words that cover @ref RZI_LORAWAN_FIXED_PLAN_CHANNELS. */
+#define RZI_LORAWAN_FIXED_PLAN_WORDS    5U
+
+/** Return true when region has a channel plan the channel-mask API supports. */
+bool rzi_lorawan_region_has_fixed_plan(enum rzi_lorawan_region region);
+
+/**
+ * Read the stored channel mask; set reports whether one is stored.
+ * mask holds @ref RZI_LORAWAN_CHANNEL_MASK_WORDS words.
+ */
+int rzi_lorawan_credentials_get_channel_mask(uint16_t *mask, bool *set);
+
+/** Store and persist a validated channel mask, or clear it when mask is NULL. */
+int rzi_lorawan_credentials_set_channel_mask(const uint16_t *mask);
+
 int rzi_lorawan_check_thread(void);
 int rzi_lorawan_check_started(void);
 void rzi_lorawan_note_class(enum rzi_lorawan_class device_class);
 void rzi_lorawan_mac_commands_on_uplink(void);
-bool rzi_lorawan_uplink_data_rate_valid(enum rzi_lorawan_data_rate data_rate);
-bool rzi_lorawan_rx_data_rate_valid(enum rzi_lorawan_data_rate data_rate);
-
 /** Store join policy fields. @ref RZI_LORAWAN_JOIN_KEEP leaves a field unchanged. */
 int rzi_lorawan_credentials_update_policy(int32_t auto_join, int32_t interval, int32_t attempts);
 

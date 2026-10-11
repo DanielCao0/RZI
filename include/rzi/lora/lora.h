@@ -20,7 +20,7 @@ extern "C" {
 /** @defgroup rzi_lora RZI raw LoRa / FSK
  *  @brief Thread-safe C API for P2P LoRa and FSK.
  *  @since 0.3
- *  @version 0.4.0
+ *  @version 0.5.0
  *  @{
  */
 
@@ -245,7 +245,9 @@ bool rzi_lora_receive_active(void);
  * @brief Poll the backend for deferred receive and test results.
  *
  * AT and other clients may call this from a thread. Backends that complete
- * operations synchronously may treat this as a no-op.
+ * operations synchronously may treat this as a no-op. The USP backend
+ * delivers tx_done() and rx_done() only from this call, in the calling
+ * thread, so call it periodically while waiting for them.
  *
  * @note Thread context only.
  * @since 0.3
@@ -255,6 +257,9 @@ void rzi_lora_poll(void);
 /**
  * @brief Start an RSSI measurement test.
  *
+ * The radio measures the channel at the configured frequency_hz. Read the
+ * result with rzi_lora_test_get_rssi().
+ *
  * @retval 0 Request accepted.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
  * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
@@ -263,6 +268,25 @@ void rzi_lora_poll(void);
  * @since 0.3
  */
 __must_check int rzi_lora_test_rssi(void);
+
+/**
+ * @brief Read the result of the last RSSI measurement test.
+ *
+ * The USP backend averages the channel RSSI over 100 ms in a 125 kHz
+ * bandwidth.
+ *
+ * @param[out] rssi_dbm Averaged RSSI in dBm.
+ *
+ * @retval 0 Value stored.
+ * @retval -RZI_ERR_INVALID rssi_dbm is NULL.
+ * @retval -RZI_ERR_BUSY The measurement has not finished yet.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend does not implement radio tests.
+ * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ *
+ * @note Thread context only.
+ * @since 0.5
+ */
+__must_check int rzi_lora_test_get_rssi(int16_t *rssi_dbm);
 
 /**
  * @brief Start a continuous-wave tone test.

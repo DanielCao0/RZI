@@ -14,7 +14,3 @@ zephyr_library_sources_ifdef(
   CONFIG_RZI_LORA_BACKEND_USP
   backend/lora_backend_usp.c
 )
-zephyr_library_link_libraries_ifdef(
-  CONFIG_RZI_LORA_BACKEND_USP
-  lbm_compile_definitions
-)

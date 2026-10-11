@@ -43,18 +43,18 @@ static int usp_multicast_add(const struct rzi_lorawan_multicast_session *session
 	if (group < 0) {
 		return rzi_lorawan_usp_finish(-RZI_ERR_NO_RESOURCE);
 	}
-	rc = rzi_lorawan_usp_result(smtc_modem_multicast_set_grp_config(
+	rc = rzi_usp_result(smtc_modem_multicast_set_grp_config(
 		RZI_LORAWAN_USP_STACK_ID, (smtc_modem_mc_grp_id_t)group, session->dev_addr,
 		session->network_session_key, session->application_session_key));
 	if (rc == 0 && session->device_class == RZI_LORAWAN_CLASS_C) {
-		rc = rzi_lorawan_usp_result(smtc_modem_multicast_class_c_start_session(
+		rc = rzi_usp_result(smtc_modem_multicast_class_c_start_session(
 			RZI_LORAWAN_USP_STACK_ID, (smtc_modem_mc_grp_id_t)group,
 			session->frequency_hz, (uint8_t)session->data_rate));
 	} else if (rc == 0) {
 		smtc_modem_class_b_ping_slot_periodicity_t periodicity =
 			(smtc_modem_class_b_ping_slot_periodicity_t)MIN(session->periodicity, 7U);
 
-		rc = rzi_lorawan_usp_result(smtc_modem_multicast_class_b_start_session(
+		rc = rzi_usp_result(smtc_modem_multicast_class_b_start_session(
 			RZI_LORAWAN_USP_STACK_ID, (smtc_modem_mc_grp_id_t)group,
 			session->frequency_hz, (uint8_t)session->data_rate, periodicity));
 	}
@@ -82,10 +82,10 @@ static int usp_multicast_remove(uint32_t dev_addr)
 			continue;
 		}
 		if (multicast[i].device_class == RZI_LORAWAN_CLASS_C) {
-			rc = rzi_lorawan_usp_result(smtc_modem_multicast_class_c_stop_session(
+			rc = rzi_usp_result(smtc_modem_multicast_class_c_stop_session(
 				RZI_LORAWAN_USP_STACK_ID, (smtc_modem_mc_grp_id_t)i));
 		} else {
-			rc = rzi_lorawan_usp_result(smtc_modem_multicast_class_b_stop_session(
+			rc = rzi_usp_result(smtc_modem_multicast_class_b_stop_session(
 				RZI_LORAWAN_USP_STACK_ID, (smtc_modem_mc_grp_id_t)i));
 		}
 		if (rc == 0) {
@@ -141,10 +141,10 @@ static int usp_multicast_clear(void)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_usp_result(
+	rc = rzi_usp_result(
 		smtc_modem_multicast_class_c_stop_all_sessions(RZI_LORAWAN_USP_STACK_ID));
 	if (rc == 0) {
-		rc = rzi_lorawan_usp_result(
+		rc = rzi_usp_result(
 			smtc_modem_multicast_class_b_stop_all_sessions(RZI_LORAWAN_USP_STACK_ID));
 	}
 	if (rc == 0) {

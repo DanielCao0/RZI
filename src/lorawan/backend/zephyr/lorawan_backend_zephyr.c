@@ -59,7 +59,7 @@ static K_MUTEX_DEFINE(lock);
 static K_THREAD_STACK_DEFINE(worker_stack, WORKER_STACK_SIZE);
 
 static struct k_work_q worker_q;
-static struct k_work join_work;
+static struct k_work_delayable join_work;
 static struct k_work send_work;
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 #ifdef CONFIG_LORAWAN_APP_CLOCK_SYNC
@@ -74,6 +74,7 @@ static bool fuota_services_started;
 static bool started;
 static bool joined;
 static bool join_pending;
+static bool join_stop;
 static bool tx_pending;
 static uint16_t next_dev_nonce = 1U;
 static enum rzi_lorawan_region current_region = RZI_LORAWAN_REGION_EU_868;
@@ -174,7 +175,11 @@ static void on_downlink(uint8_t port, uint8_t flags, int16_t rssi, int8_t snr, u
 		.downlink.port = port,
 		.downlink.rssi_dbm = rssi,
 		.downlink.snr_quarter_db = snr_to_quarter_db(snr),
-		.downlink.flags = flags,
+		.downlink.flags =
+			((flags & LORAWAN_DATA_PENDING) != 0U ? RZI_LORAWAN_DOWNLINK_FPENDING
+							      : 0U) |
+			((flags & LORAWAN_TIME_UPDATED) != 0U ? RZI_LORAWAN_DOWNLINK_TIME_UPDATED
+							      : 0U),
 	};
 
 	if (len > RZI_LORAWAN_MAX_PAYLOAD) {
@@ -269,20 +274,36 @@ static void join_work_handler(struct k_work *work)
 {
 	struct lorawan_join_config config;
 	struct rzi_lorawan_backend_event event = {0};
+	bool stopped;
 	int rc;
 
 	ARG_UNUSED(work);
 	k_mutex_lock(&lock, K_FOREVER);
+	if (join_stop) {
+		join_pending = false;
+		k_mutex_unlock(&lock);
+		return;
+	}
 	fill_zephyr_join(&config);
 	k_mutex_unlock(&lock);
 
 	rc = lorawan_join(&config);
 
+	/* Match the USP contract: keep retrying until joined or leave(). */
 	k_mutex_lock(&lock, K_FOREVER);
-	join_pending = false;
+	stopped = join_stop;
 	joined = rc == 0;
+	if (rc == 0 || stopped) {
+		join_pending = false;
+	} else {
+		k_work_schedule_for_queue(&worker_q, &join_work,
+					  K_SECONDS(join_settings.retry_interval_s));
+	}
 	k_mutex_unlock(&lock);
 
+	if (stopped && rc != 0) {
+		return;
+	}
 	if (rc == 0) {
 		event.type = RZI_LORAWAN_BACKEND_JOINED;
 	} else {
@@ -512,7 +533,7 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 	k_work_queue_start(&worker_q, worker_stack, K_THREAD_STACK_SIZEOF(worker_stack),
 			   WORKER_PRIORITY, NULL);
 	k_thread_name_set(k_work_queue_thread_get(&worker_q), "rzi_lw_z");
-	k_work_init(&join_work, join_work_handler);
+	k_work_init_delayable(&join_work, join_work_handler);
 	k_work_init(&send_work, send_work_handler);
 #ifdef CONFIG_RZI_LORAWAN_FUOTA
 #ifdef CONFIG_LORAWAN_APP_CLOCK_SYNC
@@ -528,6 +549,23 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 	return 0;
 }
 
+/* LoRaMAC keeps the last default mask, so an unrestricted join restores every channel. */
+static int apply_channel_mask(const struct rzi_lorawan_join_config *config)
+{
+	uint16_t mask[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0};
+
+	if (config->channel_mask_set) {
+		memcpy(mask, config->channel_mask, sizeof(mask));
+	} else if (rzi_lorawan_region_has_fixed_plan(rzi_lorawan_zephyr_region())) {
+		for (uint32_t channel = 0; channel < RZI_LORAWAN_FIXED_PLAN_CHANNELS; ++channel) {
+			mask[channel / 16U] |= BIT(channel % 16U);
+		}
+	} else {
+		return 0;
+	}
+	return rzi_err_from_errno(rzi_lorawan_zephyr_mib_set_channels(mask));
+}
+
 static int zephyr_join(const struct rzi_lorawan_join_config *config)
 {
 	int rc = 0;
@@ -538,25 +576,35 @@ static int zephyr_join(const struct rzi_lorawan_join_config *config)
 	} else if (join_pending || tx_pending) {
 		rc = -RZI_ERR_BUSY;
 	} else {
+		rc = apply_channel_mask(config);
+	}
+	if (rc == 0) {
 		join_settings = *config;
 		join_pending = true;
+		join_stop = false;
+		k_work_schedule_for_queue(&worker_q, &join_work, K_NO_WAIT);
 	}
 	k_mutex_unlock(&lock);
-	if (rc != 0) {
-		return rc;
-	}
-
-	k_work_submit_to_queue(&worker_q, &join_work);
-	return 0;
+	return rc;
 }
 
 static int zephyr_leave(void)
 {
-	/*
-	 * Zephyr's public LoRaWAN API has no leave or session-reset call.
-	 * Returning -RZI_ERR_NOT_SUPPORTED keeps the RZI session state honest.
-	 */
-	return -RZI_ERR_NOT_SUPPORTED;
+	int rc = 0;
+
+	k_mutex_lock(&lock, K_FOREVER);
+	if (join_pending) {
+		/* A running lorawan_join() cannot be aborted; its result is dropped. */
+		join_stop = true;
+		if (k_work_cancel_delayable(&join_work) == 0) {
+			join_pending = false;
+		}
+	} else {
+		/* Zephyr's public LoRaWAN API has no leave or session-reset call. */
+		rc = -RZI_ERR_NOT_SUPPORTED;
+	}
+	k_mutex_unlock(&lock);
+	return rc;
 }
 
 static int zephyr_send(uint8_t port, const uint8_t *data, size_t size,
@@ -642,7 +690,6 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.query_tx_possible = zephyr_query_tx_possible,
 	.is_busy = zephyr_is_busy,
 	.network = &zephyr_network_ops,
-	.channel = &zephyr_channel_ops,
 	.session = &zephyr_session_ops,
 	.mac = &zephyr_mac_ops,
 #ifdef CONFIG_RZI_LORAWAN_FUOTA

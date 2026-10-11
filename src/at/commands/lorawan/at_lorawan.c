@@ -426,6 +426,11 @@ static int extension_start(void)
 		return rc;
 	}
 #endif
+	rc = rzi_lorawan_set_region(context->region);
+	if (rc != 0 && rc != -RZI_ERR_ALREADY) {
+		return rc;
+	}
+	rc = 0;
 	{
 		bool auto_join = false;
 
@@ -455,7 +460,7 @@ static int extension_factory_reset(void)
 #if defined(CONFIG_RZI_AT_NVM)
 	static const char *const credential_keys[] = {
 		"deveui",  "joineui", "appkey",   "genappkey",     "devaddr",       "nwkskey",
-		"appskey", "njm",     "autojoin", "join_interval", "join_attempts",
+		"appskey", "njm",     "autojoin", "join_interval", "join_attempts", "chmask",
 	};
 	static const char *const at_keys[] = {
 		"deveui",        "joineui",       "appkey", "band", "cfm",     "autojoin",

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_USP
+	bool
+	select LORA_BASICS_MODEM_DRIVERS
+	select USP
+	select USP_LORA_BASICS_MODEM
+	select USP_MAIN_THREAD
+	select USP_THREADS_MUTEXES
+	help
+	  Shared Semtech USP platform layer. RZI owns the USP engine: it
+	  initializes the platform, the radio access controller and LoRa Basics
+	  Modem once, serializes API calls, and routes modem events. Selected
+	  by the USP LoRaWAN and raw LoRa backends.

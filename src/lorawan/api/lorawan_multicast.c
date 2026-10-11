@@ -27,7 +27,7 @@ int rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session
 	if (session == NULL ||
 	    (session->device_class != RZI_LORAWAN_CLASS_B &&
 	     session->device_class != RZI_LORAWAN_CLASS_C) ||
-	    !rzi_lorawan_rx_data_rate_valid(session->data_rate) || session->frequency_hz == 0U ||
+	    (unsigned int)session->data_rate > RZI_LORAWAN_DR_15 || session->frequency_hz == 0U ||
 	    session->group_id < -1 || session->group_id > 3) {
 		return -RZI_ERR_INVALID;
 	}

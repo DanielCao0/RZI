@@ -23,17 +23,8 @@ zephyr_library_sources_ifdef(
   backend/usp/lorawan_backend_usp_session.c
 )
 if(CONFIG_RZI_LORAWAN_BACKEND_USP)
-  set(RZI_USP_SE_DIR
-      ${ZEPHYR_USP_MODULE_DIR}/protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/smtc_secure_element)
-  if(NOT EXISTS ${RZI_USP_SE_DIR}/smtc_secure_element.h)
-    message(FATAL_ERROR "LBM secure-element header not found: ${RZI_USP_SE_DIR}")
-  endif()
-  zephyr_library_include_directories(${RZI_USP_SE_DIR})
+  include(${CMAKE_CURRENT_LIST_DIR}/backend/usp/lbm_checks.cmake)
 endif()
-zephyr_library_link_libraries_ifdef(
-  CONFIG_RZI_LORAWAN_BACKEND_USP
-  lbm_compile_definitions
-)
 zephyr_library_sources_ifdef(
   CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR
   backend/zephyr/lorawan_backend_zephyr.c

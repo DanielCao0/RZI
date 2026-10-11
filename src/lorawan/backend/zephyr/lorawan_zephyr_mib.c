@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief Read OTAA session identity from the loramac-node MIB.
+ * @brief Read OTAA session identity from and set channels in the loramac-node MIB.
  *
  * Compiled into the loramac-node library so LoRaMac headers stay private
  * to that library.
@@ -24,6 +24,27 @@ int rzi_lorawan_zephyr_mib_dev_addr(uint32_t *dev_addr)
 		return -EIO;
 	}
 	*dev_addr = request.Param.DevAddr;
+	return 0;
+}
+
+/*
+ * Join resets the channel mask to the default mask, so the default mask has to
+ * carry the application mask; the active mask covers the current session.
+ */
+int rzi_lorawan_zephyr_mib_set_channels(uint16_t mask[6])
+{
+	MibRequestConfirm_t request;
+
+	request.Type = MIB_CHANNELS_DEFAULT_MASK;
+	request.Param.ChannelsDefaultMask = mask;
+	if (LoRaMacMibSetRequestConfirm(&request) != LORAMAC_STATUS_OK) {
+		return -EINVAL;
+	}
+	request.Type = MIB_CHANNELS_MASK;
+	request.Param.ChannelsMask = mask;
+	if (LoRaMacMibSetRequestConfirm(&request) != LORAMAC_STATUS_OK) {
+		return -EINVAL;
+	}
 	return 0;
 }
 

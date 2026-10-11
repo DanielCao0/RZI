@@ -1,4 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Test backend that follows USP / LoRa Basics Modem semantics: join keeps
+ * retrying one attempt at a time until JOINED or leave(), uplinks complete
+ * asynchronously, ADR profiles need a session, and only the controls LBM has
+ * are provided.
+ */
 
 #include <errno.h>
 #include <string.h>
@@ -17,20 +23,27 @@
 	 RZI_LORAWAN_CAP_SESSION | RZI_LORAWAN_CAP_MAC | RZI_LORAWAN_CAP_MULTICAST |               \
 	 RZI_LORAWAN_CAP_CERTIFICATION)
 
+#define FAKE_ATTEMPT_DELAY K_MSEC(5)
+#define US915_UPLINK_DRS   0x007fU
+
 rzi_lorawan_event_sink_t fake_sink;
 int fake_set_class_error;
+/* Join attempts that fail before one succeeds; negative fails forever. */
+int fake_join_failures;
+int fake_join_attempts;
+int fake_leave_calls;
+/* Keep uplinks outstanding until fake_complete_tx(). */
+bool fake_tx_hold;
+struct rzi_lorawan_join_config fake_last_join;
+
+static K_MUTEX_DEFINE(lock);
+static void join_attempt(struct k_work *work);
+static K_WORK_DELAYABLE_DEFINE(join_work, join_attempt);
 
 static enum rzi_lorawan_class device_class = RZI_LORAWAN_CLASS_A;
-static bool adr_enabled = true;
+static enum rzi_lorawan_adr_profile adr_profile = RZI_LORAWAN_ADR_NETWORK;
 static enum rzi_lorawan_data_rate data_rate = RZI_LORAWAN_DR_0;
-static uint8_t tx_power;
-static bool duty_cycle = true;
-static uint32_t rx1_delay_ms = 1000;
-static uint32_t rx2_delay_ms = 2000;
-static enum rzi_lorawan_data_rate rx2_data_rate = RZI_LORAWAN_DR_0;
-static uint32_t rx2_frequency_hz = 869525000;
-static uint32_t join_delay1_ms = 5000;
-static uint32_t join_delay2_ms = 6000;
+static uint8_t nb_trans = 1;
 static bool public_network = true;
 static bool lbt_enabled;
 static int16_t lbt_rssi_dbm = -80;
@@ -41,70 +54,134 @@ static uint32_t beacon_time;
 static enum rzi_lorawan_data_rate beacon_data_rate = RZI_LORAWAN_DR_3;
 static struct rzi_lorawan_beacon_gateway beacon_gateway;
 static enum rzi_lorawan_class_b_state class_b_state = RZI_LORAWAN_CLASS_B_IDLE;
-static uint16_t channel_mask[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0xffff, 0xffff, 0xffff,
-								0xffff, 0xffff, 0x00ff};
-static uint8_t sub_band;
-static uint32_t fixed_channel_hz;
 static uint32_t net_id;
 static uint16_t dev_nonce = 1;
-static bool busy;
 static struct rzi_lorawan_network_time network_time;
 static bool cert_mode;
 static bool cert_port = true;
 static struct rzi_lorawan_multicast_session multicast[4];
 static bool multicast_used[4];
+static bool joining;
 static bool session_joined;
+static bool tx_pending;
+static enum rzi_lorawan_tx_status held_status;
+
+static void publish_type(enum rzi_lorawan_backend_event_type type)
+{
+	const struct rzi_lorawan_backend_event event = {
+		.type = type,
+		.error = type == RZI_LORAWAN_BACKEND_JOIN_FAILED ? -RZI_ERR_TIMEOUT : 0,
+	};
+
+	fake_sink(&event);
+}
+
+static void join_attempt(struct k_work *work)
+{
+	bool failed;
+
+	ARG_UNUSED(work);
+	k_mutex_lock(&lock, K_FOREVER);
+	if (!joining) {
+		k_mutex_unlock(&lock);
+		return;
+	}
+	fake_join_attempts++;
+	failed = fake_join_failures != 0;
+	if (failed) {
+		if (fake_join_failures > 0) {
+			fake_join_failures--;
+		}
+		/* LBM queues the next attempt before reporting this one. */
+		k_work_schedule(&join_work, FAKE_ATTEMPT_DELAY);
+	} else {
+		joining = false;
+		session_joined = true;
+	}
+	k_mutex_unlock(&lock);
+	publish_type(failed ? RZI_LORAWAN_BACKEND_JOIN_FAILED : RZI_LORAWAN_BACKEND_JOINED);
+}
 
 static int fake_start(enum rzi_lorawan_region region, bool join_backoff_bypass,
 		      rzi_lorawan_event_sink_t event_sink)
 {
-	const struct rzi_lorawan_backend_event event = {
-		.type = RZI_LORAWAN_BACKEND_READY,
-	};
-
 	zassert_equal(region, RZI_LORAWAN_REGION_US_915);
 	zassert_true(join_backoff_bypass);
 	fake_sink = event_sink;
 	session_joined = false;
-	fake_sink(&event);
+	publish_type(RZI_LORAWAN_BACKEND_READY);
 	return 0;
 }
 
 static int fake_join(const struct rzi_lorawan_join_config *config)
 {
-	const struct rzi_lorawan_backend_event event = {
-		.type = RZI_LORAWAN_BACKEND_JOINED,
-	};
+	int rc = 0;
 
 	if (config->activation != RZI_LORAWAN_ACTIVATION_OTAA) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	zassert_equal(config->activation, RZI_LORAWAN_ACTIVATION_OTAA);
-	session_joined = true;
-	fake_sink(&event);
-	return 0;
+	k_mutex_lock(&lock, K_FOREVER);
+	if (joining || session_joined) {
+		/* smtc_modem_set_deveui() is refused while joining or joined. */
+		rc = -RZI_ERR_BUSY;
+	} else {
+		fake_last_join = *config;
+		joining = true;
+		k_work_schedule(&join_work, FAKE_ATTEMPT_DELAY);
+	}
+	k_mutex_unlock(&lock);
+	return rc;
 }
 
 static int fake_leave(void)
 {
+	k_mutex_lock(&lock, K_FOREVER);
+	fake_leave_calls++;
+	joining = false;
 	session_joined = false;
+	(void)k_work_cancel_delayable(&join_work);
+	k_mutex_unlock(&lock);
+	return 0;
+}
+
+void fake_complete_tx(void)
+{
+	const struct rzi_lorawan_backend_event event = {
+		.type = RZI_LORAWAN_BACKEND_TX_DONE,
+		.tx_status = held_status,
+	};
+
+	tx_pending = false;
+	fake_sink(&event);
+}
+
+static int start_tx(enum rzi_lorawan_message_type type)
+{
+	if (tx_pending) {
+		return -RZI_ERR_BUSY;
+	}
+	tx_pending = true;
+	held_status =
+		type == RZI_LORAWAN_MSG_CONFIRMED ? RZI_LORAWAN_TX_ACKED : RZI_LORAWAN_TX_SENT;
+	if (!fake_tx_hold) {
+		fake_complete_tx();
+	}
 	return 0;
 }
 
 static int fake_send(uint8_t port, const uint8_t *data, size_t size,
 		     enum rzi_lorawan_message_type type)
 {
-	const struct rzi_lorawan_backend_event event = {
-		.type = RZI_LORAWAN_BACKEND_TX_DONE,
-		.tx_status = RZI_LORAWAN_TX_ACKED,
-	};
-
 	zassert_equal(port, 10);
 	zassert_equal(size, 2);
 	zassert_equal(data[0], 0x12);
-	zassert_equal(type, RZI_LORAWAN_MSG_CONFIRMED);
-	fake_sink(&event);
-	return 0;
+	return start_tx(type);
+}
+
+static int fake_send_empty(bool with_port, uint8_t port, enum rzi_lorawan_message_type type)
+{
+	zassert_true(!with_port || port == 20);
+	return start_tx(type);
 }
 
 static int fake_set_class(enum rzi_lorawan_class requested)
@@ -141,16 +218,38 @@ static int fake_get_class(enum rzi_lorawan_class *value)
 	return 0;
 }
 
+static int require_joined(void)
+{
+	return session_joined ? 0 : -RZI_ERR_NOT_JOINED;
+}
+
 static int fake_get_adr(bool *enabled)
 {
-	*enabled = adr_enabled;
+	*enabled = adr_profile == RZI_LORAWAN_ADR_NETWORK;
+	return 0;
+}
+
+static int fake_set_adr_profile(enum rzi_lorawan_adr_profile profile, const uint8_t *distribution)
+{
+	int rc = require_joined();
+
+	if (rc != 0) {
+		return rc;
+	}
+	if (profile == RZI_LORAWAN_ADR_CUSTOM) {
+		data_rate = (enum rzi_lorawan_data_rate)distribution[0];
+	}
+	adr_profile = profile;
 	return 0;
 }
 
 static int fake_set_adr(bool enabled)
 {
-	adr_enabled = enabled;
-	return 0;
+	uint8_t pinned[RZI_LORAWAN_DR_DISTRIBUTION_LENGTH];
+
+	memset(pinned, data_rate, sizeof(pinned));
+	return fake_set_adr_profile(enabled ? RZI_LORAWAN_ADR_NETWORK : RZI_LORAWAN_ADR_CUSTOM,
+				    pinned);
 }
 
 static int fake_get_data_rate(enum rzi_lorawan_data_rate *value)
@@ -161,103 +260,41 @@ static int fake_get_data_rate(enum rzi_lorawan_data_rate *value)
 
 static int fake_set_data_rate(enum rzi_lorawan_data_rate value)
 {
-	data_rate = value;
+	uint8_t pinned[RZI_LORAWAN_DR_DISTRIBUTION_LENGTH];
+
+	memset(pinned, value, sizeof(pinned));
+	return fake_set_adr_profile(RZI_LORAWAN_ADR_CUSTOM, pinned);
+}
+
+static int fake_get_enabled_data_rates(uint16_t *mask)
+{
+	*mask = US915_UPLINK_DRS;
 	return 0;
 }
 
-static int fake_get_tx_power(uint8_t *value)
+static int fake_get_adr_profile(enum rzi_lorawan_adr_profile *profile)
 {
-	*value = tx_power;
+	*profile = adr_profile;
 	return 0;
 }
 
-static int fake_set_tx_power(uint8_t value)
+static int fake_get_nb_trans(uint8_t *value)
 {
-	tx_power = value;
+	*value = nb_trans;
 	return 0;
 }
 
-static int fake_get_duty_cycle(bool *enabled)
+static int fake_set_nb_trans(uint8_t value)
 {
-	*enabled = duty_cycle;
-	return 0;
-}
+	int rc = require_joined();
 
-static int fake_set_duty_cycle(bool enabled)
-{
-	duty_cycle = enabled;
-	return 0;
-}
-
-static int fake_get_rx1_delay(uint32_t *value)
-{
-	*value = rx1_delay_ms;
-	return 0;
-}
-
-static int fake_set_rx1_delay(uint32_t value)
-{
-	rx1_delay_ms = value;
-	return 0;
-}
-
-static int fake_get_rx2_delay(uint32_t *value)
-{
-	*value = rx2_delay_ms;
-	return 0;
-}
-
-static int fake_set_rx2_delay(uint32_t value)
-{
-	rx2_delay_ms = value;
-	return 0;
-}
-
-static int fake_get_rx2_data_rate(enum rzi_lorawan_data_rate *value)
-{
-	*value = rx2_data_rate;
-	return 0;
-}
-
-static int fake_set_rx2_data_rate(enum rzi_lorawan_data_rate value)
-{
-	rx2_data_rate = value;
-	return 0;
-}
-
-static int fake_get_rx2_frequency(uint32_t *value)
-{
-	*value = rx2_frequency_hz;
-	return 0;
-}
-
-static int fake_set_rx2_frequency(uint32_t value)
-{
-	rx2_frequency_hz = value;
-	return 0;
-}
-
-static int fake_get_join_delay1(uint32_t *value)
-{
-	*value = join_delay1_ms;
-	return 0;
-}
-
-static int fake_set_join_delay1(uint32_t value)
-{
-	join_delay1_ms = value;
-	return 0;
-}
-
-static int fake_get_join_delay2(uint32_t *value)
-{
-	*value = join_delay2_ms;
-	return 0;
-}
-
-static int fake_set_join_delay2(uint32_t value)
-{
-	join_delay2_ms = value;
+	if (rc != 0) {
+		return rc;
+	}
+	if (adr_profile == RZI_LORAWAN_ADR_NETWORK) {
+		return -RZI_ERR_INVALID;
+	}
+	nb_trans = value;
 	return 0;
 }
 
@@ -308,6 +345,27 @@ static int fake_set_lbt_scan_time(uint32_t value)
 	lbt_scan_time_ms = value;
 	return 0;
 }
+
+static const struct rzi_lorawan_network_ops fake_network_ops = {
+	.get_adr = fake_get_adr,
+	.set_adr = fake_set_adr,
+	.get_data_rate = fake_get_data_rate,
+	.set_data_rate = fake_set_data_rate,
+	.get_enabled_data_rates = fake_get_enabled_data_rates,
+	.get_adr_profile = fake_get_adr_profile,
+	.set_adr_profile = fake_set_adr_profile,
+	.get_nb_trans = fake_get_nb_trans,
+	.set_nb_trans = fake_set_nb_trans,
+	.get_public_network = fake_get_public_network,
+	.set_public_network = fake_set_public_network,
+	.get_lbt = fake_get_lbt,
+	.set_lbt = fake_set_lbt,
+	.get_lbt_rssi = fake_get_lbt_rssi,
+	.set_lbt_rssi = fake_set_lbt_rssi,
+	.get_lbt_scan_time = fake_get_lbt_scan_time,
+	.set_lbt_scan_time = fake_set_lbt_scan_time,
+	.send_empty = fake_send_empty,
+};
 
 static int fake_get_ping_slot(uint8_t *value)
 {
@@ -368,37 +426,6 @@ static int fake_stop_class_b(void)
 	return 0;
 }
 
-static const struct rzi_lorawan_network_ops fake_network_ops = {
-	.get_adr = fake_get_adr,
-	.set_adr = fake_set_adr,
-	.get_data_rate = fake_get_data_rate,
-	.set_data_rate = fake_set_data_rate,
-	.get_tx_power = fake_get_tx_power,
-	.set_tx_power = fake_set_tx_power,
-	.get_duty_cycle = fake_get_duty_cycle,
-	.set_duty_cycle = fake_set_duty_cycle,
-	.get_rx1_delay = fake_get_rx1_delay,
-	.set_rx1_delay = fake_set_rx1_delay,
-	.get_rx2_delay = fake_get_rx2_delay,
-	.set_rx2_delay = fake_set_rx2_delay,
-	.get_rx2_data_rate = fake_get_rx2_data_rate,
-	.set_rx2_data_rate = fake_set_rx2_data_rate,
-	.get_rx2_frequency = fake_get_rx2_frequency,
-	.set_rx2_frequency = fake_set_rx2_frequency,
-	.get_join_accept_delay1 = fake_get_join_delay1,
-	.set_join_accept_delay1 = fake_set_join_delay1,
-	.get_join_accept_delay2 = fake_get_join_delay2,
-	.set_join_accept_delay2 = fake_set_join_delay2,
-	.get_public_network = fake_get_public_network,
-	.set_public_network = fake_set_public_network,
-	.get_lbt = fake_get_lbt,
-	.set_lbt = fake_set_lbt,
-	.get_lbt_rssi = fake_get_lbt_rssi,
-	.set_lbt_rssi = fake_set_lbt_rssi,
-	.get_lbt_scan_time = fake_get_lbt_scan_time,
-	.set_lbt_scan_time = fake_set_lbt_scan_time,
-};
-
 static const struct rzi_lorawan_class_b_ops fake_class_b_ops = {
 	.get_ping_slot_periodicity = fake_get_ping_slot,
 	.set_ping_slot_periodicity = fake_set_ping_slot,
@@ -408,56 +435,6 @@ static const struct rzi_lorawan_class_b_ops fake_class_b_ops = {
 	.get_beacon_gateway = fake_get_beacon_gateway,
 	.get_state = fake_get_class_b_state,
 	.stop = fake_stop_class_b,
-};
-
-static int fake_get_channel_mask(uint16_t *mask, size_t words)
-{
-	size_t copy = MIN(words, ARRAY_SIZE(channel_mask));
-
-	memcpy(mask, channel_mask, copy * sizeof(uint16_t));
-	return 0;
-}
-
-static int fake_set_channel_mask(const uint16_t *mask, size_t words)
-{
-	size_t copy = MIN(words, ARRAY_SIZE(channel_mask));
-
-	memset(channel_mask, 0, sizeof(channel_mask));
-	memcpy(channel_mask, mask, copy * sizeof(uint16_t));
-	return 0;
-}
-
-static int fake_get_sub_band(uint8_t *value)
-{
-	*value = sub_band;
-	return 0;
-}
-
-static int fake_set_sub_band(uint8_t value)
-{
-	sub_band = value;
-	return 0;
-}
-
-static int fake_get_fixed_channel(uint32_t *value)
-{
-	*value = fixed_channel_hz;
-	return 0;
-}
-
-static int fake_set_fixed_channel(uint32_t value)
-{
-	fixed_channel_hz = value;
-	return 0;
-}
-
-static const struct rzi_lorawan_channel_ops fake_channel_ops = {
-	.get_channel_mask = fake_get_channel_mask,
-	.set_channel_mask = fake_set_channel_mask,
-	.get_sub_band = fake_get_sub_band,
-	.set_sub_band = fake_set_sub_band,
-	.get_fixed_channel = fake_get_fixed_channel,
-	.set_fixed_channel = fake_set_fixed_channel,
 };
 
 static int fake_get_net_id(uint32_t *value)
@@ -483,9 +460,9 @@ static int fake_query_tx_possible(size_t size)
 	return size <= 51U ? 0 : -RZI_ERR_TOO_LARGE;
 }
 
-static int fake_info_is_busy(bool *value)
+static int fake_is_busy(bool *value)
 {
-	*value = busy;
+	*value = tx_pending;
 	return 0;
 }
 
@@ -683,9 +660,8 @@ const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.get_class = fake_get_class,
 	.is_joined = fake_is_joined,
 	.query_tx_possible = fake_query_tx_possible,
-	.is_busy = fake_info_is_busy,
+	.is_busy = fake_is_busy,
 	.network = &fake_network_ops,
-	.channel = &fake_channel_ops,
 	.class_b = &fake_class_b_ops,
 	.session = &fake_session_ops,
 	.mac = &fake_mac_ops,

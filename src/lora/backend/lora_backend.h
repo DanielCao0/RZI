@@ -22,6 +22,8 @@ struct rzi_lora_backend_api {
 	int (*receive)(uint32_t timeout_ms);
 	/** Start an RSSI test. */
 	int (*test_rssi)(void);
+	/** Read the last RSSI test result in dBm. */
+	int (*test_get_rssi)(int16_t *rssi_dbm);
 	/** Start a CW tone test. */
 	int (*test_tone)(void);
 	/** Transmit PER packets. */

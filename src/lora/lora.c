@@ -246,6 +246,22 @@ int rzi_lora_test_rssi(void)
 	return call_test(rzi_lora_backend.test_rssi);
 }
 
+int rzi_lora_test_get_rssi(int16_t *rssi_dbm)
+{
+	int rc = check_thread();
+
+	if (rc != 0) {
+		return rc;
+	}
+	if (rssi_dbm == NULL) {
+		return -RZI_ERR_INVALID;
+	}
+	if (rzi_lora_backend.test_get_rssi == NULL) {
+		return -RZI_ERR_NOT_SUPPORTED;
+	}
+	return rzi_lora_backend.test_get_rssi(rssi_dbm);
+}
+
 int rzi_lora_test_tone(void)
 {
 	return call_test(rzi_lora_backend.test_tone);

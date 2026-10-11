@@ -16,21 +16,6 @@
 static enum rzi_lorawan_class device_class = RZI_LORAWAN_CLASS_A;
 static bool adr_enabled = true;
 static enum rzi_lorawan_data_rate data_rate = RZI_LORAWAN_DR_0;
-static uint16_t channel_mask[RZI_LORAWAN_CHANNEL_MASK_WORDS];
-static bool channel_mask_valid;
-
-static size_t mask_words_for_region(enum rzi_lorawan_region region)
-{
-	switch (region) {
-	case RZI_LORAWAN_REGION_US_915:
-	case RZI_LORAWAN_REGION_AU_915:
-	case RZI_LORAWAN_REGION_CN_470:
-		return RZI_LORAWAN_CHANNEL_MASK_WORDS;
-	default:
-		return 1U;
-	}
-}
-
 int zephyr_get_class(enum rzi_lorawan_class *value)
 {
 	int rc = rzi_lorawan_zephyr_lock_started();
@@ -95,52 +80,33 @@ static int zephyr_set_data_rate(enum rzi_lorawan_data_rate value)
 	return rzi_err_from_errno(rc);
 }
 
-static int zephyr_get_channel_mask(uint16_t *mask, size_t words)
+/* LoRaWAN Regional Parameters RP002 uplink data rates; bit n is DRn. */
+static uint16_t uplink_data_rate_mask(enum rzi_lorawan_region region)
 {
-	size_t copy;
-	int rc = rzi_lorawan_zephyr_lock_started();
-
-	if (rc != 0) {
-		return rc;
+	switch (region) {
+	case RZI_LORAWAN_REGION_EU_868:
+		return 0x0fffU; /* DR0-11 (DR8-11 are LR-FHSS) */
+	case RZI_LORAWAN_REGION_US_915:
+		return 0x007fU; /* DR0-6 */
+	case RZI_LORAWAN_REGION_IN_865:
+		return 0x00bfU; /* DR0-5, DR7 (DR6 is RFU) */
+	case RZI_LORAWAN_REGION_KR_920:
+		return 0x003fU; /* DR0-5 */
+	default:
+		return 0x00ffU; /* DR0-7 */
 	}
-	if (!channel_mask_valid) {
-		rzi_lorawan_zephyr_unlock();
-		return -RZI_ERR_NO_DATA;
-	}
-	copy = MIN(words, ARRAY_SIZE(channel_mask));
-	memset(mask, 0, words * sizeof(uint16_t));
-	memcpy(mask, channel_mask, copy * sizeof(uint16_t));
-	rzi_lorawan_zephyr_unlock();
-	return 0;
 }
 
-static int zephyr_set_channel_mask(const uint16_t *mask, size_t words)
+static int zephyr_get_enabled_data_rates(uint16_t *mask)
 {
-	size_t required;
-	uint16_t local[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0};
 	int rc = rzi_lorawan_zephyr_lock_started();
 
 	if (rc != 0) {
 		return rc;
 	}
-	required = mask_words_for_region(rzi_lorawan_zephyr_region());
-	if (words < required) {
-		rzi_lorawan_zephyr_unlock();
-		return -RZI_ERR_INVALID;
-	}
-	memcpy(local, mask, required * sizeof(uint16_t));
-#ifndef CONFIG_LORAWAN_EMUL
-	rc = lorawan_set_channels_mask(local, required);
-	if (rc == 0) {
-#endif
-		memset(channel_mask, 0, sizeof(channel_mask));
-		memcpy(channel_mask, local, required * sizeof(uint16_t));
-		channel_mask_valid = true;
-#ifndef CONFIG_LORAWAN_EMUL
-	}
-#endif
+	*mask = uplink_data_rate_mask(rzi_lorawan_zephyr_region());
 	rzi_lorawan_zephyr_unlock();
-	return rzi_err_from_errno(rc);
+	return 0;
 }
 
 const struct rzi_lorawan_network_ops zephyr_network_ops = {
@@ -148,11 +114,7 @@ const struct rzi_lorawan_network_ops zephyr_network_ops = {
 	.set_adr = zephyr_set_adr,
 	.get_data_rate = zephyr_get_data_rate,
 	.set_data_rate = zephyr_set_data_rate,
-};
-
-const struct rzi_lorawan_channel_ops zephyr_channel_ops = {
-	.get_channel_mask = zephyr_get_channel_mask,
-	.set_channel_mask = zephyr_set_channel_mask,
+	.get_enabled_data_rates = zephyr_get_enabled_data_rates,
 };
 
 int zephyr_query_tx_possible(size_t size)

@@ -6,11 +6,8 @@
 
 #include <stdint.h>
 
-#include <smtc_secure_element.h>
-
 #include "lorawan_backend_usp_priv.h"
-
-extern uint32_t lorawan_api_devaddr_get(uint8_t stack_id);
+#include "lorawan_backend_usp_lbm.h"
 
 static int usp_get_dev_addr(uint32_t *dev_addr)
 {

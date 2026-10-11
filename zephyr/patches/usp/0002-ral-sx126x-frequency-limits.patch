@@ -1,0 +1,21 @@
+diff --git a/smtc_rac_lib/smtc_ral/src/ral_sx126x.h b/smtc_rac_lib/smtc_ral/src/ral_sx126x.h
+index 2b594b0..f7407e2 100644
+--- a/smtc_rac_lib/smtc_ral/src/ral_sx126x.h
++++ b/smtc_rac_lib/smtc_ral/src/ral_sx126x.h
+@@ -112,12 +112,13 @@ extern "C" {
+     {                                                         \
+         .context = ctx, .driver = RAL_SX126X_DRV_INSTANTIATE, \
+     }
+-// SX1268 limitations
+-#define RAL_SX126X_LF_HZ_MIN 410000000UL
+-#define RAL_SX126X_LF_HZ_MAX 810000000UL
+ #if defined( SX1261 ) || defined( SX1262 )
+ #define RAL_SX126X_LF_HZ_MIN 150000000UL
+ #define RAL_SX126X_LF_HZ_MAX 960000000UL
++#else
++// SX1268 limitations
++#define RAL_SX126X_LF_HZ_MIN 410000000UL
++#define RAL_SX126X_LF_HZ_MAX 810000000UL
+ #endif
+ 
+ /*

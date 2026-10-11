@@ -17,6 +17,34 @@ patches:
       can read NwkSKey and AppSKey after join. The LR11xx crypto engine
       cannot export key material and returns an error.
 
+  - path: usp/0002-ral-sx126x-frequency-limits.patch
+    sha256sum: 91ea0d9d82b4a2447d5170948d307a233af23361c448fdac75e8ba28fb4fff54
+    module: usp
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-11
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Select the SX1261/SX1262 or SX1268 frequency limits with #if/#else.
+      Upstream defines the SX1268 limits first and redefines them without
+      #undef, which fails every SX1262 build under -Werror (twister).
+
+  - path: usp/0003-user-channel-mask.patch
+    sha256sum: 22f73b62339cda5294bdb920e5e97e44c3eabd85c2e2a7c577f32a0261a7f24e
+    module: usp
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-11
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Add smtc_modem_set/get_channel_mask() so the application can limit the
+      US915 / AU915 / CN470 uplink channels before join (AT+MASK, AT+CHE,
+      AT+CHS). The mask is ANDed into every default channel mask and the
+      US915 / AU915 snapshots ignore disabled channels. LinkADRReq and the ADR
+      back-off are unchanged.
+
   - path: usp_zephyr/0005-stm32wl-subghz-radio.patch
     sha256sum: 8dcaad970167a2a00daa0cbb05ea120b1d848a33705d1b8d778319010891ac75
     module: usp_zephyr

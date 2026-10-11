@@ -14,11 +14,7 @@ choice RZI_LORAWAN_BACKEND
 
 config RZI_LORAWAN_BACKEND_USP
 	bool "Semtech USP and LoRa Basics Modem"
-	select LORA_BASICS_MODEM_DRIVERS
-	select USP
-	select USP_LORA_BASICS_MODEM
-	select USP_MAIN_THREAD
-	select USP_THREADS_MUTEXES
+	select RZI_USP
 	help
 	  Use the Semtech USP and LoRa Basics Modem implementation. RZI owns
 	  the modem; applications must not call Semtech APIs directly. Keep

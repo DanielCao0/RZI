@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
 
 #if defined(CONFIG_RZI_STORAGE)
 #include <rzi/storage/storage.h>
@@ -42,6 +43,8 @@ struct credential_store {
 	bool auto_join;
 	uint8_t join_interval;
 	uint8_t join_attempts;
+	uint16_t channel_mask[RZI_LORAWAN_CHANNEL_MASK_WORDS];
+	bool channel_mask_set;
 	bool join_active;
 	bool loaded;
 };
@@ -70,7 +73,32 @@ static int persist(const char *key, const void *value, size_t len)
 #endif
 }
 
+static bool channel_mask_valid(const uint16_t *mask)
+{
+	bool any = false;
+
+	for (uint32_t channel = 0; channel < RZI_LORAWAN_CHANNEL_MASK_WORDS * 16U; ++channel) {
+		bool enabled = (mask[channel / 16U] & BIT(channel % 16U)) != 0U;
+
+		if (enabled && channel >= RZI_LORAWAN_FIXED_PLAN_CHANNELS) {
+			return false;
+		}
+		any = any || enabled;
+	}
+	return any;
+}
+
 #if defined(CONFIG_RZI_STORAGE)
+static int forget(const char *key)
+{
+	int rc = rzi_storage_init();
+
+	if (rc == 0) {
+		rc = rzi_storage_delete(CREDENTIAL_NS, key);
+	}
+	return rc == -RZI_ERR_NOT_FOUND ? 0 : rc;
+}
+
 static int load_bytes(const char *key, void *dst, size_t len, bool *valid)
 {
 	int rc = rzi_storage_read(CREDENTIAL_NS, key, dst, len);
@@ -171,6 +199,14 @@ static int ensure_loaded_locked(void)
 		rc = load_u8("join_attempts", &value, &found);
 		if (rc == 0 && found) {
 			credentials.join_attempts = value;
+		}
+	}
+	if (rc == 0) {
+		rc = load_bytes("chmask", credentials.channel_mask,
+				sizeof(credentials.channel_mask), &credentials.channel_mask_set);
+		if (rc == 0 && credentials.channel_mask_set &&
+		    !channel_mask_valid(credentials.channel_mask)) {
+			credentials.channel_mask_set = false;
 		}
 	}
 	if (rc != 0) {
@@ -625,8 +661,51 @@ int rzi_lorawan_credentials_update_policy(int32_t auto_join, int32_t interval, i
 	return rc;
 }
 
+int rzi_lorawan_credentials_get_channel_mask(uint16_t *mask, bool *set)
+{
+	int rc;
+
+	k_mutex_lock(&credential_lock, K_FOREVER);
+	rc = ensure_loaded_locked();
+	if (rc == 0) {
+		*set = credentials.channel_mask_set;
+		memcpy(mask, credentials.channel_mask, sizeof(credentials.channel_mask));
+	}
+	k_mutex_unlock(&credential_lock);
+	return rc;
+}
+
+int rzi_lorawan_credentials_set_channel_mask(const uint16_t *mask)
+{
+	int rc;
+
+	if (mask != NULL && !channel_mask_valid(mask)) {
+		return -RZI_ERR_INVALID;
+	}
+
+	k_mutex_lock(&credential_lock, K_FOREVER);
+	rc = ensure_loaded_locked();
+	if (rc == 0 && credentials.join_active) {
+		rc = -RZI_ERR_BUSY;
+	}
+	if (rc == 0 && mask != NULL) {
+		memcpy(credentials.channel_mask, mask, sizeof(credentials.channel_mask));
+		credentials.channel_mask_set = true;
+		rc = persist("chmask", credentials.channel_mask, sizeof(credentials.channel_mask));
+	} else if (rc == 0) {
+		memset(credentials.channel_mask, 0, sizeof(credentials.channel_mask));
+		credentials.channel_mask_set = false;
+#if defined(CONFIG_RZI_STORAGE)
+		rc = forget("chmask");
+#endif
+	}
+	k_mutex_unlock(&credential_lock);
+	return rc;
+}
+
 int rzi_lorawan_credentials_build_config(struct rzi_lorawan_join_config *config)
 {
+	enum rzi_lorawan_region region;
 	int rc = rzi_lorawan_check_thread();
 
 	if (rc != 0) {
@@ -635,12 +714,23 @@ int rzi_lorawan_credentials_build_config(struct rzi_lorawan_join_config *config)
 	if (config == NULL) {
 		return -RZI_ERR_INVALID;
 	}
+	rc = rzi_lorawan_get_region(&region);
+	if (rc != 0) {
+		return rc;
+	}
 
 	k_mutex_lock(&credential_lock, K_FOREVER);
 	rc = ensure_loaded_locked();
 	if (rc == 0) {
 		memset(config, 0, sizeof(*config));
 		config->activation = credentials.njm;
+		config->retry_interval_s = credentials.join_interval;
+		if (credentials.channel_mask_set && rzi_lorawan_region_has_fixed_plan(region) &&
+		    (rzi_lorawan_backend.capabilities & RZI_LORAWAN_CAP_CHANNEL) != 0U) {
+			config->channel_mask_set = true;
+			memcpy(config->channel_mask, credentials.channel_mask,
+			       sizeof(config->channel_mask));
+		}
 		if (credentials.njm == RZI_LORAWAN_ACTIVATION_ABP) {
 			config->abp.dev_addr = credentials.dev_addr;
 			memcpy(config->abp.network_session_key, credentials.nwk_skey,

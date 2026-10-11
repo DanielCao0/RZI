@@ -13,6 +13,7 @@ rsource "Kconfig.storage"
 rsource "Kconfig.boot"
 
 # Radio and command services, then power.
+rsource "Kconfig.usp"
 rsource "Kconfig.lorawan"
 rsource "Kconfig.lora"
 rsource "Kconfig.at"

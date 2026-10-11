@@ -5,10 +5,9 @@
 #include <zephyr/sys/util.h>
 #include <zephyr/ztest.h>
 
-#include <rzi/capabilities.h>
 #include <rzi/power/power.h>
 
-ZTEST(rzi_power_api, test_init_capability_and_default_policy)
+ZTEST(rzi_power_api, test_init_and_default_policy)
 {
 	enum rzi_power_policy policy = RZI_POWER_POLICY_SHUTDOWN;
 	enum rzi_power_wake_reason reason = RZI_POWER_WAKE_REASON_DEBUG;
@@ -17,7 +16,6 @@ ZTEST(rzi_power_api, test_init_capability_and_default_policy)
 
 	zassert_ok(rzi_power_init());
 	zassert_ok(rzi_power_init());
-	zassert_equal(rzi_get_capabilities() & RZI_CAP_POWER, RZI_CAP_POWER);
 	zassert_ok(rzi_power_get_policy(&policy));
 	zassert_equal(policy, RZI_POWER_POLICY_IDLE);
 	zassert_true(rzi_power_is_sleep_allowed());

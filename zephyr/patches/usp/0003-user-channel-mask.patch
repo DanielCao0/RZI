@@ -1,0 +1,583 @@
+diff --git a/protocols/lbm_lib/smtc_modem_api/smtc_modem_api.h b/protocols/lbm_lib/smtc_modem_api/smtc_modem_api.h
+index de69979..1b88b89 100755
+--- a/protocols/lbm_lib/smtc_modem_api/smtc_modem_api.h
++++ b/protocols/lbm_lib/smtc_modem_api/smtc_modem_api.h
+@@ -77,6 +77,11 @@ extern "C" {
+  */
+ #define SMTC_MODEM_CUSTOM_ADR_DATA_LENGTH 16
+ 
++/**
++ * @brief Maximum size in bytes of a user channel mask (96 uplink channels)
++ */
++#define SMTC_MODEM_CHANNEL_MASK_MAX_LENGTH 12
++
+ /**
+  * @brief Maximum payload size in byte of LoRaWAN payload
+  */
+@@ -1207,6 +1212,44 @@ smtc_modem_return_code_t smtc_modem_get_nb_trans( uint8_t stack_id, uint8_t* nb_
+  */
+ smtc_modem_return_code_t smtc_modem_get_enabled_datarates( uint8_t stack_id, uint16_t* enabled_datarates_mask );
+ 
++/**
++ * @brief Restrict the uplink channels used to join and until the network sends a channel mask
++ *
++ * @remark Only for regions with a fixed channel plan: US915, AU915 and CN470. Bit i of \p mask enables uplink
++ *         channel i (US915 / AU915: 0-63 are the 125 kHz channels, 64-71 the 500 kHz channels). The mask is used
++ *         from the next Join-Request on and for the default channel mask set after the join. A channel mask
++ *         received from the network (LinkADRReq) replaces it until the next join. The ADR back-off re-enables the
++ *         default channels as required by LoRaWAN. The mask is cleared when the region changes or the modem resets.
++ *
++ * @param [in] stack_id  Stack identifier
++ * @param [in] mask      Channel mask, may be NULL when \p mask_size is 0
++ * @param [in] mask_size Size of \p mask in bytes, at least the number of region channels / 8 and at most
++ *                       @ref SMTC_MODEM_CHANNEL_MASK_MAX_LENGTH; 0 enables every channel again
++ *
++ * @return Modem return code as defined in @ref smtc_modem_return_code_t
++ * @retval SMTC_MODEM_RC_OK                Command executed without errors
++ * @retval SMTC_MODEM_RC_INVALID           \p mask is too short, enables no channel, or enables a channel the
++ *                                         region does not have
++ * @retval SMTC_MODEM_RC_FAIL              The region has no fixed channel plan
++ * @retval SMTC_MODEM_RC_BUSY              Modem is currently in test mode
++ */
++smtc_modem_return_code_t smtc_modem_set_channel_mask( uint8_t stack_id, const uint8_t* mask, uint8_t mask_size );
++
++/**
++ * @brief Read the user channel mask; every region channel is set when no mask is configured
++ *
++ * @param [in]  stack_id  Stack identifier
++ * @param [out] mask      Channel mask
++ * @param [in]  mask_size Size of \p mask in bytes, at least the number of region channels / 8
++ *
++ * @return Modem return code as defined in @ref smtc_modem_return_code_t
++ * @retval SMTC_MODEM_RC_OK                Command executed without errors
++ * @retval SMTC_MODEM_RC_INVALID           \p mask is NULL or too short
++ * @retval SMTC_MODEM_RC_FAIL              The region has no fixed channel plan
++ * @retval SMTC_MODEM_RC_BUSY              Modem is currently in test mode
++ */
++smtc_modem_return_code_t smtc_modem_get_channel_mask( uint8_t stack_id, uint8_t* mask, uint8_t mask_size );
++
+ /**
+  * @brief Set the LoRaWan stack ADR ACK limit and ADR ACK delay regarding the ADR fallback if no downlink are received
+  *
+diff --git a/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.c b/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.c
+index 9731c99..1d8063e 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.c
++++ b/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.c
+@@ -413,6 +413,18 @@ uint16_t lorawan_api_mask_tx_dr_channel_up_dwell_time_check( uint8_t stack_id )
+     return smtc_real_mask_tx_dr_channel_up_dwell_time_check( lr1_mac_obj[stack_id].real );
+ }
+ 
++smtc_real_status_t lorawan_api_set_user_channel_mask( uint8_t stack_id, const uint8_t* mask, uint8_t mask_size )
++{
++    PANIC_IF_STACK_ID_TOO_HIGH( stack_id );
++    return smtc_real_set_user_channel_mask( lr1_mac_obj[stack_id].real, mask, mask_size );
++}
++
++smtc_real_status_t lorawan_api_get_user_channel_mask( uint8_t stack_id, uint8_t* mask, uint8_t mask_size )
++{
++    PANIC_IF_STACK_ID_TOO_HIGH( stack_id );
++    return smtc_real_get_user_channel_mask( lr1_mac_obj[stack_id].real, mask, mask_size );
++}
++
+ uint8_t lorawan_api_min_tx_dr_get( uint8_t stack_id )
+ {
+     PANIC_IF_STACK_ID_TOO_HIGH( stack_id );
+diff --git a/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.h b/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.h
+index a35f2c8..d08e0be 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.h
++++ b/protocols/lbm_lib/smtc_modem_core/lorawan_api/lorawan_api.h
+@@ -389,6 +389,28 @@ uint8_t lorawan_api_min_tx_dr_get( uint8_t stack_id );
+  */
+ uint16_t lorawan_api_mask_tx_dr_channel_up_dwell_time_check( uint8_t stack_id );
+ 
++/**
++ * @brief Set the channels used before the network sends a channel mask (see smtc_real_set_user_channel_mask)
++ *
++ * @param [in] stack_id  Stack identifier
++ * @param [in] mask      Channel mask, bit i enables uplink channel i
++ * @param [in] mask_size Size of mask in bytes; 0 enables every channel again
++ *
++ * @return smtc_real_status_t
++ */
++smtc_real_status_t lorawan_api_set_user_channel_mask( uint8_t stack_id, const uint8_t* mask, uint8_t mask_size );
++
++/**
++ * @brief Read the user channel mask (see smtc_real_get_user_channel_mask)
++ *
++ * @param [in]  stack_id  Stack identifier
++ * @param [out] mask      Channel mask
++ * @param [in]  mask_size Size of mask in bytes
++ *
++ * @return smtc_real_status_t
++ */
++smtc_real_status_t lorawan_api_get_user_channel_mask( uint8_t stack_id, uint8_t* mask, uint8_t mask_size );
++
+ /**
+  * @brief returns the current state of the MAC layer.
+  * @remark  If the MAC is not in the idle state, the user cannot call any methods except the lorawan_api_process()
+diff --git a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_au_915.c b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_au_915.c
+index 44c5d22..a1135c9 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_au_915.c
++++ b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_au_915.c
+@@ -42,6 +42,7 @@
+ #include "smtc_modem_hal.h"
+ #include "region_au_915_defs.h"
+ #include "region_au_915.h"
++#include "smtc_real.h"
+ #include "smtc_modem_hal_dbg_trace.h"
+ 
+ /*
+@@ -99,6 +100,18 @@ typedef enum ch_mask_after_join_e
+  */
+ static void region_au_915_channel_mask_set_after_join( smtc_real_t* real );
+ 
++/**
++ * @brief Return true when every enabled 125 kHz channel has been used since the last snapshot reset
++ *
++ * @remark Disabled channels are ignored so a user channel mask cannot block the reset.
++ */
++static bool region_au_915_snapshot_125_used( smtc_real_t* real );
++
++/**
++ * @brief Return true when every enabled 500 kHz channel has been used since the last snapshot reset
++ */
++static bool region_au_915_snapshot_500_used( smtc_real_t* real );
++
+ /*
+  * -----------------------------------------------------------------------------
+  * --- PUBLIC FUNCTIONS DEFINITION ---------------------------------------------
+@@ -281,7 +294,8 @@ status_lorawan_t region_au_915_get_join_next_channel( smtc_real_t* real, uint8_t
+         }
+ 
+         // if all channels were used in a block, reset the snapshots block
+-        if( snapshot_channel_tx_mask[snapshot_bank_tx_mask] == 0 )
++        if( ( snapshot_channel_tx_mask[snapshot_bank_tx_mask] &
++              channel_index_enabled[snapshot_bank_tx_mask] ) == 0 )
+         {
+             snapshot_channel_tx_mask[snapshot_bank_tx_mask] = channel_index_enabled[snapshot_bank_tx_mask];
+         }
+@@ -363,7 +377,7 @@ status_lorawan_t region_au_915_get_next_channel( smtc_real_t* real, uint8_t tx_d
+                                                  uint32_t* out_rx1_frequency, uint8_t* active_channel_nb )
+ {
+     // if all channels were used, reset the snapshots
+-    if( ( SMTC_ARE_CLR_BYTE8( snapshot_channel_tx_mask, BANK_8_500_AU915 ) == true ) &&
++    if( region_au_915_snapshot_125_used( real ) &&
+         ( first_ch_mask_received == ch_mask_after_join_full ) )
+     {
+         for( au_915_channels_bank_t i = 0; i < BANK_8_500_AU915; i++ )
+@@ -372,21 +386,20 @@ status_lorawan_t region_au_915_get_next_channel( smtc_real_t* real, uint8_t tx_d
+         }
+     }
+ 
+-    if( ( snapshot_channel_tx_mask[BANK_8_500_AU915] == 0 ) && ( first_ch_mask_received == ch_mask_after_join_full ) )
++    if( region_au_915_snapshot_500_used( real ) && ( first_ch_mask_received == ch_mask_after_join_full ) )
+     {
+         snapshot_channel_tx_mask[BANK_8_500_AU915] = channel_index_enabled[BANK_8_500_AU915];
+     }
+ 
+-    if( ( ( SMTC_ARE_CLR_BYTE8( snapshot_channel_tx_mask, BANK_8_500_AU915 ) == true ) ||
+-          ( snapshot_channel_tx_mask[BANK_8_500_AU915] == 0 ) ) &&
++    if( ( region_au_915_snapshot_125_used( real ) || region_au_915_snapshot_500_used( real ) ) &&
+         ( first_ch_mask_received == ch_mask_after_join_56ch ) )
+     {
+         memset( unwrapped_channel_mask, 0xFF, real_const.const_number_of_channel_bank );
+         region_au_915_set_channel_mask( real );
++        smtc_real_apply_user_channel_mask( real );
+     }
+ 
+-    if( ( ( SMTC_ARE_CLR_BYTE8( snapshot_channel_tx_mask, BANK_8_500_AU915 ) == true ) ||
+-          ( snapshot_channel_tx_mask[BANK_8_500_AU915] == 0 ) ) &&
++    if( ( region_au_915_snapshot_125_used( real ) || region_au_915_snapshot_500_used( real ) ) &&
+         ( first_ch_mask_received <= ch_mask_after_join_8ch ) )
+     {
+         region_au_915_init_after_join_snapshot_channel_mask( real, tx_data_rate, *out_tx_frequency );
+@@ -536,6 +549,7 @@ void region_au_915_init_after_join_snapshot_channel_mask( smtc_real_t* real, uin
+ 
+     // Apply computed channel mask after join
+     region_au_915_channel_mask_set_after_join( real );
++    smtc_real_apply_user_channel_mask( real );
+ }
+ 
+ status_channel_t region_au_915_build_channel_mask( smtc_real_t* real, uint8_t channel_mask_cntl, uint16_t channel_mask )
+@@ -733,6 +747,23 @@ uint32_t region_au_915_get_rx_ping_slot_frequency_channel( smtc_real_t* real, ui
+  * -----------------------------------------------------------------------------
+  * --- PRIVATE FUNCTIONS DEFINITION --------------------------------------------
+  */
++static bool region_au_915_snapshot_125_used( smtc_real_t* real )
++{
++    for( uint8_t i = 0; i < BANK_8_500_AU915; i++ )
++    {
++        if( ( snapshot_channel_tx_mask[i] & channel_index_enabled[i] ) != 0 )
++        {
++            return false;
++        }
++    }
++    return true;
++}
++
++static bool region_au_915_snapshot_500_used( smtc_real_t* real )
++{
++    return ( snapshot_channel_tx_mask[BANK_8_500_AU915] & channel_index_enabled[BANK_8_500_AU915] ) == 0;
++}
++
+ static void region_au_915_channel_mask_set_after_join( smtc_real_t* real )
+ {
+     // Copy all unwrapped channels in channel enable and in snapshot
+diff --git a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_us_915.c b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_us_915.c
+index f2405d4..687a985 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_us_915.c
++++ b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/region_us_915.c
+@@ -41,6 +41,7 @@
+ #include "smtc_modem_hal.h"
+ #include "region_us_915_defs.h"
+ #include "region_us_915.h"
++#include "smtc_real.h"
+ #include "smtc_modem_hal_dbg_trace.h"
+ 
+ /*
+@@ -98,6 +99,18 @@ typedef enum ch_mask_after_join_e
+  */
+ static void region_us_915_channel_mask_set_after_join( smtc_real_t* real );
+ 
++/**
++ * @brief Return true when every enabled 125 kHz channel has been used since the last snapshot reset
++ *
++ * @remark Disabled channels are ignored so a user channel mask cannot block the reset.
++ */
++static bool region_us_915_snapshot_125_used( smtc_real_t* real );
++
++/**
++ * @brief Return true when every enabled 500 kHz channel has been used since the last snapshot reset
++ */
++static bool region_us_915_snapshot_500_used( smtc_real_t* real );
++
+ /*
+  * -----------------------------------------------------------------------------
+  * --- PUBLIC FUNCTIONS DEFINITION ---------------------------------------------
+@@ -270,7 +283,8 @@ status_lorawan_t region_us_915_get_join_next_channel( smtc_real_t* real, uint8_t
+         }
+ 
+         // if all channels were used in a block, reset the snapshots block
+-        if( snapshot_channel_tx_mask[snapshot_bank_tx_mask] == 0 )
++        if( ( snapshot_channel_tx_mask[snapshot_bank_tx_mask] &
++              channel_index_enabled[snapshot_bank_tx_mask] ) == 0 )
+         {
+             snapshot_channel_tx_mask[snapshot_bank_tx_mask] = channel_index_enabled[snapshot_bank_tx_mask];
+         }
+@@ -354,7 +368,7 @@ status_lorawan_t region_us_915_get_next_channel( smtc_real_t* real, uint8_t tx_d
+                                                  uint32_t* out_rx1_frequency, uint8_t* active_channel_nb )
+ {
+     // if all channels were used -> reset the 500Kz snapshots
+-    if( ( SMTC_ARE_CLR_BYTE8( snapshot_channel_tx_mask, BANK_8_500_US915 ) == true ) &&
++    if( region_us_915_snapshot_125_used( real ) &&
+         ( first_ch_mask_received == ch_mask_after_join_full ) )
+     {
+         for( us_915_channels_bank_t i = 0; i < BANK_8_500_US915; i++ )
+@@ -364,25 +378,24 @@ status_lorawan_t region_us_915_get_next_channel( smtc_real_t* real, uint8_t tx_d
+     }
+ 
+     // If all 500Khz channels were used AND were are in nominal way -> reset the 500Kz snapshot
+-    if( ( snapshot_channel_tx_mask[BANK_8_500_US915] == 0 ) && ( first_ch_mask_received == ch_mask_after_join_full ) )
++    if( region_us_915_snapshot_500_used( real ) && ( first_ch_mask_received == ch_mask_after_join_full ) )
+     {
+         snapshot_channel_tx_mask[BANK_8_500_US915] = channel_index_enabled[BANK_8_500_US915];
+     }
+ 
+     // If (all 125KHz channels OR all 500Khz channels) were used in 56 channels phases without received a ChMash
+     // --> enable all 64 channels
+-    if( ( ( SMTC_ARE_CLR_BYTE8( snapshot_channel_tx_mask, BANK_8_500_US915 ) == true ) ||
+-          ( snapshot_channel_tx_mask[BANK_8_500_US915] == 0 ) ) &&
++    if( ( region_us_915_snapshot_125_used( real ) || region_us_915_snapshot_500_used( real ) ) &&
+         ( first_ch_mask_received == ch_mask_after_join_56ch ) )
+     {
+         memset( unwrapped_channel_mask, 0xFF, real_const.const_number_of_channel_bank );
+         region_us_915_set_channel_mask( real );
++        smtc_real_apply_user_channel_mask( real );
+     }
+ 
+     // If (all 125KHz channels OR all 500Khz channels) were used in 8 channels phases without received a ChMash
+     // --> enable all others 56 channels and disable the 8 channels used
+-    if( ( ( SMTC_ARE_CLR_BYTE8( snapshot_channel_tx_mask, BANK_8_500_US915 ) == true ) ||
+-          ( snapshot_channel_tx_mask[BANK_8_500_US915] == 0 ) ) &&
++    if( ( region_us_915_snapshot_125_used( real ) || region_us_915_snapshot_500_used( real ) ) &&
+         ( first_ch_mask_received <= ch_mask_after_join_8ch ) )
+     {
+         region_us_915_init_after_join_snapshot_channel_mask( real, tx_data_rate, *out_tx_frequency );
+@@ -533,6 +546,7 @@ void region_us_915_init_after_join_snapshot_channel_mask( smtc_real_t* real, uin
+ 
+     // Apply computed channel mask after join
+     region_us_915_channel_mask_set_after_join( real );
++    smtc_real_apply_user_channel_mask( real );
+ }
+ 
+ status_channel_t region_us_915_build_channel_mask( smtc_real_t* real, uint8_t channel_mask_cntl, uint16_t channel_mask )
+@@ -734,6 +748,23 @@ uint32_t region_us_915_get_rx_ping_slot_frequency_channel( smtc_real_t* real, ui
+  * --- PRIVATE FUNCTIONS DEFINITION --------------------------------------------
+  */
+ 
++static bool region_us_915_snapshot_125_used( smtc_real_t* real )
++{
++    for( uint8_t i = 0; i < BANK_8_500_US915; i++ )
++    {
++        if( ( snapshot_channel_tx_mask[i] & channel_index_enabled[i] ) != 0 )
++        {
++            return false;
++        }
++    }
++    return true;
++}
++
++static bool region_us_915_snapshot_500_used( smtc_real_t* real )
++{
++    return ( snapshot_channel_tx_mask[BANK_8_500_US915] & channel_index_enabled[BANK_8_500_US915] ) == 0;
++}
++
+ static void region_us_915_channel_mask_set_after_join( smtc_real_t* real )
+ {
+     // Copy all unwrapped channels in channel enable and in snapshot
+diff --git a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.c b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.c
+index 1e4ab20..62677c5 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.c
++++ b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.c
+@@ -100,6 +100,101 @@
+ #define uplink_dwell_time_ctx real_ctx.uplink_dwell_time_ctx
+ #define downlink_dwell_time_ctx real_ctx.downlink_dwell_time_ctx
+ 
++static uint8_t smtc_real_user_channel_mask_size( const smtc_real_t* real )
++{
++    return ( real_const.const_number_of_tx_channel + 7 ) / 8;
++}
++
++smtc_real_status_t smtc_real_set_user_channel_mask( smtc_real_t* real, const uint8_t* mask, uint8_t mask_size )
++{
++    uint8_t nb_channels = real_const.const_number_of_tx_channel;
++    bool    any         = false;
++    bool    all         = true;
++
++    if( real_const.const_new_channel_req_supported )
++    {
++        return SMTC_REAL_STATUS_UNSUPPORTED_FEATURE;
++    }
++    if( mask_size == 0 )
++    {
++        real->user_channel_mask_set = false;
++        return SMTC_REAL_STATUS_OK;
++    }
++    if( ( mask == NULL ) || ( mask_size < smtc_real_user_channel_mask_size( real ) ) ||
++        ( mask_size > SMTC_REAL_USER_CHANNEL_MASK_SIZE ) )
++    {
++        return SMTC_REAL_STATUS_UNKNOWN_VALUE;
++    }
++    for( uint8_t i = 0; i < mask_size * 8; i++ )
++    {
++        bool enabled = SMTC_GET_BIT8( mask, i ) == CHANNEL_ENABLED;
++
++        if( i >= nb_channels )
++        {
++            if( enabled )
++            {
++                return SMTC_REAL_STATUS_UNKNOWN_VALUE;
++            }
++            continue;
++        }
++        any |= enabled;
++        all &= enabled;
++    }
++    if( !any )
++    {
++        return SMTC_REAL_STATUS_UNKNOWN_VALUE;
++    }
++    memset( real->user_channel_mask, 0, sizeof( real->user_channel_mask ) );
++    memcpy( real->user_channel_mask, mask, smtc_real_user_channel_mask_size( real ) );
++    real->user_channel_mask_set = !all;
++    return SMTC_REAL_STATUS_OK;
++}
++
++smtc_real_status_t smtc_real_get_user_channel_mask( smtc_real_t* real, uint8_t* mask, uint8_t mask_size )
++{
++    if( real_const.const_new_channel_req_supported )
++    {
++        return SMTC_REAL_STATUS_UNSUPPORTED_FEATURE;
++    }
++    if( ( mask == NULL ) || ( mask_size < smtc_real_user_channel_mask_size( real ) ) )
++    {
++        return SMTC_REAL_STATUS_UNKNOWN_VALUE;
++    }
++    memset( mask, 0, mask_size );
++    if( real->user_channel_mask_set )
++    {
++        memcpy( mask, real->user_channel_mask, smtc_real_user_channel_mask_size( real ) );
++    }
++    else
++    {
++        for( uint8_t i = 0; i < real_const.const_number_of_tx_channel; i++ )
++        {
++            SMTC_PUT_BIT8( mask, i, CHANNEL_ENABLED );
++        }
++    }
++    return SMTC_REAL_STATUS_OK;
++}
++
++void smtc_real_apply_user_channel_mask( smtc_real_t* real )
++{
++    uint8_t size = smtc_real_user_channel_mask_size( real );
++    bool    any  = false;
++
++    if( ( real->user_channel_mask_set == false ) || ( channel_index_enabled_ctx == NULL ) )
++    {
++        return;
++    }
++    for( uint8_t i = 0; i < size; i++ )
++    {
++        any |= ( channel_index_enabled_ctx[i] & real->user_channel_mask[i] ) != 0;
++    }
++    for( uint8_t i = 0; i < size; i++ )
++    {
++        channel_index_enabled_ctx[i] =
++            any ? ( channel_index_enabled_ctx[i] & real->user_channel_mask[i] ) : real->user_channel_mask[i];
++    }
++}
++
+ smtc_real_status_t smtc_real_is_supported_region( smtc_real_region_types_t region_type )
+ {
+     for( uint8_t i = 0; i < SMTC_REAL_REGION_LIST_LENGTH; i++ )
+@@ -124,6 +219,7 @@ void smtc_real_init( smtc_real_t* real, smtc_real_region_types_t region_type )
+ 
+     // Init all real_const.const_xxx to 0
+     memset( &( real_const ), 0, sizeof( smtc_real_const_t ) );
++    real->user_channel_mask_set = false;
+ 
+     switch( real->region_type )
+     {
+@@ -308,6 +404,7 @@ void smtc_real_config( smtc_real_t* real )
+ 
+     uplink_dwell_time_ctx   = real_const.const_uplink_dwell_time;
+     downlink_dwell_time_ctx = false;
++    smtc_real_apply_user_channel_mask( real );
+ }
+ 
+ void smtc_real_config_session( smtc_real_t* real )
+@@ -368,6 +465,7 @@ void smtc_real_config_session( smtc_real_t* real )
+         SMTC_MODEM_HAL_PANIC( );
+         break;
+     }
++    smtc_real_apply_user_channel_mask( real );
+ }
+ 
+ void smtc_real_set_join_dr_distribution( smtc_real_t* real, uint8_t* adr_custom )
+diff --git a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.h b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.h
+index 96c8145..7d33610 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.h
++++ b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real.h
+@@ -83,6 +83,46 @@ void smtc_real_config( smtc_real_t* real );
+  */
+ void smtc_real_config_session( smtc_real_t* real );
+ 
++/**
++ * @brief Restrict the channels used before the network sends a channel mask
++ *
++ * @remark Only for regions with a fixed channel plan (no NewChannelReq): US915, AU915, CN470.
++ *         Bit i of mask enables uplink channel i. The mask is applied when the region is
++ *         configured for a join and to the default mask set after the join. A channel mask
++ *         received from the network (LinkADRReq) replaces it until the next join. The mask is
++ *         reset when the region is initialized.
++ *
++ * @param [in] real      Regional context
++ * @param [in] mask      Channel mask, may be NULL when mask_size is 0
++ * @param [in] mask_size Size of mask in bytes; 0 enables every channel again
++ *
++ * @return SMTC_REAL_STATUS_OK, SMTC_REAL_STATUS_UNSUPPORTED_FEATURE for a region without a fixed
++ *         channel plan, SMTC_REAL_STATUS_UNKNOWN_VALUE for a mask that is too short, enables no
++ *         channel, or enables a channel the region does not have
++ */
++smtc_real_status_t smtc_real_set_user_channel_mask( smtc_real_t* real, const uint8_t* mask, uint8_t mask_size );
++
++/**
++ * @brief Read the user channel mask; every channel is set when no mask is configured
++ *
++ * @param [in]  real      Regional context
++ * @param [out] mask      Channel mask, bytes beyond the region channel count are cleared
++ * @param [in]  mask_size Size of mask in bytes
++ *
++ * @return SMTC_REAL_STATUS_OK, SMTC_REAL_STATUS_UNSUPPORTED_FEATURE for a region without a fixed
++ *         channel plan, SMTC_REAL_STATUS_UNKNOWN_VALUE when mask is NULL or too short
++ */
++smtc_real_status_t smtc_real_get_user_channel_mask( smtc_real_t* real, uint8_t* mask, uint8_t mask_size );
++
++/**
++ * @brief Apply the user channel mask to the enabled channels
++ *
++ * @remark When no enabled channel is left, the user channel mask itself is used.
++ *
++ * @param [in] real Regional context
++ */
++void smtc_real_apply_user_channel_mask( smtc_real_t* real );
++
+ /**
+  * \brief
+  * \remark
+diff --git a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real_defs.h b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real_defs.h
+index 0bb648f..74d3be2 100644
+--- a/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real_defs.h
++++ b/protocols/lbm_lib/smtc_modem_core/lr1mac/src/smtc_real/src/smtc_real_defs.h
+@@ -303,12 +303,21 @@ typedef struct smtc_real_const_s
+     bool            const_uplink_dwell_time;
+ } smtc_real_const_t;
+ 
++/**
++ * @brief Size in bytes of the user channel mask (one bit per uplink channel, 96 channels max)
++ */
++#define SMTC_REAL_USER_CHANNEL_MASK_SIZE ( 12 )
++
+ typedef struct smtc_real_s
+ {
+     smtc_real_region_types_t region_type;
+     smtc_real_const_t        real_const;
+     smtc_real_ctx_t          real_ctx;
+ 
++    // Channels the application allows before the network sends its own channel mask
++    bool    user_channel_mask_set;
++    uint8_t user_channel_mask[SMTC_REAL_USER_CHANNEL_MASK_SIZE];
++
+     union smtc_real_region_u
+     {
+ #if defined( REGION_EU_868 )
+diff --git a/protocols/lbm_lib/smtc_modem_core/smtc_modem.c b/protocols/lbm_lib/smtc_modem_core/smtc_modem.c
+index 660b714..6031812 100644
+--- a/protocols/lbm_lib/smtc_modem_core/smtc_modem.c
++++ b/protocols/lbm_lib/smtc_modem_core/smtc_modem.c
+@@ -1364,6 +1364,34 @@ smtc_modem_return_code_t smtc_modem_get_enabled_datarates( uint8_t stack_id, uin
+     return SMTC_MODEM_RC_OK;
+ }
+ 
++static smtc_modem_return_code_t channel_mask_result( smtc_real_status_t status )
++{
++    switch( status )
++    {
++    case SMTC_REAL_STATUS_OK:
++        return SMTC_MODEM_RC_OK;
++    case SMTC_REAL_STATUS_UNSUPPORTED_FEATURE:
++        return SMTC_MODEM_RC_FAIL;
++    default:
++        return SMTC_MODEM_RC_INVALID;
++    }
++}
++
++smtc_modem_return_code_t smtc_modem_set_channel_mask( uint8_t stack_id, const uint8_t* mask, uint8_t mask_size )
++{
++    RETURN_BUSY_IF_TEST_MODE( );
++
++    return channel_mask_result( lorawan_api_set_user_channel_mask( stack_id, mask, mask_size ) );
++}
++
++smtc_modem_return_code_t smtc_modem_get_channel_mask( uint8_t stack_id, uint8_t* mask, uint8_t mask_size )
++{
++    RETURN_BUSY_IF_TEST_MODE( );
++    RETURN_INVALID_IF_NULL( mask );
++
++    return channel_mask_result( lorawan_api_get_user_channel_mask( stack_id, mask, mask_size ) );
++}
++
+ smtc_modem_return_code_t smtc_modem_set_adr_ack_limit_delay( uint8_t stack_id, uint8_t adr_ack_limit,
+                                                              uint8_t adr_ack_delay )
+ {
