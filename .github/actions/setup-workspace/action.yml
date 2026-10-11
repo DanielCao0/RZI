@@ -1,14 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 name: setup-workspace
 description: >-
-  Create a west workspace around the checked-out RZI module: fetch the pinned
-  Zephyr and USP revisions, apply the RZI backend patches, and mount RZI as an
-  extra Zephyr module. The GitHub workspace directory becomes the west
-  workspace topdir.
-inputs:
-  zephyr-revision:
-    description: Zephyr revision the CI manifest pins
-    required: true
+  Create a west workspace around the checked-out RZI module: fetch the Zephyr
+  and USP revisions pinned in rzi/west.yml, apply the RZI backend patches, and
+  mount RZI as an extra Zephyr module. The GitHub workspace directory becomes
+  the west workspace topdir.
 runs:
   using: composite
   steps:
@@ -31,13 +27,11 @@ runs:
           ${{ github.workspace }}/bootloader
           ${{ github.workspace }}/tools
           ${{ github.workspace }}/modules/usp_zephyr
-        key: west-blobless-${{ inputs.zephyr-revision }}-${{ hashFiles('rzi/west.yml') }}
-        restore-keys: west-blobless-${{ inputs.zephyr-revision }}-
+        key: west-blobless-${{ hashFiles('rzi/west.yml') }}
+        restore-keys: west-blobless-
 
     - name: Generate the CI manifest
       shell: bash
-      env:
-        ZEPHYR_REVISION: ${{ inputs.zephyr-revision }}
       run: |
         set -eux
         mkdir -p "${GITHUB_WORKSPACE}/manifest"
@@ -48,17 +42,9 @@ runs:
         import yaml
 
         root = pathlib.Path(os.environ["GITHUB_WORKSPACE"])
-        deps = yaml.safe_load((root / "rzi/west.yml").read_text())["manifest"]["projects"]
-        projects = [
-            {
-                "name": "zephyr",
-                "url": "https://github.com/zephyrproject-rtos/zephyr",
-                "revision": os.environ["ZEPHYR_REVISION"],
-                "import": True,
-            },
-        ]
-        for dep in deps:
-            projects.append(dict(dep))
+        projects = yaml.safe_load((root / "rzi/west.yml").read_text())["manifest"]["projects"]
+        if not any(project["name"] == "zephyr" for project in projects):
+            raise SystemExit("zephyr revision missing from rzi/west.yml")
         manifest = {"manifest": {"version": "0.13", "projects": projects}}
         (root / "manifest/west.yml").write_text(yaml.safe_dump(manifest, sort_keys=False))
         PY

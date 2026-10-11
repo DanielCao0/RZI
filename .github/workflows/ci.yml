@@ -23,9 +23,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Zephyr 4.5.0-rc1, validated with USP v1.2.1 and the patches under
-  # zephyr/patches/. Bump together with the patches and doc/ci.md.
-  ZEPHYR_REVISION: 920074c07cf4b503f70670cf424e4add4325d05a
+  # The Zephyr and USP revisions come from west.yml. The SDK must match
+  # that Zephyr revision.
   ZEPHYR_SDK_VERSION: "1.0.1"
   CLANG_FORMAT_VERSION: "23.1.0"
   DOXYGEN_VERSION: "1.13.2"
@@ -48,8 +47,6 @@ jobs:
 
       - name: Set up the west workspace
         uses: ./rzi/.github/actions/setup-workspace
-        with:
-          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
 
       - name: Fetch the pull request base
         if: github.event_name == 'pull_request'
@@ -166,8 +163,6 @@ jobs:
 
       - name: Set up the west workspace
         uses: ./rzi/.github/actions/setup-workspace
-        with:
-          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
 
       - name: Install host build tools
         run: |
@@ -217,8 +212,6 @@ jobs:
 
       - name: Set up the west workspace
         uses: ./rzi/.github/actions/setup-workspace
-        with:
-          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
 
       - name: Install host build tools
         run: |
@@ -282,8 +275,6 @@ jobs:
 
       - name: Set up the west workspace
         uses: ./rzi/.github/actions/setup-workspace
-        with:
-          zephyr-revision: ${{ env.ZEPHYR_REVISION }}
 
       - name: Install host build tools
         run: |

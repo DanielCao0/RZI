@@ -33,9 +33,9 @@ Failed twister jobs upload `twister-out/` as a build artifact.
 
 RZI is a module, so CI builds the workspace a customer would:
 
-1. A temporary manifest is generated: Zephyr at `ZEPHYR_REVISION` plus the
-   `usp_zephyr` / `usp` revisions read from `west.yml`. The checked-out RZI
-   tree is the code under test; it is not cloned again.
+1. A temporary manifest is generated from the `zephyr`, `usp_zephyr`, and
+   `usp` projects in `west.yml`. The checked-out RZI tree is the code under
+   test; it is not cloned again.
 2. `west update --narrow -o=--filter=blob:none` fetches those revisions
    without a depth-1 clone. A shallow fetch of a pinned SHA is an unadvertised
    object and git rejects it.
@@ -48,21 +48,22 @@ RZI is a module, so CI builds the workspace a customer would:
 4. `ZEPHYR_EXTRA_MODULES` points at the checkout, so builds and twister see
    RZI exactly as committed.
 
-The workspace and the Zephyr SDK are cached between runs; the cache keys
-include the Zephyr revision and `west.yml` hash, so a version bump starts
-from a cold cache automatically.
+The workspace and the Zephyr SDK are cached between runs; the workspace cache
+key is the `west.yml` hash, so a version bump starts from a cold cache
+automatically.
 
 ## Version pins
 
 | Pin | Where | Bump policy |
 |---|---|---|
-| `ZEPHYR_REVISION` | `ci.yml` env | Together with `zephyr/patches/`; drop patches the new revision already contains |
+| Zephyr revision | `west.yml` | Together with `zephyr/patches/`; drop patches the new revision already contains |
+| `usp_zephyr` / `usp` revisions | `west.yml` | Together with `zephyr/patches/` |
 | `ZEPHYR_SDK_VERSION` | `ci.yml` env | Match the SDK required by the Zephyr revision |
 | `CLANG_FORMAT_VERSION` | `ci.yml` env | Same release developers run locally |
 | `DOXYGEN_VERSION` | `ci.yml` env | Same release developers run locally |
 
-`usp_zephyr` and `usp` revisions come from `west.yml`; CI never carries a
-second copy.
+`west.yml` is the only copy of the Zephyr and USP revisions; CI reads them
+from there.
 
 ## Compliance scope
 
