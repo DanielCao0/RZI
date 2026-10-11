@@ -22,7 +22,7 @@ that need one.
 | Compliance | `scripts/check-compliance.sh` (Zephyr `check_compliance.py`), `scripts/check-style.sh --no-checkpatch` (clang-format, `@file` / `@brief`), no backend symbols in `include/rzi/`, ASCII-only source, SPDX tags, version strings in sync |
 | DCO | `Signed-off-by` on every pull-request commit (`.github/workflows/dco.yml`) |
 | Twister (native_sim) | `west twister -T rzi/tests --integration` on the host |
-| Samples (product boards) | `west twister -T rzi/samples --integration` for `rzi_rak4631` and `rzi_rak3372` with the Zephyr SDK |
+| Samples (product boards) | `west twister -T rzi/samples --integration` for `rzi_rak4631`, `rzi_rak3372` and `rzi_rak3362` with the Zephyr SDK |
 | Public headers | every `include/rzi/**.h` compiles standalone as C11 and as C++17 |
 | Documentation | `scripts/generate-doxygen.sh` with zero warnings |
 | SBOM | `scripts/generate-sbom.sh` regenerates valid SPDX and CycloneDX JSON |

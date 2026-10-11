@@ -1,0 +1,18 @@
+identifier: rzi_rak3362/nrf54l15/cpuapp
+name: RZI RAK3362
+type: mcu
+arch: arm
+flash: 1428
+ram: 188
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - ble
+  - counter
+  - gpio
+  - i2c
+  - spi
+  - watchdog
+  - lora
+vendor: rakwireless

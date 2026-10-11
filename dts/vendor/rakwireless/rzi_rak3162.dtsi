@@ -1,0 +1,256 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * RAK3162 WisDuo module: nRF54L15, the SX1262 on SPI22, the crystals, and
+ * the pinmux of the module pads. The pad peripherals (UART, I2C, SPI) are
+ * configured but left disabled; the carrier board enables the ones it wires
+ * and adds the console choice and the partition map.
+ */
+
+#include <nordic/nrf54l15_cpuapp.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
+#include <zephyr/dt-bindings/regulator/nrf5x.h>
+#include <zephyr/dt-bindings/usp/sx126x.h>
+
+&pinctrl {
+	uart20_default: uart20_default {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 1, 6)>;
+		};
+		group2 {
+			psels = <NRF_PSEL(UART_RX, 1, 7)>;
+			bias-pull-up;
+		};
+	};
+
+	uart20_sleep: uart20_sleep {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 1, 6)>,
+				<NRF_PSEL(UART_RX, 1, 7)>;
+			low-power-enable;
+		};
+	};
+
+	uart21_default: uart21_default {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 2, 8)>;
+		};
+		group2 {
+			psels = <NRF_PSEL(UART_RX, 2, 7)>;
+			bias-pull-up;
+		};
+	};
+
+	uart21_sleep: uart21_sleep {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 2, 8)>,
+				<NRF_PSEL(UART_RX, 2, 7)>;
+			low-power-enable;
+		};
+	};
+
+	i2c30_default: i2c30_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 2)>,
+				<NRF_PSEL(TWIM_SCL, 0, 3)>;
+		};
+	};
+
+	i2c30_sleep: i2c30_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 2)>,
+				<NRF_PSEL(TWIM_SCL, 0, 3)>;
+			low-power-enable;
+		};
+	};
+
+	spi00_default: spi00_default {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 2, 1)>,
+				<NRF_PSEL(SPIM_MOSI, 2, 2)>,
+				<NRF_PSEL(SPIM_MISO, 2, 4)>;
+		};
+	};
+
+	spi00_sleep: spi00_sleep {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 2, 1)>,
+				<NRF_PSEL(SPIM_MOSI, 2, 2)>,
+				<NRF_PSEL(SPIM_MISO, 2, 4)>;
+			low-power-enable;
+		};
+	};
+
+	spi22_default: spi22_default {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 1, 11)>,
+				<NRF_PSEL(SPIM_MOSI, 1, 10)>,
+				<NRF_PSEL(SPIM_MISO, 1, 9)>;
+		};
+	};
+
+	spi22_sleep: spi22_sleep {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 1, 11)>,
+				<NRF_PSEL(SPIM_MOSI, 1, 10)>,
+				<NRF_PSEL(SPIM_MISO, 1, 9)>;
+			low-power-enable;
+		};
+	};
+};
+
+&cpuapp_sram {
+	status = "okay";
+};
+
+&grtc {
+	owned-channels = <0 1 2 3 4 5 6 7 8 9 10 11>;
+	/* Channels 7-11 reserved for Zero Latency IRQs, 3-4 for FLPR */
+	child-owned-channels = <3 4 7 8 9 10 11>;
+	status = "okay";
+};
+
+&clock {
+	status = "okay";
+};
+
+&hfxo {
+	status = "okay";
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <5000>;
+};
+
+&lfxo {
+	status = "okay";
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <8000>;
+};
+
+&regulators {
+	status = "okay";
+};
+
+&vregmain {
+	status = "okay";
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&gpio0 {
+	status = "okay";
+
+	rf_power: rf-power {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&gpiote20 {
+	status = "okay";
+};
+
+&gpiote30 {
+	status = "okay";
+};
+
+&radio {
+	status = "okay";
+};
+
+&temp {
+	status = "okay";
+};
+
+&uart20 {
+	current-speed = <115200>;
+	pinctrl-0 = <&uart20_default>;
+	pinctrl-1 = <&uart20_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&uart21 {
+	current-speed = <115200>;
+	pinctrl-0 = <&uart21_default>;
+	pinctrl-1 = <&uart21_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c30 {
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c30_default>;
+	pinctrl-1 = <&i2c30_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&spi00 {
+	cs-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&spi00_default>;
+	pinctrl-1 = <&spi00_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&spi22 {
+	status = "okay";
+	overrun-character = <0x00>;
+	cs-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&spi22_default>;
+	pinctrl-1 = <&spi22_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	lora: lora@0 {
+		compatible = "semtech,sx1262-new";
+		reg = <0>;
+		reset-gpios = <&gpio0 4 GPIO_ACTIVE_LOW>;
+		busy-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+		dio1-gpios = <&gpio0 1 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+		dio2-as-rf-switch;
+		dio3-as-tcxo-control;
+		tcxo-voltage = <SX126X_TCXO_SUPPLY_1_8V>;
+		tcxo-wakeup-time = <5>;
+		reg-mode = <SX126X_REG_MODE_DCDC>;
+		/* SX1262 PA table, one entry per dBm from -9 to 22. */
+		tx-power-cfg =
+			<(  1) 0x01 0x01>,
+			<(  4) 0x00 0x01>,
+			<(  4) 0x01 0x01>,
+			<(  7) 0x00 0x01>,
+			<(  2) 0x00 0x02>,
+			<(  7) 0x03 0x01>,
+			<(  8) 0x03 0x01>,
+			<(  9) 0x03 0x01>,
+			<( 13) 0x00 0x01>,
+			<( 16) 0x00 0x01>,
+			<( 19) 0x00 0x01>,
+			<( 20) 0x00 0x01>,
+			<( 18) 0x03 0x01>,
+			<( 21) 0x00 0x01>,
+			<( 16) 0x00 0x02>,
+			<( 22) 0x00 0x01>,
+			<( 22) 0x01 0x01>,
+			<( 22) 0x02 0x01>,
+			<( 22) 0x03 0x01>,
+			<( 22) 0x04 0x01>,
+			<( 22) 0x00 0x02>,
+			<( 22) 0x01 0x02>,
+			<( 22) 0x02 0x02>,
+			<( 22) 0x03 0x02>,
+			<( 22) 0x01 0x03>,
+			<( 22) 0x02 0x03>,
+			<( 22) 0x00 0x05>,
+			<( 22) 0x01 0x05>,
+			<( 22) 0x02 0x05>,
+			<( 22) 0x03 0x06>,
+			<( 22) 0x04 0x06>,
+			<( 22) 0x04 0x07>;
+		spi-max-frequency = <DT_FREQ_M(1)>;
+	};
+};

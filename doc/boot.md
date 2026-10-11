@@ -31,6 +31,7 @@ Adding a board only adds that board's DTS and flash notes.
 |---|---|---|---|
 | `rzi_rak4631` | RZI RAK4631 | `rzi_rak4631/nrf52840` | MCUBoot and LoRaWAN samples wired |
 | `rzi_rak3372` | RZI RAK3372 | `rzi_rak3372/stm32wle5xx` | Single-slot MCUBoot; on-chip SUBGHZ (USP patch); no FUOTA |
+| `rzi_rak3362` | RZI RAK3362 | `rzi_rak3362/nrf54l15/cpuapp` | Overwrite-only MCUBoot; SX1262 on SPI22; console and AT on uart20 |
 
 nRF52840 (RAK4631) partitions are shared by native Zephyr and
 ArduinoCore-zephyr:
@@ -54,7 +55,17 @@ STM32WLE5 (RAK3372, 256 KB) is single-slot and has no `image-1` / `user`:
 | `image-0` | `0x08000` | 216 KB | RZI application |
 | `storage` | `0x3e000` | 8 KB | settings |
 
-Sysbuild mode comes from the board `Kconfig.sysbuild`: 4631 is
+nRF54L15 (RAK3362, 1524 KB RRAM) uses the same dual-slot layout as the
+upstream nRF54L15 boards without FLPR:
+
+| Partition | Address | Size | Use |
+|---|---|---|---|
+| `mcuboot` | `0x000000` | 64 KB | Sole bootloader |
+| `image-0` | `0x010000` | 712 KB | RZI application |
+| `image-1` | `0x0c2000` | 712 KB | FUOTA / overwrite |
+| `storage` | `0x174000` | 36 KB | settings |
+
+Sysbuild mode comes from the board `Kconfig.sysbuild`: 4631 and 3362 are
 overwrite-only; 3372 is `MCUBOOT_MODE_SINGLE_APP`. The radio is the
 STM32WLE5 on-chip SUBGHZ (`st,stm32wl-subghz-radio`). The USP driver
 needs `zephyr/patches/usp_zephyr/0005-stm32wl-subghz-radio.patch`.

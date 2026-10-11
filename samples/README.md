@@ -2,8 +2,9 @@
 
 Every sample uses only the public RZI API under `include/rzi/`; none of them
 includes USP or LoRa Basics Modem headers. Hardware, partitions, and radio
-setup come from the RZI product board, so the samples carry no board
-overlays.
+setup come from the RZI product board. A sample carries a board file only
+for an application choice, such as the FUOTA console or disabling USB for
+the AT port on a board without a USB controller.
 
 Build any sample from the workspace root with sysbuild, then flash
 `build/merged_<board>.hex` (see [`doc/boot.md`](../doc/boot.md)):
@@ -12,13 +13,13 @@ Build any sample from the workspace root with sysbuild, then flash
 west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/<path>
 ```
 
-| Sample | What it shows | RAK4631 | RAK3372 | Needs a LoRaWAN network |
-|---|---|---|---|---|
-| [`lorawan/periodical_uplink`](lorawan/periodical_uplink/README.rst) | OTAA join and periodic uplink; low-power build variant | yes | yes | yes |
-| [`lorawan/fuota`](lorawan/fuota/README.rst) | ChirpStack firmware update over LoRaWAN | yes | no | yes |
-| [`at`](at/README.rst) | RUI3-compatible AT commands (LoRaWAN, P2P, radio tests) over USB CDC | yes | no | LoRaWAN mode only |
-| [`lora/tx_cw`](lora/tx_cw/README.rst) | Continuous-wave carrier for RF measurements | yes | yes | no |
-| [`lora/rf_certification`](lora/rf_certification/README.rst) | ETSI, FCC or ARIB certification transmit sequence | yes | yes | no |
+| Sample | What it shows | RAK4631 | RAK3372 | RAK3362 | Needs a LoRaWAN network |
+|---|---|---|---|---|---|
+| [`lorawan/periodical_uplink`](lorawan/periodical_uplink/README.rst) | OTAA join and periodic uplink; low-power build variant | yes | yes | yes | yes |
+| [`lorawan/fuota`](lorawan/fuota/README.rst) | ChirpStack firmware update over LoRaWAN | yes | no | no | yes |
+| [`at`](at/README.rst) | RUI3-compatible AT commands (LoRaWAN, P2P, radio tests) over USB CDC or UART | yes | no | yes | LoRaWAN mode only |
+| [`lora/tx_cw`](lora/tx_cw/README.rst) | Continuous-wave carrier for RF measurements | yes | yes | no | no |
+| [`lora/rf_certification`](lora/rf_certification/README.rst) | ETSI, FCC or ARIB certification transmit sequence | yes | yes | no | no |
 
 Start with `lorawan/periodical_uplink`.
 

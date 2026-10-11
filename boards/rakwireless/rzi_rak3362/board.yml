@@ -1,0 +1,6 @@
+board:
+  name: rzi_rak3362
+  full_name: RZI RAK3362
+  vendor: rakwireless
+  socs:
+  - name: nrf54l15
