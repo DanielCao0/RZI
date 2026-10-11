@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * A board overlay replaces app.overlay, so include it first.
+ */
+
+#include "../app.overlay"
+
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+	};
+};

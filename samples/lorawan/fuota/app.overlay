@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * Application credentials and USB console. Hardware lives on rzi_rak4631.
+ * Application credentials. The console choice lives in the board overlay.
  */
 
 / {
-	chosen {
-		zephyr,console = &cdc_acm_uart0;
-	};
-
 	zephyr,user {
 		/* Same OTAA identity as app/ (ChirpStack device RZI_001). */
 		user-lorawan-device-eui = <0x74 0x85 0xef 0xc6 0x2c 0xb3 0xcb 0xd3>;

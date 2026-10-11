@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
  * RAK4630 WisDuo module: nRF52840, the SX1262 on SPI1, and the pinmux of
- * the module pads. A product board includes this and adds the carrier
- * (LEDs, USB, flash, partition map).
+ * the module pads. The pad peripherals (UART, I2C) are configured but left
+ * disabled; the carrier board enables the ones it wires and adds LEDs,
+ * USB, external flash, and the partition map.
  */
 
 #include <nordic/nrf52840_qiaa.dtsi>
@@ -99,7 +100,6 @@
 
 &uicr {
 	gpio-as-nreset;
-	nfct-pins-as-gpios;
 };
 
 &gpiote {
@@ -128,7 +128,6 @@
 
 &uart0 {
 	compatible = "nordic,nrf-uart";
-	status = "okay";
 	current-speed = <115200>;
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-1 = <&uart0_sleep>;
@@ -138,7 +137,6 @@
 &uart1 {
 	compatible = "nordic,nrf-uarte";
 	current-speed = <115200>;
-	status = "okay";
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-1 = <&uart1_sleep>;
 	pinctrl-names = "default", "sleep";
@@ -146,7 +144,6 @@
 
 &i2c0 {
 	compatible = "nordic,nrf-twi";
-	status = "okay";
 	pinctrl-0 = <&i2c0_default>;
 	pinctrl-1 = <&i2c0_sleep>;
 	pinctrl-names = "default", "sleep";

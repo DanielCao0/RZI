@@ -1,18 +1,24 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * RAK3172 WisDuo module: STM32WLE5, the 32 MHz HSE clock tree, the on-chip
- * sub-GHz radio, and the pinmux of the module pads. A product board
- * includes this and adds the carrier (LEDs, console choice, flash map).
+ * RAK3172 WisDuo module: STM32WLE5, the 32 MHz TCXO and 32.768 kHz crystal,
+ * the clock tree, the on-chip sub-GHz radio with its RF switch, and the
+ * pinmux of the module pads. The pad peripherals (USART, I2C, SPI), the low
+ * power timer, and the RTC are configured but left disabled; the carrier
+ * board enables the ones it uses and adds LEDs, the console choice, and the
+ * flash map.
  */
 
 #include <st/wl/stm32wle5Xc.dtsi>
 #include <st/wl/stm32wle5ccux-pinctrl.dtsi>
-#include <arm/rakwireless/rak3172.dtsi>
 
-&lptim1 {
-	clocks = <&rcc STM32_CLOCK(APB1, 31)>,
-		 <&rcc STM32_SRC_LSE LPTIM1_SEL(3)>;
+&clk_hse {
 	status = "okay";
+	clock-frequency = <DT_FREQ_M(32)>;
+};
+
+&clk_lse {
+	status = "okay";
+	clock-frequency = <32768>;
 };
 
 &pll {
@@ -33,18 +39,38 @@
 	apb2-prescaler = <1>;
 };
 
+&subghzspi {
+	status = "okay";
+
+	lora: radio@0 {
+		status = "okay";
+		tx-enable-gpios = <&gpioc 13 GPIO_ACTIVE_HIGH>; /* FE_CTRL1 */
+		rx-enable-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;  /* FE_CTRL2 */
+		power-amplifier-output = "rfo-hp";
+		rfo-hp-max-power = <22>;
+	};
+};
+
+&lptim1 {
+	clocks = <&rcc STM32_CLOCK(APB1, 31)>,
+		 <&rcc STM32_SRC_LSE LPTIM1_SEL(3)>;
+};
+
+&rtc {
+	clocks = <&rcc STM32_CLOCK(APB1, 10)>,
+		 <&rcc STM32_SRC_LSE RTC_SEL(1)>;
+};
+
 &usart1 {
 	pinctrl-0 = <&usart1_tx_pb6 &usart1_rx_pb7>;
 	pinctrl-names = "default";
 	current-speed = <115200>;
-	status = "okay";
 };
 
 &usart2 {
 	pinctrl-0 = <&usart2_tx_pa2 &usart2_rx_pa3>;
 	pinctrl-names = "default";
 	current-speed = <115200>;
-	status = "okay";
 };
 
 &i2c2 {
@@ -52,7 +78,6 @@
 	pinctrl-names = "default";
 	scl-gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpioa 11 GPIO_ACTIVE_HIGH>;
-	status = "okay";
 	clock-frequency = <I2C_BITRATE_FAST>;
 };
 
@@ -60,23 +85,4 @@
 	pinctrl-0 = <&spi1_nss_pa4 &spi1_sck_pa5
 		     &spi1_miso_pa6 &spi1_mosi_pa7>;
 	pinctrl-names = "default";
-	status = "okay";
-};
-
-&rtc {
-	clocks = <&rcc STM32_CLOCK(APB1, 10)>,
-		 <&rcc STM32_SRC_LSE RTC_SEL(1)>;
-	status = "okay";
-};
-
-&iwdg {
-	status = "okay";
-};
-
-&aes {
-	status = "okay";
-};
-
-&rng {
-	status = "okay";
 };

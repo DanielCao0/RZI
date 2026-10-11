@@ -25,7 +25,10 @@
 #include "at_lorawan_priv.h"
 
 #define USER_NODE DT_PATH(zephyr_user)
-#if DT_NODE_EXISTS(USER_NODE)
+#if DT_NODE_HAS_PROP(USER_NODE, user_lorawan_device_eui) &&                                        \
+	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_join_eui) &&                                      \
+	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_app_key) &&                                       \
+	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_region)
 #define AT_HAS_DT_DEFAULTS 1
 #define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
 #define AT_DT_REGION       REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region))

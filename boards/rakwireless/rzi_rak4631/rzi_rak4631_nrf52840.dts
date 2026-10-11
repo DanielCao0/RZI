@@ -4,7 +4,6 @@
 #include <rakwireless/rzi_rak4630.dtsi>
 #include "rzi_rak4631-partitions.dtsi"
 #include <zephyr/dt-bindings/gpio/gpio.h>
-#include "rzi_rak4631-pinctrl.dtsi"
 
 / {
 	model = "RZI RAK4631 (nRF52840 + SX1262)";
@@ -38,31 +37,14 @@
 		watchdog0 = &wdt0;
 		rzi-at-uart = &cdc_acm_uart0;
 	};
-
-	/*
-	 * Placeholder OTAA values. Applications override zephyr,user in an
-	 * overlay; samples that omit an overlay use these zeros.
-	 */
-	zephyr,user {
-		user-lorawan-device-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
-		user-lorawan-join-eui = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
-		user-lorawan-gen_app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-					    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
-		user-lorawan-app-key = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-					0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
-		user-lorawan-region = "EU_868";
-	};
 };
 
-&adc {
-	status = "okay";
+&uicr {
+	nfct-pins-as-gpios;
 };
 
-&qspi {
+&uart1 {
 	status = "okay";
-	pinctrl-0 = <&qspi_default>;
-	pinctrl-1 = <&qspi_sleep>;
-	pinctrl-names = "default", "sleep";
 };
 
 zephyr_udc0: &usbd {

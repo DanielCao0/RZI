@@ -42,3 +42,15 @@
 		watchdog0 = &iwdg;
 	};
 };
+
+&lptim1 {
+	status = "okay";
+};
+
+&usart1 {
+	status = "okay";
+};
+
+&rng {
+	status = "okay";
+};
