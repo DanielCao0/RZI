@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "RZI LoRa spectral scan sample"
+
+config APP_SCAN_START_HZ
+	int "First channel frequency in hertz"
+	default 866500000
+
+config APP_SCAN_CHANNELS
+	int "Number of channels"
+	range 1 64
+	default 3
+
+config APP_SCAN_STEP_HZ
+	int "Channel spacing in hertz"
+	default 1000000
+
+config APP_SCAN_SAMPLES
+	int "RSSI samples per channel"
+	range 1 1000
+	default 20
+	help
+	  Each sample is itself a 100 ms RSSI average, so one channel takes
+	  roughly this many tenths of a second.
+
+config APP_SCAN_INTERVAL_S
+	int "Pause between sweeps in seconds"
+	default 10
+	help
+	  Zero runs a single sweep.
+
+source "Kconfig.zephyr"

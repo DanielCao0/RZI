@@ -8,8 +8,8 @@ Overview
 ********
 
 This sample starts the stack, waits until it is ready, joins, then sends an
-uplink every 5 seconds. Callbacks only update flags and print logs. The
-application loop does not use a message queue.
+uplink every 5 seconds. The application blocks on semaphores that the event
+callback gives; callbacks only signal and print logs.
 ``rzi_lorawan_start()`` starts FUOTA coordination when
 ``CONFIG_RZI_LORAWAN_FUOTA`` is enabled. The application registers FUOTA
 callbacks to observe session state and completion. RZI and the USP backend
@@ -37,13 +37,56 @@ limits of the default LBM context partition.
 Building
 ********
 
-Build from a west workspace that contains RZI:
+From the workspace root:
 
 .. code-block:: console
 
-   west build -b rzi_rak4631/nrf52840 --sysbuild samples/lorawan/fuota
+   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lorawan/fuota
 
-Credentials are in ``app.overlay``. Flash ``merged.hex``. See ``doc/boot.md``.
+Credentials are in ``app.overlay``, with the same properties as
+``samples/lorawan/periodical_uplink``; here GenAppKey is required.
+Flash ``build/merged_rzi_rak4631_nrf52840.hex``. See ``doc/boot.md``.
+
+FUOTA needs the secondary image slot, so this sample is only available on
+``rzi_rak4631``. ``rzi_rak3372`` is single-slot.
+
+Expected output
+***************
+
+On the console UART at 115200 baud, with timestamps omitted:
+
+.. code-block:: console
+
+   <inf> rzi_fuota_sample: RZI LoRaWAN FUOTA sample
+   <inf> rzi_fuota_sample: Joining
+   <inf> rzi_fuota_sample: Joined
+   <inf> rzi_fuota_sample: Uplink complete: 0
+
+When ChirpStack starts a deployment, the multicast and fragmentation setup
+arrives as downlinks, then:
+
+.. code-block:: console
+
+   <inf> rzi_fuota_sample: FUOTA transfer started
+   <inf> rzi_fuota_sample: FUOTA state <n>
+   <inf> rzi_fuota_sample: FUOTA finished
+
+``<n>`` is an ``enum rzi_fuota_state`` value from
+``include/rzi/lorawan/fuota.h``.
+
+Troubleshooting
+***************
+
+Joined, but no ``FUOTA transfer started``
+   The device-profile does not enable all three application-layer packages,
+   or the deployment has not reached the multicast session start time yet.
+
+``FUOTA failed: <code>``
+   Look up the code in ``include/rzi/err.h``, compare with the deployment
+   status in ChirpStack, and check the image-size limits in ``doc/fuota.md``.
+
+Join problems
+   See the troubleshooting section of ``samples/lorawan/periodical_uplink``.
 
 Test payload
 ************

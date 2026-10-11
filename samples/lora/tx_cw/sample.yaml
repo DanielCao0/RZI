@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: RZI LoRa continuous wave
+  description: >
+    Transmit an unmodulated carrier through the RZI raw LoRa API for RF
+    measurements
+tests:
+  sample.rzi.lora.tx_cw:
+    sysbuild: true
+    build_only: true
+    tags:
+      - rzi
+      - lora
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx

@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: RZI LoRaWAN periodical uplink
+  description: >
+    Join a LoRaWAN network and send periodic uplinks through the RZI C API
+tests:
+  sample.rzi.lorawan.periodical_uplink:
+    sysbuild: true
+    build_only: true
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+  sample.rzi.lorawan.periodical_uplink.lowpower:
+    sysbuild: true
+    build_only: true
+    extra_args:
+      - EXTRA_CONF_FILE=prj_lowpower.conf
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx

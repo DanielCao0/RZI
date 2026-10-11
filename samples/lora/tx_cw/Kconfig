@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "RZI continuous-wave test sample"
+
+config APP_TX_CW_FREQUENCY_HZ
+	int "Carrier frequency in hertz"
+	default 868100000
+
+config APP_TX_CW_POWER_DBM
+	int "Transmit power in dBm"
+	range -9 22
+	default 14
+
+config APP_TX_CW_DURATION_S
+	int "Carrier duration in seconds"
+	default 10
+	help
+	  The carrier stops after this many seconds. Zero keeps it on until
+	  the board is reset.
+
+source "Kconfig.zephyr"

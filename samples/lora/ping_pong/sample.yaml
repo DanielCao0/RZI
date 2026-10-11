@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: RZI LoRa ping-pong
+  description: >
+    Exchange PING and PONG frames between two boards through the RZI raw
+    LoRa API
+tests:
+  sample.rzi.lora.ping_pong.subordinate:
+    sysbuild: true
+    build_only: true
+    tags:
+      - rzi
+      - lora
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+  sample.rzi.lora.ping_pong.manager:
+    sysbuild: true
+    build_only: true
+    extra_configs:
+      - CONFIG_APP_PING_PONG_MANAGER=y
+    tags:
+      - rzi
+      - lora
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx

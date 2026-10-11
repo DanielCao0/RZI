@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "RZI RF certification sample"
+
+choice APP_RF_CERT_REGION
+	prompt "Certification region"
+	default APP_RF_CERT_REGION_ETSI
+
+config APP_RF_CERT_REGION_ETSI
+	bool "ETSI, 863-870 MHz"
+
+config APP_RF_CERT_REGION_FCC
+	bool "FCC, 902-928 MHz"
+
+config APP_RF_CERT_REGION_ARIB
+	bool "ARIB, 920-928 MHz"
+
+endchoice
+
+config APP_RF_CERT_STEP_S
+	int "Time spent on each test step, in seconds"
+	range 1 86400
+	default 60
+	help
+	  The sample transmits back to back on one configuration for this
+	  long, then moves to the next step. A packet in flight finishes
+	  first, so a step at SF12 can overrun by a few seconds.
+
+config APP_RF_CERT_ONLY_STEP
+	int "Run a single step"
+	range 0 32
+	default 0
+	help
+	  Zero runs the whole sequence once. Any other value transmits on
+	  that step, numbered as in the startup log, until the board is
+	  reset.
+
+source "Kconfig.zephyr"

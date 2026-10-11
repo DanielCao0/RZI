@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sample:
-  name: RZI LoRaWAN Class A
+  name: RZI LoRa spectral scan
   description: >
-    Join a LoRaWAN network and send periodic uplinks through the RZI C API
+    Sweep a frequency range and report the channel RSSI through the RZI raw
+    LoRa test API
 tests:
-  sample.rzi.lorawan.class_a:
+  sample.rzi.lora.spectral_scan:
     sysbuild: true
     build_only: true
     tags:
       - rzi
-      - lorawan
+      - lora
     platform_allow:
       - rzi_rak4631/nrf52840
       - rzi_rak3372/stm32wle5xx

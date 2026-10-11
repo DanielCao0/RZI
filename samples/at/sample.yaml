@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 sample:
-  name: RZI AT LoRaWAN
+  name: RZI AT
   description: >
-    RAK RUI3-compatible AT command interface over USB CDC UART,
-    built on the RZI LoRaWAN service
+    RAK RUI3-compatible AT command interface over USB CDC UART, with the
+    LoRaWAN, P2P and radio-test command packages
 tests:
-  sample.rzi.at.lorawan:
+  sample.rzi.at:
     sysbuild: true
     build_only: true
     tags:
       - rzi
       - lorawan
+      - lora
       - at
     platform_allow:
       - rzi_rak4631/nrf52840

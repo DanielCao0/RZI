@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: RZI LoRaWAN certification (LCTT)
+  description: >
+    Put the LoRaWAN stack in certification mode so the LoRa Alliance
+    Certification Test Tool can drive it
+tests:
+  sample.rzi.lorawan.lctt_certif:
+    sysbuild: true
+    build_only: true
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+  sample.rzi.lorawan.lctt_certif.off:
+    sysbuild: true
+    build_only: true
+    extra_configs:
+      - CONFIG_APP_LCTT_CERTIFICATION=n
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx
+    integration_platforms:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3372/stm32wle5xx

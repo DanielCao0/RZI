@@ -19,9 +19,9 @@ LOG_MODULE_REGISTER(rzi_fuota_sample, LOG_LEVEL_INF);
 #define RETRY_DELAY       K_SECONDS(5)
 #define UPLINK_INTERVAL   K_SECONDS(5)
 
-static volatile bool stack_ready;
+static K_SEM_DEFINE(stack_ready, 0, 1);
+static K_SEM_DEFINE(join_done, 0, 1);
 static volatile bool joined;
-static volatile bool join_failed;
 
 static int configure_credentials(void)
 {
@@ -46,32 +46,25 @@ static int configure_credentials(void)
 	return rc;
 }
 
-static void wait_until(volatile bool *flag)
-{
-	while (!*flag) {
-		k_sleep(K_MSEC(10));
-	}
-}
-
 static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	ARG_UNUSED(user_data);
 	switch (event->type) {
 	case RZI_LORAWAN_EVENT_READY:
-		stack_ready = true;
+		k_sem_give(&stack_ready);
 		break;
 	case RZI_LORAWAN_EVENT_STATE_CHANGED:
 		if (event->state == RZI_LORAWAN_STATE_READY) {
-			stack_ready = true;
+			k_sem_give(&stack_ready);
 		}
 		break;
 	case RZI_LORAWAN_EVENT_JOINED:
 		joined = true;
-		join_failed = false;
+		k_sem_give(&join_done);
 		break;
 	case RZI_LORAWAN_EVENT_JOIN_FAILED:
 		joined = false;
-		join_failed = true;
+		k_sem_give(&join_done);
 		break;
 	case RZI_LORAWAN_EVENT_TX_DONE:
 		LOG_INF("Uplink complete: %d", event->tx.status);
@@ -125,16 +118,19 @@ static int request_join(void)
 	int rc;
 
 	joined = false;
-	join_failed = false;
+	k_sem_reset(&join_done);
 	rc = rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0);
 	if (rc != 0) {
 		LOG_WRN("Join request rejected: %d", rc);
 		return rc;
 	}
-	while (!joined && !join_failed) {
-		k_sleep(K_MSEC(10));
+	LOG_INF("Joining");
+	k_sem_take(&join_done, K_FOREVER);
+	if (!joined) {
+		LOG_WRN("Join failed, retrying");
+		return -RZI_ERR_NOT_READY;
 	}
-	return joined ? 0 : -RZI_ERR_NOT_READY;
+	return 0;
 }
 
 int main(void)
@@ -167,7 +163,7 @@ int main(void)
 		return rc;
 	}
 
-	wait_until(&stack_ready);
+	k_sem_take(&stack_ready, K_FOREVER);
 
 	while (request_join() != 0) {
 		ignore_result(rzi_lorawan_leave());

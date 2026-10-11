@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "RZI LoRa ping-pong sample"
+
+config APP_PING_PONG_MANAGER
+	bool "Act as the manager"
+	help
+	  The manager sends PING and waits for PONG; the subordinate answers
+	  every PING with PONG. Build one board with this option and one
+	  without it.
+
+config APP_PING_PONG_FREQUENCY_HZ
+	int "Carrier frequency in hertz"
+	default 868100000
+
+config APP_PING_PONG_SPREADING_FACTOR
+	int "LoRa spreading factor"
+	range 5 12
+	default 9
+
+config APP_PING_PONG_TX_POWER_DBM
+	int "Transmit power in dBm"
+	range 5 22
+	default 14
+
+config APP_PING_PONG_RX_TIMEOUT_MS
+	int "Time the manager waits for PONG, in milliseconds"
+	default 1000
+
+config APP_PING_PONG_DELAY_MS
+	int "Pause between two exchanges on the manager, in milliseconds"
+	default 250
+
+config APP_PING_PONG_REPLY_DELAY_MS
+	int "Delay before the subordinate sends PONG, in milliseconds"
+	default 50
+	help
+	  Leaves the manager time to switch from transmit to receive after
+	  its PING.
+
+source "Kconfig.zephyr"

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "RZI LoRaWAN certification sample"
+
+config APP_LCTT_CERTIFICATION
+	bool "Enable LoRaWAN certification mode"
+	default y
+	help
+	  The stack keeps this mode across resets. Build with this option off
+	  and run once to leave certification mode.
+
+source "Kconfig.zephyr"

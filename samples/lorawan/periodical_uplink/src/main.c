@@ -4,6 +4,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/byteorder.h>
 #include <rzi/lorawan/lorawan.h>
 #include <rzi/power/power.h>
 
@@ -18,10 +19,11 @@ LOG_MODULE_REGISTER(rzi_lorawan_sample, LOG_LEVEL_INF);
 #define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
 #define RETRY_DELAY_MS     5000
 #define UPLINK_INTERVAL_MS 60000
+#define UPLINK_PORT        101
 
-static volatile bool stack_ready;
+static K_SEM_DEFINE(stack_ready, 0, 1);
+static K_SEM_DEFINE(join_done, 0, 1);
 static volatile bool joined;
-static volatile bool join_failed;
 
 static int configure_credentials(void)
 {
@@ -46,32 +48,25 @@ static int configure_credentials(void)
 	return rc;
 }
 
-static void wait_until(volatile bool *flag)
-{
-	while (!*flag) {
-		k_sleep(K_MSEC(10));
-	}
-}
-
 static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
 	ARG_UNUSED(user_data);
 	switch (event->type) {
 	case RZI_LORAWAN_EVENT_READY:
-		stack_ready = true;
+		k_sem_give(&stack_ready);
 		break;
 	case RZI_LORAWAN_EVENT_STATE_CHANGED:
 		if (event->state == RZI_LORAWAN_STATE_READY) {
-			stack_ready = true;
+			k_sem_give(&stack_ready);
 		}
 		break;
 	case RZI_LORAWAN_EVENT_JOINED:
 		joined = true;
-		join_failed = false;
+		k_sem_give(&join_done);
 		break;
 	case RZI_LORAWAN_EVENT_JOIN_FAILED:
 		joined = false;
-		join_failed = true;
+		k_sem_give(&join_done);
 		break;
 	case RZI_LORAWAN_EVENT_TX_DONE:
 		LOG_INF("Uplink complete: %d", event->tx.status);
@@ -98,25 +93,29 @@ static int request_join(void)
 	int rc;
 
 	joined = false;
-	join_failed = false;
+	k_sem_reset(&join_done);
 	rc = rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0);
 	if (rc != 0) {
 		LOG_WRN("Join request rejected: %d", rc);
 		return rc;
 	}
-	while (!joined && !join_failed) {
-		k_sleep(K_MSEC(10));
+	LOG_INF("Joining");
+	k_sem_take(&join_done, K_FOREVER);
+	if (!joined) {
+		LOG_WRN("Join failed, retrying in %d s", RETRY_DELAY_MS / 1000);
+		return -RZI_ERR_NOT_READY;
 	}
-	return joined ? 0 : -RZI_ERR_NOT_READY;
+	return 0;
 }
 
 int main(void)
 {
-	static const uint8_t payload[] = "Hello from RZI";
+	uint32_t uplink_counter = 0;
+	uint8_t payload[sizeof(uplink_counter)];
 	rzi_lorawan_callback_handle_t handle;
 	int rc;
 
-	LOG_INF("RZI LoRaWAN Class A sample");
+	LOG_INF("RZI LoRaWAN periodical uplink (%d s) sample", UPLINK_INTERVAL_MS / 1000);
 	rc = rzi_power_init();
 	if (rc != 0) {
 		LOG_ERR("Power init failed: %d", rc);
@@ -140,7 +139,7 @@ int main(void)
 		return rc;
 	}
 
-	wait_until(&stack_ready);
+	k_sem_take(&stack_ready, K_FOREVER);
 
 	while (request_join() != 0) {
 		ignore_result(rzi_lorawan_leave());
@@ -149,8 +148,13 @@ int main(void)
 	LOG_INF("Joined");
 
 	for (;;) {
-		rc = rzi_lorawan_send(1, payload, sizeof(payload) - 1, RZI_LORAWAN_MSG_UNCONFIRMED);
-		if (rc != 0 && rc != -RZI_ERR_BUSY) {
+		sys_put_be32(uplink_counter, payload);
+		rc = rzi_lorawan_send(UPLINK_PORT, payload, sizeof(payload),
+				      RZI_LORAWAN_MSG_UNCONFIRMED);
+		if (rc == 0) {
+			LOG_INF("Uplink %u on port %d", uplink_counter, UPLINK_PORT);
+			uplink_counter++;
+		} else if (rc != -RZI_ERR_BUSY) {
 			LOG_WRN("Uplink rejected: %d", rc);
 		}
 		ignore_result(rzi_power_sleep(UPLINK_INTERVAL_MS));
