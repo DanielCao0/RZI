@@ -15,5 +15,7 @@ tests:
       - at
     platform_allow:
       - rzi_rak4631/nrf52840
+      - rzi_rak3362/nrf54l15/cpuapp
     integration_platforms:
       - rzi_rak4631/nrf52840
+      - rzi_rak3362/nrf54l15/cpuapp

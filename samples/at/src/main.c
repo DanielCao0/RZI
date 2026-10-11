@@ -5,8 +5,10 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
+#include <rzi/at/at.h>
 #include <rzi/at/uart.h>
 #include <rzi/err.h>
+#include <rzi/version.h>
 
 #define AT_UART_NODE DT_ALIAS(rzi_at_uart)
 
@@ -35,5 +37,14 @@ int main(void)
 	}
 
 	/* The AT service owns the UART from here on. */
-	return rzi_at_uart_start(at_uart);
+	int rc = rzi_at_uart_start(at_uart);
+
+	if (rc != 0) {
+		return rc;
+	}
+
+	/* One unsolicited line in the +EVT form that RUI3 hosts already skip;
+	 * the value matches AT+VER.
+	 */
+	return rzi_at_publish_event("BOOT:RZI_%s_%s", rzi_version_get_string(), CONFIG_BOARD);
 }

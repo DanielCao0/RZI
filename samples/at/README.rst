@@ -79,7 +79,8 @@ AT UART selection
 The sample selects its exclusive AT UART adapter with the ``rzi-at-uart``
 devicetree alias. It does not reuse ``zephyr,console`` because console and AT
 adapter ownership are separate concerns. ``rzi_rak4631`` points the alias to
-USB CDC ACM:
+USB CDC ACM. ``rzi_rak3362`` has no USB controller and points it to ``uart20``,
+which the base board USB-C port reaches through a USB-UART converter:
 
 .. code-block:: devicetree
 
@@ -102,13 +103,27 @@ From the workspace root:
 
 Flash ``build/merged_rzi_rak4631_nrf52840.hex``. See ``doc/boot.md``.
 
-The AT port is USB CDC ACM, so this sample is only available on
-``rzi_rak4631``.
+For RAK3362, use ``-b rzi_rak3362/nrf54l15/cpuapp``.
+
+MCUboot logging and the boot banner are off (``sysbuild/mcuboot.conf``), so
+on RAK3362, where MCUboot shares uart20 with the AT port, a host sees no boot
+log. Once the AT service is ready, the sample writes one line with the same
+value as ``AT+VER``:
+
+.. code-block:: text
+
+   +EVT:BOOT:RZI_0.2.0_rzi_rak3362
+
+The AT port needs USB CDC ACM or a UART that is free of console output, so
+this sample is not available on ``rzi_rak3372``.
 
 Example session
 ***************
 
-Open the USB CDC port at 115200 baud and type:
+Open the USB CDC port (RAK4631) or the base board serial port (RAK3362) at
+115200 baud. On RAK4631 the sample waits up to 10 s for the host to open the
+port, so the boot line is only seen if the port opens within that time. Then
+type:
 
 .. code-block:: text
 
