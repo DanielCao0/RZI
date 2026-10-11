@@ -30,7 +30,7 @@ overlay, and a separate build directory**. After switching backends use
 
 ## 1. USP / LBM (default, product path)
 
-Existing `samples/lorawan/class_a`, `samples/at/lorawan`, and
+Existing `samples/lorawan/periodical_uplink`, `samples/at`, and
 `samples/lorawan/fuota` use this path.
 
 Required configuration:
@@ -60,7 +60,7 @@ west build -p always --sysbuild \
 ```
 
 For Class A or AT, replace the last path with
-`rzi/samples/lorawan/class_a` or `rzi/samples/at/lorawan`.
+`rzi/samples/lorawan/periodical_uplink` or `rzi/samples/at`.
 
 Inside the container, same as the product app:
 
@@ -186,7 +186,62 @@ path, GenAppKey must equal AppKey, and you must also enable
 `CONFIG_RZI_LORAWAN_FUOTA` implies those options and will not force them
 on when dependencies are missing.
 
-## 4. Common mistakes
+## 4. Backend contract
+
+USP / LoRa Basics Modem is the reference. The private contract in
+`src/lorawan/backend/lorawan_backend.h` is written in LBM terms, and the Zephyr
+backend exists to prove a second stack can sit behind it. A backend:
+
+- keeps sending Join-Requests after `join()`, reporting each failure with
+  `JOIN_FAILED`, until it joins or `leave()` is called. The service counts
+  attempts and calls `leave()`; it never re-issues `join()`. The Zephyr
+  backend emulates this with a delayed work item;
+- owns the protocol state: joined state, current data rate, busy state
+  (`is_busy` is mandatory) and the enabled uplink data rates for the region
+  (`get_enabled_data_rates`). The service keeps no shadow copies;
+- reports stack-side event loss as `ERROR` with `-RZI_ERR_OVERFLOW`;
+- sets a capability bit exactly when the matching ops table is non-NULL.
+  `rzi_lorawan_start()` asserts this. USP derives class B, class C, and
+  multicast from `CONFIG_LORA_BASICS_MODEM_CLASS_B`, `_CLASS_C`, and
+  `_MULTICAST`;
+- with `RZI_LORAWAN_CAP_CHANNEL` (no ops table), applies
+  `join_config.channel_mask` at `join()` and restores every channel when
+  `channel_mask_set` is false. The core owns and persists the mask. USP calls
+  `smtc_modem_set_channel_mask()` from the `usp/0003` patch; LBM ANDs it into
+  every default channel mask, and the ADR back-off re-enables every channel.
+  Zephyr sets loramac-node's default mask and current mask
+  (`MIB_CHANNELS_DEFAULT_MASK`, `MIB_CHANNELS_MASK`), because a join resets the
+  current mask to the default mask. Its ADR back-off returns to the application
+  mask.
+
+The network ops table only carries controls LBM has (ADR profile, NbTrans,
+ADR ACK, join data rates, duty-cycle status, LBT, CSMA, lost-connection
+counter, no-downlink threshold, crystal error, empty uplink). RUI3 parameters
+LBM has no setter for are answered `-RZI_ERR_NOT_SUPPORTED` by the service
+without a backend call.
+
+### USP platform layer
+
+`src/usp/` (`CONFIG_RZI_USP`, selected by both USP backends) is shared by the
+LoRaWAN backend and the raw LoRa backend. It is backend support, not a feature
+module: it has no public header under `include/rzi/`, and `src/usp/` is on the
+library include path so backends write `#include "usp_platform.h"`.
+
+- `rzi_usp_init()` runs the platform, RAC, and modem init once;
+- `rzi_usp_lock()` / `rzi_usp_unlock()` take the recursive `rac_api_mutex`;
+  unlock wakes the USP thread so queued requests run promptly;
+- `rzi_usp_set_event_handler()` routes LBM events to the LoRaWAN backend and
+  replays a modem RESET seen before the handler was installed;
+- `rzi_usp_result()` is the single LBM-to-`RZI_ERR_*` mapping.
+
+The LoRaWAN-only LBM internals stay with the LoRaWAN backend.
+`src/lorawan/backend/usp/lorawan_backend_usp_lbm.h` declares the few
+LBM-internal functions it calls. `lbm_checks.cmake` in that directory checks
+their prototypes against the LBM sources and fails the build if LBM changes
+them. It also stops the build when the `usp/0003` patch
+(`smtc_modem_set_channel_mask()`) is missing.
+
+## 5. Common mistakes
 
 - Adding only `CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR=y` to a USP `prj.conf`
   while leaving `CONFIG_LORA=n`: the choice conflicts or the setting is

@@ -24,6 +24,7 @@ switches, and limits that do not belong in a header comment.
 | Document | Status | Contents |
 |---|---|---|
 | [architecture.md](./architecture.md) | implemented | Layers, ownership, backend policy |
+| [usp-stack.md](./usp-stack.md) | implemented | RZI on USP / usp_zephyr / LBM, traced call chains |
 | [boot.md](./boot.md) | implemented | Product boards, MCUBoot, slots, merged image |
 | [power.md](./power.md) | implemented | Policy, blockers, both boards |
 | [west-patch.md](./west-patch.md) | implemented | Upstream compatibility patches |

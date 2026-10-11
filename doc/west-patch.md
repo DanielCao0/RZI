@@ -19,7 +19,9 @@ rzi/
             ├── 0005-stm32wl-subghz-radio.patch
             └── 0006-zephyr-4.5-warning-fixes.patch
         └── usp/
-            └── 0001-export-secure-element-session-keys.patch
+            ├── 0001-export-secure-element-session-keys.patch
+            ├── 0002-ral-sx126x-frequency-limits.patch
+            └── 0003-user-channel-mask.patch
 ```
 
 Pins are USP v1.2.1 and Zephyr 4.5.0-rc1. v1.2.1 already contains the former
@@ -27,9 +29,18 @@ Zephyr 4.4 warning fixes, the LR-FHSS source path, removal of the duplicate
 `xiao_nrf54l15` board, and the global SX1262 compile definition.
 `0005` teaches the USP SX126x driver the STM32WL on-chip SUBGHZ radio used by
 RAK3372. `0006` replaces the deprecated `<zephyr/sys_clock.h>` include and
-`SPI_OP_MODE_MASTER` on Zephyr 4.5.0-rc1. The `usp` patch exports session keys
+`SPI_OP_MODE_MASTER` on Zephyr 4.5.0-rc1. `usp/0001` exports session keys
 from the software secure element. The LR11xx crypto engine cannot export key
-material and returns an error.
+material and returns an error. `usp/0002` turns the SX126x frequency-limit
+redefinition in `ral_sx126x.h` into `#if`/`#else`; upstream's redefinition is
+a warning that twister's `-Werror` turns into a build failure on every SX1262
+board. `usp/0003` adds `smtc_modem_set_channel_mask()` and
+`smtc_modem_get_channel_mask()`. The upstream API has no way to limit the
+US915, AU915 or CN470 channels before join. The patch ANDs the user mask into
+every default channel mask (join, the post-join defaults, and the CN470
+session plan). It also makes the US915/AU915 channel rotation ignore disabled
+channels; otherwise a mask stalls the rotation. A network LinkADRReq and the
+ADR back-off still replace the mask until the next join, as LoRaWAN requires.
 
 ## Applying the patches
 

@@ -210,7 +210,7 @@ that needs the application's own GPIO/RTC callbacks.
 ## 8. How existing services connect
 
 ```text
-class_a sample     API demo (same periodic sleep as the Zephyr-tree class_a; not a low-power reference)
+periodical_uplink  API demo (same periodic sleep as the Zephyr-tree class_a; not a low-power reference)
 4631 product app   init; take TRANSPORT while waiting for CDC DTR
 lorawan.c          Class C only ↔ LORAWAN
 storage_settings.c write/delete ↔ FLASH

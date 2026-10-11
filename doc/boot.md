@@ -16,8 +16,8 @@ See also: [fuota.md](./fuota.md).
    already do.
 3. Build with **sysbuild**. Configuration fails without it, so an
    application-only image is not flashed with no bootloader at 0x0.
-4. First flash and recovery: flash the **merged image** (`merged.hex`) from
-   the build directory, not `zephyr.hex`.
+4. First flash and recovery: flash the **merged image**
+   (`merged_<board>.hex`) from the build directory, not `zephyr.hex`.
 5. Later upgrades on dual-slot boards: write a signed MCUBoot image into
    **slot1** (`image-1`), then use `rzi_fuota_apply()` (LoRaWAN FUOTA).
    RZI uses partition names, not a board-specific absolute address.
@@ -71,11 +71,12 @@ your own signing key (this repository does not yet wire CI signing).
 ```bash
 west build -p always --sysbuild \
   -b rzi_rak4631/nrf52840 \
-  -d build/rzi-class-a \
-  rzi/samples/lorawan/class_a
+  -d build/rzi-periodical-uplink \
+  rzi/samples/lorawan/periodical_uplink
 ```
 
-Artifact: `build/rzi-class-a/merged.hex` (boot + signed application).
+Artifact: `build/rzi-periodical-uplink/merged_rzi_rak4631_nrf52840.hex` (boot + signed
+application).
 
 Product app (in `app/`):
 
@@ -95,9 +96,9 @@ partitions, and USP SX1262 compatibility are already on `rzi_rak4631`.
 ```bash
 west build -p always --sysbuild \
   -b rzi_rak3372/stm32wle5xx \
-  -d build/rzi-class-a-3372 \
-  rzi/samples/lorawan/class_a
+  -d build/rzi-periodical-uplink-3372 \
+  rzi/samples/lorawan/periodical_uplink
 ```
 
-The artifact is again `merged.hex`. There is no slot1, so FUOTA is not
-available.
+The artifact is `build/rzi-periodical-uplink-3372/merged_rzi_rak3372_stm32wle5xx.hex`.
+There is no slot1, so FUOTA is not available.

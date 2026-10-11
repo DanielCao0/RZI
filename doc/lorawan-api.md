@@ -121,12 +121,22 @@ the LR11xx crypto engine, returns `-RZI_ERR_NOT_SUPPORTED` for the two
 session-key reads after an OTAA join. DevAddr is still read from the MAC.
 
 `rzi_lorawan_join(start, auto_join, interval, attempts)` follows RUI3
-`service_lora_join()`. `start` of 1 joins. `start` of 0 cancels a pending
-retry and does not leave the session. `RZI_LORAWAN_JOIN_KEEP` leaves that
-argument unchanged. The default interval is 8 seconds. The default attempt
-count is 0, meaning one attempt. Further attempts stay inside the LoRaWAN
-service: subscribers see `RZI_LORAWAN_EVENT_JOIN_FAILED` only after those
-attempts are exhausted.
+`service_lora_join()`. `start` of 1 joins. `start` of 0 stops the join
+sequence, including an attempt still waiting for Join-Accept, and does not
+leave a joined session. `RZI_LORAWAN_JOIN_KEEP` leaves that argument
+unchanged. The default attempt count is 0, meaning one attempt.
+Subscribers see `RZI_LORAWAN_EVENT_JOIN_FAILED` only after those attempts
+are exhausted.
+
+The stack owns retry timing; the service owns the attempt count. After
+`rzi_lorawan_join()` the backend keeps sending Join-Requests and reports
+each failure. The service counts them and calls the backend leave operation
+when `attempts` is exhausted or on `start` of 0. USP/LBM spaces attempts with
+the LoRaWAN 1.0.4 join duty cycle (1 % of airtime in the first hour, then
+0.1 % and 0.01 %, plus 0 to 5 s of jitter) and ignores `interval`.
+`rzi_lorawan_set_join_backoff_bypass()` removes that backoff for test setups.
+The Zephyr backend waits `interval` seconds (default 8) between attempts and
+cannot abort a `lorawan_join()` already in progress; it drops that result.
 
 The public API can express OTAA and ABP. A backend that does not implement
 a mode returns `-RZI_ERR_NOT_SUPPORTED` from `rzi_lorawan_set_activation()` and
@@ -136,7 +146,7 @@ and the AT package; typical applications do not need to call it.
 
 | Backend | Default capabilities | With `CONFIG_RZI_LORAWAN_FUOTA` |
 |---|---|---|
-| USP | OTAA, Class A/B/C, NETWORK, MAC, MULTICAST, CERTIFICATION | Adds FUOTA |
+| USP | OTAA, Class A, NETWORK, SESSION, MAC, CERTIFICATION; Class B, Class C, and MULTICAST when the matching `CONFIG_LORA_BASICS_MODEM_*` option is enabled | Adds FUOTA |
 | Zephyr | OTAA, ABP, Class A/C, NETWORK, CHANNEL, SESSION, MAC | Adds FUOTA |
 
 `AT+APPKEY` stores one AppKey. Native C callers that need a separate
@@ -173,22 +183,77 @@ only for the duration of `on_event()`:
 Metadata and payload pointers in `RZI_LORAWAN_EVENT_DOWNLINK` are valid only
 until `on_event()` returns. Subscribers that need the data later must copy it.
 
-`enum rzi_lorawan_data_rate` names the 4-bit MAC index (0-15). Core rejects
-values that the current region does not define:
+`rzi_lorawan_send_empty()` sends an uplink without application payload,
+optionally with an FPort, for example to flush pending MAC answers or open
+class A receive windows. It follows the same joined and one-outstanding-uplink
+rules and completes with `RZI_LORAWAN_EVENT_TX_DONE`. `rzi_lorawan_is_busy()`
+reports the stack's own view of whether an uplink is still in progress.
 
-| Region | Uplink (`set_data_rate`) | RX2 / multicast |
-|---|---|---|
-| EU868 | 0-11 | 0-7 |
-| US915 | 0-6 | 8-13 |
-| AU915 | 0-7 | 8-13 |
-| CN470 | 0-7 | 0-7 |
-| AS923 groups 1-4 | 0-7 | 0-7 |
-| IN865 | 0-5, 7 | 0-5, 7 |
-| KR920 | 0-5 | 0-5 |
-| RU864 | 0-7 | 0-7 |
+`enum rzi_lorawan_data_rate` names the 4-bit MAC index (0-15). The core does
+not keep regional tables. `rzi_lorawan_set_data_rate()` accepts only the
+uplink data rates the backend reports for the active region (USP:
+`smtc_modem_get_enabled_datarates()`). Multicast data rates are checked
+against 0-15 and validated by the stack.
 
-DR14 and DR15 are unused in every region RZI exposes. EU868 uplink 8-11
-and US915/AU915 uplink 5-7 are LR-FHSS indexes from RP2 1.0.3.
+`RZI_LORAWAN_EVENT_DOWNLINK` carries the reception metadata LoRa Basics Modem
+reports: `window` (`RX1`, `RX2`, `RXC`, `RXB`, or `UNKNOWN`), `data_rate`,
+`frequency_hz`, and `flags`:
+
+- `RZI_LORAWAN_DOWNLINK_FPENDING`: the network has more data queued;
+- `RZI_LORAWAN_DOWNLINK_TIME_UPDATED`: the frame carried a time update
+  (Zephyr backend only);
+- `RZI_LORAWAN_DOWNLINK_MULTICAST`: received in a multicast window;
+  `multicast_group` holds the group index.
+
+Two stack status events report conditions LoRa Basics Modem detects on its own:
+
+- `RZI_LORAWAN_EVENT_DUTY_CYCLE`: `duty_cycle_limited` is true while regional
+  duty-cycle limits block transmission, false when they lift;
+- `RZI_LORAWAN_EVENT_NO_DOWNLINK`: `no_downlink` holds
+  `RZI_LORAWAN_NO_DOWNLINK_ADR_BACKOFF_END` and/or
+  `RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD` after too many uplinks without a
+  downlink (see `rzi_lorawan_set_no_downlink_threshold()`).
+
+## 5a. Link control
+
+These functions map one-to-one onto LoRa Basics Modem controls. A backend
+without the control returns `-RZI_ERR_NOT_SUPPORTED`.
+
+- `rzi_lorawan_set_adr_profile()`: network-controlled ADR, the two LBM mobile
+  profiles, or a custom distribution of
+  `RZI_LORAWAN_DR_DISTRIBUTION_LENGTH` (16) slots. Each slot holds a data
+  rate; the stack picks uniformly among slots, so the share of a data rate is
+  the number of slots holding it. Slots with data rates the region does not
+  allow are ignored. Requires an active session (`-RZI_ERR_NOT_JOINED`).
+  `rzi_lorawan_set_adr(false)` and `rzi_lorawan_set_data_rate()` are shortcuts
+  that fill every slot with one data rate;
+- `rzi_lorawan_set_nb_trans()`: 1 through 15 transmissions per uplink; only
+  valid while the profile is not network-controlled;
+- `rzi_lorawan_set_adr_ack()`: ADR_ACK_LIMIT and ADR_ACK_DELAY, 2 through 127;
+- `rzi_lorawan_set_join_data_rates()`: distribution used for Join-Requests;
+  rejected with `-RZI_ERR_BUSY` while joining or joined;
+- `rzi_lorawan_get_duty_cycle_status()`: remaining regional duty-cycle budget
+  in milliseconds (negative while blocked);
+- `rzi_lorawan_set_csma()` / `rzi_lorawan_set_csma_params()`: LBM CSMA,
+  present when `CONFIG_LORA_BASICS_MODEM_CSMA` is enabled;
+- `rzi_lorawan_get_lost_connection_count()`: uplinks since the last downlink;
+- `rzi_lorawan_set_no_downlink_threshold()`: uplink count that raises
+  `RZI_LORAWAN_EVENT_NO_DOWNLINK`;
+- `rzi_lorawan_set_crystal_error()`: crystal error in ppm used to widen
+  receive windows.
+
+Parameters LoRa Basics Modem takes from the regional parameters and network
+MAC commands stay in the header for RUI3 compatibility but return
+`-RZI_ERR_NOT_SUPPORTED` on every current backend: TX power, duty-cycle
+enable, RX1/RX2 delays, RX2 data rate and frequency, and join-accept delays.
+
+US915 and AU915 uplink channels can be limited before join. The core stores
+one 72-channel mask with the credentials (storage key `chmask`) and passes it
+to the backend at the next join. `rzi_lorawan_set_sub_band()` (LoRaWAN FSB)
+and `rzi_lorawan_set_fixed_channel()` both write that mask. A LinkADRReq from
+the network replaces it until the next join. With USP this needs the
+`usp/0003` LBM patch. CN470 and the other regions return
+`-RZI_ERR_NOT_SUPPORTED`.
 
 ## 6. Callbacks and concurrency
 
@@ -208,7 +273,8 @@ That guarantees user callbacks:
 - may safely call non-blocking RZI LoRaWAN APIs.
 
 Callbacks must return quickly and must not block for long. One slow
-subscriber delays the others. On queue overflow, RZI reports the loss as
+subscriber delays the others. On queue overflow, or when the stack itself
+drops events (LBM `missed_events`), RZI reports the loss as
 `RZI_LORAWAN_EVENT_ERROR` carrying `-RZI_ERR_OVERFLOW`. Queue depth,
 subscriber limit, dispatcher stack, and priority are Kconfig settings.
 
@@ -240,7 +306,8 @@ uses this subset:
   data rate;
 - `-RZI_ERR_TIMEOUT`: join retries were exhausted, or a MAC request timed
   out, and the backend has no more precise code;
-- `-RZI_ERR_OVERFLOW`: the dispatcher event queue overflowed;
+- `-RZI_ERR_OVERFLOW`: the dispatcher event queue overflowed or the stack
+  dropped events;
 - `-RZI_ERR_IO`: a backend failure without a more precise error;
 - `-RZI_ERR_NOT_JOINED`: uplink requested without an active session.
 
@@ -252,7 +319,9 @@ overflow. It does not replace synchronous API argument checks.
 Private `src/lorawan/backend/lorawan_backend.h` defines the backend vtable
 and the internal event envelope. A backend:
 
-- provides a capability bit mask;
+- follows LoRa Basics Modem semantics; other stacks emulate them (see
+  [lorawan-backends.md](./lorawan-backends.md));
+- provides a capability bit mask and the mandatory `is_busy` operation;
 - receives region, development policy, and an event sink at `start`;
 - deep-copies the join config and send payload;
 - converts vendor return values to negative `RZI_ERR_*`;
@@ -264,7 +333,7 @@ and the internal event envelope. A backend:
 backend contract. A NULL table means the backend does not implement that
 group; a NULL member still returns `-RZI_ERR_NOT_SUPPORTED`. A public
 capability bit advertises runtime support and must stay aligned with the
-non-NULL pointers. Core public APIs are always compiled except FUOTA, which
+non-NULL pointers; `rzi_lorawan_start()` asserts this with `CONFIG_ASSERT`. Core public APIs are always compiled except FUOTA, which
 remains Kconfig-gated.
 
 A new backend implements the lifecycle operations and fills in the tables it

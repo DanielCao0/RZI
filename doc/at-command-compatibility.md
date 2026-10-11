@@ -143,7 +143,8 @@ AT+APPKEY=00112233445566778899AABBCCDDEEFF
 `AT+JOIN=<start>:<auto_join>:<interval>:<attempts>` follow the RUI3 asynchronous
 model.
 
-- `start`: `1` starts joining; `0` stops joining and cancels scheduled retries.
+- `start`: `1` starts joining; `0` stops joining, cancels scheduled retries,
+  and aborts an attempt still waiting for Join-Accept.
 - `auto_join`: `1` starts joining after the next boot; `0` disables it.
 - `interval`: 7 through 255 seconds between retries; default is 8.
 - `attempts`: 0 through 255 retries after the first attempt; default `0` means
@@ -160,7 +161,9 @@ The command returns `OK` when the sequence starts. Completion is reported with:
 +EVT:JOIN_FAILED_RX_TIMEOUT
 ```
 
-The failure event is emitted after all configured retries have failed.
+The failure event is emitted after all configured retries have failed. On the
+USP backend the stack spaces retries with the LoRaWAN regional join duty cycle
+and `interval` is stored but not used.
 Auto-join settings survive reboot only when `CONFIG_RZI_AT_NVM=y`.
 
 ### Uplink, confirmation, and downlink
@@ -195,12 +198,10 @@ has started. A backend that does not implement the operation returns
 `AT_ERROR` (`-RZI_ERR_NOT_SUPPORTED`). Timing commands use seconds on the AT wire and
 milliseconds in the C API.
 
-- `AT+ADR`, `AT+DR`, `AT+TXP`, `AT+DCS`, `AT+PNM`
-- `AT+RX1DL`, `AT+RX2DL`, `AT+RX2DR`, `AT+RX2FQ`, `AT+JN1DL`, `AT+JN2DL`
+- `AT+ADR`, `AT+DR`, `AT+PNM`
 - `AT+LBT`, `AT+LBTRSSI`, `AT+LBTSCANTIME`
 - `AT+LINKCHECK` (`0` disabled, `1` once, `2` every uplink)
 - `AT+TIMEREQ`
-- `AT+MASK`, `AT+CHE`, `AT+CHS`
 - `AT+RSSI`, `AT+SNR`
 - `AT+PGSLOT`, `AT+BFREQ`, `AT+BTIME`, `AT+BGW`
 - `AT+LTIME` reports GPS seconds (`LTIME: GPS <seconds>`), not RUI3 UTC text
@@ -210,6 +211,38 @@ milliseconds in the C API.
 - `AT+RETY` stores 0 through 7 confirmed-uplink retries for the AT package
 - `AT+LPSEND=<port>:<ack>:<hex>` sends one frame up to
   `RZI_LORAWAN_MAX_PAYLOAD`; it is not RUI3 LPTP segmentation
+
+`AT+DR` accepts only the uplink data rates the backend reports for the current
+region (LoRa Basics Modem: `smtc_modem_get_enabled_datarates()`).
+
+The following commands stay registered for RUI3 command-set compatibility but
+always return `AT_ERROR` (`-RZI_ERR_NOT_SUPPORTED`) on every current backend.
+LoRa Basics Modem takes these values from the regional parameters and network
+MAC commands and has no application override:
+
+- `AT+TXP`, `AT+DCS`
+- `AT+RX1DL`, `AT+RX2DL`, `AT+RX2DR`, `AT+RX2FQ`, `AT+JN1DL`, `AT+JN2DL`
+
+`AT+MASK`, `AT+CHE` and `AT+CHS` follow RUI3 for US915 and AU915 on both
+backends. They return `AT_ERROR` for every other band, including CN470. LBM's
+CN470 is the RP002 plan, which switches between four sub-plans of 48 or 64
+channels, so RUI3's 96-channel numbering does not apply. The commands work
+before `AT+JOIN`, are stored, and take effect at the next join. A channel mask
+from the network (LinkADRReq) replaces them until the following join.
+
+- `AT+MASK=XXXX`: bit b (0–7) enables 125 kHz channels 8b–8b+7 and 500 kHz
+  channel 64+b; bit 8 enables 500 kHz channels 64–71. `0000` enables every
+  channel. A read reports `01FF` when every channel is enabled.
+- `AT+CHE=n[:n…]`: n = 1–8 enables 125 kHz channels 8(n-1)–8(n-1)+7, n = 9
+  enables 64–71, `0` enables every channel. A read lists fully enabled groups,
+  or groups with any enabled channel when none is full.
+- `AT+CHS=<Hz>`: restricts uplinks to one channel; `0` enables every channel.
+  A read returns 0 unless exactly one channel is enabled.
+
+Class B and class C commands (`AT+CLASS=B|C`, `AT+PGSLOT`, `AT+BFREQ`,
+`AT+BTIME`, `AT+BGW`) and multicast commands return `AT_ERROR` when the image
+does not enable `CONFIG_LORA_BASICS_MODEM_CLASS_B`, `_CLASS_C`, or
+`_MULTICAST`. `samples/at` enables all three.
 
 ## Implemented P2P and radio-test commands
 

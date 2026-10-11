@@ -62,8 +62,10 @@ manifest:
       import: true
 ```
 
-`west update` fetches RZI and the dependencies required by the default backend.
-The application selects its Zephyr revision. Production applications shall pin
+`west update` fetches RZI, the Zephyr revision RZI is validated against, and
+the dependencies required by the default backend. An application that lists
+`zephyr` in its own manifest selects that Zephyr revision instead. Production
+applications shall pin
 RZI to a released tag or commit instead of following `main`.
 
 The RZI repository contains reusable library code and focused verification
@@ -190,7 +192,6 @@ Public header groups are:
 include/rzi/
 ├── err.h                      Closed public error catalog
 ├── version.h                  SDK version and compatibility queries
-├── capabilities.h             Service and backend capabilities
 ├── lorawan/lorawan.h          Backend-independent LoRaWAN service
 ├── lorawan/multicast.h        Multicast-session facade
 ├── lorawan/certification.h    Certification-mode facade
@@ -202,7 +203,7 @@ include/rzi/
 └── diagnostics/diagnostics.h  Stable counters and health data (planned)
 ```
 
-`version.h`, `capabilities.h`, and the lorawan, at, storage, and power
+`err.h`, `version.h`, and the lorawan, at, storage, and power
 headers are implemented. `diagnostics/diagnostics.h` is still planned.
 
 ## 6. LoRaWAN service
@@ -249,11 +250,11 @@ Unsupported backend operations return `-RZI_ERR_NOT_SUPPORTED`. Raw LoRa P2P and
 
 Backends will not always provide the same features. The common service exposes
 a capability bitset covering join mode, device class, and the optional
-backend tables (network, channel, session, MAC requests, multicast,
-certification, FUOTA). Further candidate capabilities include:
+backend tables (network, session, MAC requests, multicast, certification,
+FUOTA), and whether the backend applies the core's channel mask. Further candidate capabilities include:
 
 ```text
-ADR_CONTROL, CHANNEL_MASK, CSMA, RELAY
+ADR_CONTROL, CSMA, RELAY
 ```
 
 An unsupported operation returns `-RZI_ERR_NOT_SUPPORTED`. Typical
@@ -523,7 +524,7 @@ rzi/
 ├── zephyr/                  Top-level and per-service Kconfig integration
 ├── include/rzi/
 ├── src/
-│   ├── system/              Errors, version, and compiled-service capabilities
+│   ├── common/              Error catalog and SDK version
 │   ├── lorawan/
 │   │   ├── lorawan.c
 │   │   ├── lorawan_service.h
@@ -592,7 +593,7 @@ pass does not replace RF and power measurements.
 | Stage | Scope | Exit criteria |
 |---|---|---|
 | 0 - Foundation | Module, common LoRaWAN layer, USP backend, basic AT/NVS, samples | Implemented and build verified |
-| 1 - Contract hardening | Version, capabilities, lifecycle, errors, state/AT tests | Public v0.x contract documented and tested |
+| 1 - Contract hardening | Version, lifecycle, errors, state/AT tests | Public v0.x contract documented and tested |
 | 2 - Backend migration | Experimental Zephyr LBM adapter and two-backend matrix | Upstream release and RAK4631 parity |
 | 3 - Device services | Storage, diagnostics, power, AT separation | Migration and power targets pass |
 | 4 - FUOTA | Package adapter, DFU state, MCUboot rollback | Signed update and recovery pass |

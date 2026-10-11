@@ -46,7 +46,7 @@ scripts/generate-sbom.sh
 |---|---|
 | `include/rzi/` | Public C ABI. Applications may only `#include <rzi/...>` |
 | `src/<service>/` | Implementation and private headers for that service |
-| `src/system/` | Module-wide errors, version, and compiled service capabilities. Not a product service |
+| `src/common/` | Implementations of module-level public headers (`err.h`, `version.h`) only. Not a product service and not a place for shared helpers |
 | `samples/`, `tests/` | Samples and tests; mirror the service under test |
 | `doc/` | Standards and architecture. Lowercase kebab-case names; do not repeat `rzi` |
 
@@ -55,8 +55,8 @@ Public headers use one subdirectory per service, matching Zephyr
 
 ```text
 include/rzi/
+├── err.h
 ├── version.h
-├── capabilities.h
 ├── lorawan/lorawan.h
 ├── lorawan/fuota.h
 ├── lorawan/multicast.h
@@ -108,8 +108,7 @@ Private headers must sit next to the implementation. They must not enter
 - Public service headers: `include/rzi/<service>/<name>.h`.
 - Dependent public APIs hang under their owning service:
   `include/rzi/at/uart.h`.
-- Module-level headers may stay at `include/rzi/`: `version.h`,
-  `capabilities.h`.
+- Module-level headers may stay at `include/rzi/`: `err.h`, `version.h`.
 - Backend implementations:
   `src/<service>/backend/<service>_backend_<backend>.c`.
 - Tests and samples start with the service name and then describe the behavior,

@@ -16,14 +16,19 @@ See also: [lorawan-api.md](./lorawan-api.md),
 These signatures are the RZI LoRaWAN ABI. Unsupported backends return
 `-RZI_ERR_NOT_SUPPORTED`. The reference behavior is the RUI3 C service and C AT
 implementation, not `component/rui_v3_api/RAKLorawan.*`. OTAA/ABP credentials are `rzi_lorawan_get/set_*` inputs to
-`rzi_lorawan_join()`. Join retry lives in the LoRaWAN service. Confirm-default
+`rzi_lorawan_join()`. The stack times join retries; the LoRaWAN service counts attempts. Confirm-default
 and last-payload readback stay in the AT package.
 P2P/FSK is `include/rzi/lora/lora.h`, not this ABI.
 
 `tx_power` is the LoRaWAN power index, not dBm. `sub_band` is 0 (all) or
-1–8. `query_tx_possible()` returns `0` when `size` fits the current data
-rate. Class B ping-slot periodicity is 0–7. Channel masks use up to
-`RZI_LORAWAN_CHANNEL_MASK_WORDS` (6) words.
+1–8 with LoRaWAN FSB semantics (eight 125 kHz channels plus 500 kHz channel
+63+n). TX power, duty-cycle enable, RX and join-accept windows, and RX2
+settings are kept for RUI3 source compatibility but return
+`-RZI_ERR_NOT_SUPPORTED` on every current backend. `query_tx_possible()` returns `0` when `size` fits the current data
+rate. Class B ping-slot periodicity is 0–7. Channel masks are US915 / AU915
+only (72 channels, 5 or 6 words). The core stores the mask with the
+credentials and applies it at the next join, so the channel calls work before
+`rzi_lorawan_start()`.
 
 ## `include/rzi/lorawan/lorawan.h`
 
@@ -119,6 +124,31 @@ int rzi_lorawan_get_class_b_state(enum rzi_lorawan_class_b_state *state);
 int rzi_lorawan_stop_class_b(void);
 ```
 
+Link control (no RUI3 equivalent; LoRa Basics Modem controls):
+
+```c
+int rzi_lorawan_get_adr_profile(enum rzi_lorawan_adr_profile *profile);
+int rzi_lorawan_set_adr_profile(enum rzi_lorawan_adr_profile profile,
+                                const uint8_t *distribution);
+int rzi_lorawan_get_nb_trans(uint8_t *nb_trans);
+int rzi_lorawan_set_nb_trans(uint8_t nb_trans);
+int rzi_lorawan_get_adr_ack(uint8_t *limit, uint8_t *delay);
+int rzi_lorawan_set_adr_ack(uint8_t limit, uint8_t delay);
+int rzi_lorawan_set_join_data_rates(const uint8_t *distribution);
+int rzi_lorawan_get_duty_cycle_status(int32_t *remaining_ms);
+int rzi_lorawan_get_csma(bool *enabled);
+int rzi_lorawan_set_csma(bool enabled);
+int rzi_lorawan_get_csma_params(struct rzi_lorawan_csma_params *params);
+int rzi_lorawan_set_csma_params(const struct rzi_lorawan_csma_params *params);
+int rzi_lorawan_get_lost_connection_count(uint16_t *count);
+int rzi_lorawan_get_no_downlink_threshold(uint16_t *threshold);
+int rzi_lorawan_set_no_downlink_threshold(uint16_t threshold);
+int rzi_lorawan_get_crystal_error(uint32_t *ppm);
+int rzi_lorawan_set_crystal_error(uint32_t ppm);
+int rzi_lorawan_send_empty(bool with_port, uint8_t port,
+                           enum rzi_lorawan_message_type type);
+```
+
 `get_last_rssi` / `get_last_snr` are filled from the last application
 downlink. `get_protocol_version` is `"LoRaWAN 1.0.4"`.
 
@@ -172,15 +202,16 @@ backend implements that group. A NULL operation still returns `-RZI_ERR_NOT_SUPP
 
 | Group | USP / LBM | Zephyr `lorawan_*` |
 |---|---|---|
-| Join / send / class | OTAA, Class A/B/C | OTAA, ABP, Class A/C |
+| Join / send / class | OTAA, Class A; Class B/C per LBM Kconfig | OTAA, ABP, Class A/C |
 | ADR, DR, public network, LBT | Yes | ADR, DR |
+| Link control (ADR profile, NbTrans, ADR ACK, CSMA, duty-cycle status, …) | Yes (CSMA with `CONFIG_LORA_BASICS_MODEM_CSMA`) | `-RZI_ERR_NOT_SUPPORTED` |
 | TX power, duty-cycle enable, RX / join windows | `-RZI_ERR_NOT_SUPPORTED` (not in `smtc_modem_*`) | `-RZI_ERR_NOT_SUPPORTED` |
-| Channel mask / sub-band / fixed channel | `-RZI_ERR_NOT_SUPPORTED` | Channel mask |
+| Channel mask, sub-band, fixed channel (US915 / AU915) | Yes (`usp/0003` patch) | Yes |
 | RSSI / SNR / protocol version | Core downlink cache / constant | Same |
 | `query_tx_possible` / `is_busy` / DevNonce | TX size and busy | TX size, busy, DevNonce |
 | Class B ping-slot / state | Yes; beacon fields `-RZI_ERR_NOT_SUPPORTED` | `-RZI_ERR_NOT_SUPPORTED` |
 | LinkCheckReq / DeviceTimeReq | Yes | Yes (not under `CONFIG_LORAWAN_EMUL`) |
-| Multicast 0–3 | Yes | `-RZI_ERR_NOT_SUPPORTED` |
+| Multicast 0–3 | With `CONFIG_LORA_BASICS_MODEM_MULTICAST` | `-RZI_ERR_NOT_SUPPORTED` |
 | Certification | Mode yes; FPort is local | `-RZI_ERR_NOT_SUPPORTED` |
 | FUOTA | When `CONFIG_RZI_LORAWAN_FUOTA` | When enabled |
 
@@ -228,16 +259,18 @@ commands, RAK3172 `AT+UID`, and transparent / binary API modes.
 | Join / send | `service_lora_send` | `rzi_lorawan_send` | present | Confirm flag comes from AT context |
 | Join / send | `get_last_recv` | AT `RECV` | AT-only | |
 | Join / send | `service_lora_lptp_send` | AT `LPSEND` | missing | LPSEND is one frame, max 242, not LPTP |
-| Network | ADR, class, DCS, DR, TXP, PNM | matching `rzi_lorawan_get/set_*` | present | `tx_power` is LoRaWAN index |
+| Network | ADR, class, DR, PNM | matching `rzi_lorawan_get/set_*` | present | |
+| Network | DCS, TXP | matching `rzi_lorawan_get/set_*` | limited | API kept; every backend returns `-RZI_ERR_NOT_SUPPORTED` |
 | Network | `get_real_class_from_stack` | `rzi_lorawan_get_class` | missing | No separate stack-vs-requested class |
-| Network | RX1/RX2 delays, RX2 DR/freq, JN1/JN2 | matching getters/setters | present | |
+| Network | RX1/RX2 delays, RX2 DR/freq, JN1/JN2 | matching getters/setters | limited | API kept; every backend returns `-RZI_ERR_NOT_SUPPORTED` |
 | Network | LBT / RSSI / scantime | matching getters/setters | present | |
 | Network | `get/set_linkcheck` | `rzi_lorawan_request_link_check` | present | |
 | Network | `get/set_timereq` | `rzi_lorawan_request_device_time` | present | |
 | Network | `query_txPossible`, `isbusy` | `query_tx_possible`, `is_busy` | present | `0` = request accepted |
 | Network | `get/set_DevNonce` | `get/set_dev_nonce` | present | |
 | Network | `systemMaxRxError` | — | missing | Internal RX-window calibration |
-| Channels | mask, CHE, CHS | `channel_mask`, `sub_band`, `fixed_channel` | present | |
+| Channels | mask | `channel_mask` | limited | US915 / AU915; applied at the next join |
+| Channels | CHE, CHS | `sub_band`, `fixed_channel` | limited | US915 / AU915; views of the channel mask |
 | Info | RSSI, SNR, version | matching getters | present | SNR is quarter-dB in C, AT prints dB |
 | Info | ARSSI | — | missing | Channel RSSI scan not provided |
 | Class B | ping slot, beacon freq/time/DR, BGW, state, force stop | matching getters/setters | present | |
@@ -247,7 +280,7 @@ commands, RAK3172 `AT+UID`, and transparent / binary API modes.
 | Multicast | add / remove / list / clear | `rzi_lorawan_*_multicast_session` | present | |
 | Power | `suspend` / `resume` | `rzi_power_sleep` / `set_policy` | present | Different names |
 | FUOTA | RUI LmHandler FUOTA packages | `rzi_fuota_*` | limited | ChirpStack dual-slot, not LoRa Alliance FUOTA |
-| P2P | `p2p_init/config/send/recv` | `rzi_lora_start/set_config/send/receive` | present | USP cannot share radio with LoRaWAN |
+| P2P | `p2p_init/config/send/recv` | `rzi_lora_start/set_config/send/receive` | present | USP runs P2P as RAC transactions below LoRaWAN priority |
 | P2P | freq/SF/BW/CR/preamble/power/IQ/sync/CAD/FSK | `rzi_lora_get/set_config` | present | |
 | P2P | `check_runtime_*` validators | inside `set_config` | missing | No standalone validator APIs |
 | P2P | crypto enable/key/IV | `config.encrypt/key/iv` | limited | XOR of key+IV, not AES-CTR |
