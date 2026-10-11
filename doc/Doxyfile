@@ -63,6 +63,7 @@ WARN_LOGFILE           = doxygen/warnings.log
 INPUT                  = ../include/rzi \
                          README.md \
                          architecture.md \
+                         usp-stack.md \
                          boot.md \
                          power.md \
                          power-api.md \
