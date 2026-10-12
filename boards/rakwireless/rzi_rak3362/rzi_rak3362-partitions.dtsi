@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
  * rzi_rak3362 flash map (nRF54L15, 1428 KB RRAM for the application core).

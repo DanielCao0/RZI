@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
  * RAK3172 WisDuo module: STM32WLE5, the 32 MHz TCXO and 32.768 kHz crystal,

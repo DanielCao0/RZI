@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
 
 board_runner_args(pyocd "--target=stm32wle5ccux")

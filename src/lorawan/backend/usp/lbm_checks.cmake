@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
 
 set(RZI_LBM_CORE_DIR ${ZEPHYR_USP_MODULE_DIR}/protocols/lbm_lib/smtc_modem_core)

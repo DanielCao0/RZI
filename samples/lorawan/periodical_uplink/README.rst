@@ -23,7 +23,7 @@ stack is idle. It does not include or call the USP/LBM API directly.
 Requirements
 ************
 
-* ``rzi_rak4631`` or ``rzi_rak3372`` with its LoRa antenna connected
+* ``rzi_rak4631``, ``rzi_rak3372`` or ``rzi_rak3362`` with its LoRa antenna connected
 * A LoRaWAN gateway and network server in range
 * An OTAA device registered on the network server
 

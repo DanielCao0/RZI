@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
  * RAK4630 WisDuo module: nRF52840, the SX1262 on SPI1, and the pinmux of

@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
  * RAK3162 WisDuo module: nRF54L15, the SX1262 on SPI22, the crystals, and

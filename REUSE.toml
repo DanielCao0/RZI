@@ -1,0 +1,28 @@
+version = 1
+SPDX-PackageName = "rzi"
+SPDX-PackageSupplier = "RAKwireless"
+SPDX-PackageDownloadLocation = "https://github.com/DanielCao0/RZI"
+
+[[annotations]]
+path = [
+    "**.md",
+    "**.rst",
+    ".clangd",
+    ".gitignore",
+    ".vscode/**",
+    "samples/lorawan/fuota/test_payload/**",
+    "zephyr/patches.yml",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2026 RAKwireless"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Diffs against Semtech sources carry the license of the code they modify.
+[[annotations]]
+path = "zephyr/patches/**.patch"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Copyright Semtech Corporation 2025",
+    "Copyright (c) 2026 RAKwireless",
+]
+SPDX-License-Identifier = "BSD-3-Clause-Clear"

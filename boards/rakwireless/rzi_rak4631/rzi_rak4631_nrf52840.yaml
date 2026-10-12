@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
 identifier: rzi_rak4631/nrf52840
 name: RZI RAK4631
 type: mcu

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
 board:
   name: rzi_rak3372
   full_name: RZI RAK3372

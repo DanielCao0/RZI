@@ -1,0 +1,16 @@
+diff --git a/REUSE.toml b/REUSE.toml
+new file mode 100644
+index 0000000..5510581
+--- /dev/null
++++ b/REUSE.toml
+@@ -0,0 +1,10 @@
++version = 1
++
++# Semtech sources carry the Clear BSD license text without SPDX tags, and
++# build and devicetree files carry no header. These annotations let
++# REUSE-based tools such as west spdx attribute them.
++[[annotations]]
++path = "**"
++precedence = "closest"
++SPDX-FileCopyrightText = "Copyright Semtech Corporation"
++SPDX-License-Identifier = "BSD-3-Clause-Clear"

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
 
 name: rzi
@@ -13,3 +14,9 @@ tests:
   - tests
 boards:
   - .
+# Copied into west spdx SBOMs so scanners can match CVEs against RZI.
+# The version must match RZI_VERSION_STRING in include/rzi/version.h.
+security:
+  external-references:
+    - cpe:2.3:a:rakwireless:rzi:0.2.0:*:*:*:*:*:*:*
+    - pkg:github/DanielCao0/RZI@v0.2.0

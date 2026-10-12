@@ -80,7 +80,9 @@ The sample selects its exclusive AT UART adapter with the ``rzi-at-uart``
 devicetree alias. It does not reuse ``zephyr,console`` because console and AT
 adapter ownership are separate concerns. ``rzi_rak4631`` points the alias to
 USB CDC ACM. ``rzi_rak3362`` has no USB controller and points it to ``uart20``,
-which the base board USB-C port reaches through a USB-UART converter:
+which the base board USB-C port reaches through a USB-UART converter.
+``rzi_rak3372`` points it to ``usart2`` (PA2/PA3), matching the RUI3 AT
+port on RAK3172. The console of the other samples stays on ``usart1``:
 
 .. code-block:: devicetree
 
@@ -114,14 +116,14 @@ value as ``AT+VER``:
 
    +EVT:BOOT:RZI_0.2.0_rzi_rak3362
 
-The AT port needs USB CDC ACM or a UART that is free of console output, so
-this sample is not available on ``rzi_rak3372``.
+For RAK3372, use ``-b rzi_rak3372/stm32wle5xx``. The AT port is usart2
+(PA2/PA3). This sample turns the console off.
 
 Example session
 ***************
 
-Open the USB CDC port (RAK4631) or the base board serial port (RAK3362) at
-115200 baud. On RAK4631 the sample waits up to 10 s for the host to open the
+Open the USB CDC port (RAK4631), the base board serial port (RAK3362), or
+UART2 on RAK3372 at 115200 baud. On RAK4631 the sample waits up to 10 s for the host to open the
 port, so the boot line is only seen if the port opens within that time. Then
 type:
 

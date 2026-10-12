@@ -1,9 +1,10 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
 #
 # RZI continuous integration, aligned with Zephyr's compliance workflow
 # and the example-application twister gate: check_compliance.py, DCO on
-# pull requests, twister --integration, plus public-header, Doxygen, and
-# SBOM checks.
+# pull requests, twister --integration, plus REUSE, public-header, Doxygen,
+# and SPDX 3 / CycloneDX SBOM checks. Releases: release.yml.
 #
 # Version pins and local reproduction steps are documented in doc/ci.md.
 
@@ -119,28 +120,15 @@ jobs:
             exit 1
           fi
 
-      - name: SPDX tags on every source file
-        run: |
-          missing="$(find rzi/src rzi/include -name '*.[ch]' \
-            ! -exec grep -q 'SPDX-License-Identifier' {} \; -print)"
-          if [[ -n "${missing}" ]]; then
-            echo "::error::missing SPDX-License-Identifier:"
-            echo "${missing}"
-            exit 1
-          fi
+      - name: REUSE (license and copyright on every file)
+        run: reuse --root rzi lint
 
       - name: Version strings stay in sync
         run: |
           version="$(grep -oP 'RZI_VERSION_STRING "\K[^"]+' rzi/include/rzi/version.h)"
           grep -q "PROJECT_NUMBER         = ${version}" rzi/doc/Doxyfile
-          python3 - "${version}" <<'PY'
-          import json
-          import sys
-
-          packages = json.load(open("rzi/doc/sbom/rzi.spdx.json"))["packages"]
-          rzi = next(p for p in packages if p["name"] == "rzi")
-          assert rzi["versionInfo"] == sys.argv[1], (rzi["versionInfo"], sys.argv[1])
-          PY
+          grep -q "cpe:2.3:a:rakwireless:rzi:${version}:" rzi/zephyr/module.yml
+          grep -q "pkg:github/DanielCao0/RZI@v${version}$" rzi/zephyr/module.yml
 
   twister:
     name: Twister (native_sim)
@@ -226,24 +214,10 @@ jobs:
             -r zephyr/scripts/requirements-run-test.txt \
             imgtool
 
-      - name: Cache the Zephyr SDK
-        id: sdk
-        uses: actions/cache@v5
+      - name: Set up the Zephyr SDK
+        uses: ./rzi/.github/actions/setup-sdk
         with:
-          path: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}
-          key: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-arm-zephyr-eabi
-
-      - name: Install the Zephyr SDK
-        if: steps.sdk.outputs.cache-hit != 'true'
-        run: |
-          wget -q "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
-          tar -xf "zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
-          "./zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -t arm-zephyr-eabi -c
-
-      - name: Select the Zephyr SDK
-        run: |
-          echo "ZEPHYR_SDK_INSTALL_DIR=${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}" \
-            >> "${GITHUB_ENV}"
+          version: ${{ env.ZEPHYR_SDK_VERSION }}
 
       - name: Build the samples
         run: west twister -T "${GITHUB_WORKSPACE}/rzi/samples" --inline-logs -v --integration -j "$(nproc)"
@@ -255,6 +229,27 @@ jobs:
           name: twister-samples-report
           path: twister-out/
           if-no-files-found: ignore
+
+      - name: Build a reference image with build metadata
+        run: |
+          west build -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/at -d build-sbom \
+            -- -DCONFIG_BUILD_OUTPUT_META=y -Dmcuboot_CONFIG_BUILD_OUTPUT_META=y
+
+      - name: Firmware SBOM (SPDX 3)
+        run: |
+          python3 rzi/scripts/generate-firmware-sbom.py build-sbom
+          for image in build-sbom/spdx/*/; do
+            args=()
+            for doc in "${image}"*.jsonld; do args+=(-j "${doc}"); done
+            spdx3-validate -q "${args[@]}"
+            python3 rzi/scripts/check-sbom.py --strict "${image}"*.jsonld
+          done
+
+      - name: Upload the firmware SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: firmware-sbom-at-rzi_rak4631
+          path: build-sbom/spdx/
 
   headers:
     name: Public headers (C and C++)
@@ -359,9 +354,28 @@ jobs:
           path: rzi
           fetch-depth: 0
 
-      - name: Regenerate and validate
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the SBOM tools
+        run: |
+          python3 -m pip install pyyaml reuse spdx3-validate \
+            "cyclonedx-python-lib[json-validation]"
+
+      - name: Generate the module SBOM
+        working-directory: rzi
+        run: scripts/generate-sbom.sh
+
+      - name: Validate SPDX 3, CycloneDX 1.6, and the minimum elements
         working-directory: rzi
         run: |
-          scripts/generate-sbom.sh
-          python3 -m json.tool doc/sbom/rzi.spdx.json > /dev/null
-          python3 -m json.tool doc/sbom/rzi.cdx.json > /dev/null
+          spdx3-validate -q -j build/sbom/rzi.spdx.jsonld
+          python3 scripts/check-sbom.py --strict build/sbom/rzi.spdx.jsonld build/sbom/rzi.cdx.json
+
+      - name: Upload the module SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: module-sbom
+          path: rzi/build/sbom/

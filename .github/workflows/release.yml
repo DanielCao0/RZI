@@ -1,0 +1,172 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+#
+# Release: on a v<version> tag, build the release images with build metadata,
+# generate SPDX 3 firmware SBOMs and the module SBOM, validate them, and
+# publish everything with SHA-256 / SHA-512 checksums as a GitHub Release.
+# See doc/sbom.md.
+
+name: Release
+
+permissions:
+  contents: read
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  ZEPHYR_SDK_VERSION: "1.0.1"
+
+jobs:
+  firmware:
+    name: Firmware ${{ matrix.sample }} (${{ matrix.board }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - {sample: at, board: rzi_rak4631/nrf52840}
+          - {sample: at, board: rzi_rak3362/nrf54l15/cpuapp}
+          - {sample: lorawan/periodical_uplink, board: rzi_rak4631/nrf52840}
+          - {sample: lorawan/periodical_uplink, board: rzi_rak3362/nrf54l15/cpuapp}
+          - {sample: lorawan/periodical_uplink, board: rzi_rak3372/stm32wle5xx}
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v5
+        with:
+          path: rzi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up the west workspace
+        uses: ./rzi/.github/actions/setup-workspace
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends device-tree-compiler gperf
+
+      - name: Install the Zephyr Python requirements
+        run: |
+          python3 -m pip install \
+            -r zephyr/scripts/requirements-base.txt \
+            -r zephyr/scripts/requirements-build-test.txt \
+            -r zephyr/scripts/requirements-run-test.txt \
+            imgtool
+
+      - name: Set up the Zephyr SDK
+        uses: ./rzi/.github/actions/setup-sdk
+        with:
+          version: ${{ env.ZEPHYR_SDK_VERSION }}
+
+      - name: Name the image
+        run: |
+          name="$(echo "${{ matrix.sample }}-${{ matrix.board }}" | tr '/' '_')"
+          echo "IMAGE=rzi-${GITHUB_REF_NAME}-${name}" >> "${GITHUB_ENV}"
+
+      - name: Build with build metadata
+        run: |
+          west build -b "${{ matrix.board }}" --sysbuild "rzi/samples/${{ matrix.sample }}" \
+            -d build -- -DCONFIG_BUILD_OUTPUT_META=y -Dmcuboot_CONFIG_BUILD_OUTPUT_META=y
+
+      - name: Generate and check the firmware SBOM
+        run: |
+          python3 rzi/scripts/generate-firmware-sbom.py build -o "dist/${IMAGE}/spdx"
+          for image in "dist/${IMAGE}"/spdx/*/; do
+            args=()
+            for doc in "${image}"*.jsonld; do args+=(-j "${doc}"); done
+            spdx3-validate -q "${args[@]}"
+            python3 rzi/scripts/check-sbom.py --strict "${image}"*.jsonld
+          done
+
+      - name: Collect the images
+        run: |
+          shopt -s nullglob
+          cp build/merged_*.hex "dist/${IMAGE}/"
+          for domain in $(python3 -c 'import yaml; print(" ".join(d["name"] for d in yaml.safe_load(open("build/domains.yaml"))["domains"]))'); do
+            for name in zephyr.signed.bin zephyr.signed.hex zephyr.hex zephyr.elf; do
+              if [[ -f "build/${domain}/zephyr/${name}" ]]; then
+                cp "build/${domain}/zephyr/${name}" "dist/${IMAGE}/${domain}-${name}"
+              fi
+            done
+          done
+          tar -C dist -czf "dist/${IMAGE}.tar.gz" "${IMAGE}"
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.IMAGE }}
+          path: dist/${{ env.IMAGE }}.tar.gz
+
+  module:
+    name: Module SBOM
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out RZI
+        uses: actions/checkout@v5
+        with:
+          path: rzi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the SBOM tools
+        run: |
+          python3 -m pip install pyyaml reuse spdx3-validate \
+            "cyclonedx-python-lib[json-validation]"
+
+      - name: The tag matches the RZI version
+        working-directory: rzi
+        run: |
+          version="$(grep -oP 'RZI_VERSION_STRING "\K[^"]+' include/rzi/version.h)"
+          if [[ "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match RZI_VERSION_STRING ${version}"
+            exit 1
+          fi
+
+      - name: Generate and check the module SBOM
+        working-directory: rzi
+        run: |
+          scripts/generate-sbom.sh
+          spdx3-validate -q -j build/sbom/rzi.spdx.jsonld
+          python3 scripts/check-sbom.py --strict build/sbom/rzi.spdx.jsonld build/sbom/rzi.cdx.json
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: module-sbom
+          path: rzi/build/sbom/
+
+  publish:
+    name: Publish
+    needs: [firmware, module]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download the release assets
+        uses: actions/download-artifact@v7
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: assets
+        run: |
+          files=(*)
+          sha256sum -- "${files[@]}" > SHA256SUMS
+          sha512sum -- "${files[@]}" > SHA512SUMS
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" assets/* \
+            --repo "${GITHUB_REPOSITORY}" --verify-tag --title "RZI ${GITHUB_REF_NAME}" \
+            --notes "Firmware images with SPDX 3 SBOMs, the RZI module SBOM (SPDX 3 and CycloneDX 1.6), and the source archive. See doc/sbom.md."

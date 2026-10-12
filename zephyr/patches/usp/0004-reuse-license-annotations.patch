@@ -1,0 +1,35 @@
+diff --git a/REUSE.toml b/REUSE.toml
+new file mode 100644
+index 0000000..2989b3e
+--- /dev/null
++++ b/REUSE.toml
+@@ -0,0 +1,29 @@
++version = 1
++
++# Most Semtech sources carry the Clear BSD license text without SPDX tags.
++# These annotations let REUSE-based tools such as west spdx attribute them.
++[[annotations]]
++path = ["protocols/lbm_lib/**", "smtc_rac_lib/**"]
++precedence = "closest"
++SPDX-FileCopyrightText = "Copyright Semtech Corporation"
++SPDX-License-Identifier = "BSD-3-Clause-Clear"
++
++[[annotations]]
++path = "smtc_rac_lib/smtc_ral/src/base64.*"
++precedence = "override"
++SPDX-FileCopyrightText = "(C)2019 Semtech"
++SPDX-License-Identifier = "BSD-3-Clause"
++
++# Third-party components listed in LICENSES.txt. Their license texts are
++# kept verbatim there and have no exact SPDX License List match.
++[[annotations]]
++path = "protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/soft_secure_element/aes.*"
++precedence = "override"
++SPDX-FileCopyrightText = "Copyright (c) 1998-2008, Brian Gladman, Worcester, UK"
++SPDX-License-Identifier = "LicenseRef-Brian-Gladman-AES"
++
++[[annotations]]
++path = "protocols/lbm_lib/smtc_modem_core/smtc_modem_crypto/soft_secure_element/cmac.*"
++precedence = "override"
++SPDX-FileCopyrightText = "Copyright (C) 2009 Lander Casado, Philippas Tsigas"
++SPDX-License-Identifier = "LicenseRef-Casado-Tsigas-CMAC"

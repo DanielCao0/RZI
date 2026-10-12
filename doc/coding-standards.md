@@ -37,7 +37,8 @@ scripts/check-style.sh
 scripts/check-style.sh --fix
 ZEPHYR_BASE=<zephyr-checkout> scripts/check-compliance.sh origin/main..HEAD
 scripts/generate-doxygen.sh
-scripts/generate-sbom.sh
+reuse lint
+scripts/generate-sbom.sh --allow-dirty
 ```
 
 ## 2. Repository layering
@@ -289,6 +290,18 @@ public headers or public types.
 
 ## 7. Comments and Doxygen
 
+Every file starts with REUSE copyright and license tags, which `west spdx`
+copies into firmware SBOMs (see [sbom.md](./sbom.md)):
+
+```c
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+```
+
+Use `#` comments in CMake, Kconfig, YAML, and scripts. Files that cannot
+carry a comment (Markdown, JSON, binaries, patches) are covered by
+`REUSE.toml`. `reuse lint` must pass.
+
 Every production-library `.c` / `.h` must have:
 
 ```c
@@ -362,6 +375,8 @@ that lacks it.
       negative `RZI_ERR_*` values.
 - [ ] Thread / ISR / callback context is documented.
 - [ ] Production-library `.c` / `.h` files have `@file` and `@brief`.
+- [ ] New files carry `SPDX-FileCopyrightText` and `SPDX-License-Identifier`;
+      `reuse lint` passes.
 - [ ] `scripts/check-style.sh` passes.
 - [ ] `scripts/check-compliance.sh` passes for the commit range.
 - [ ] Commits contain `Signed-off-by`.

@@ -65,7 +65,7 @@ Differences from the USP example
 Requirements
 ************
 
-* ``rzi_rak4631`` or ``rzi_rak3372``
+* ``rzi_rak4631``, ``rzi_rak3372`` or ``rzi_rak3362``
 * A conducted setup (cable and attenuator) or an antenna in a shielded
   room, connected to the measuring instrument
 

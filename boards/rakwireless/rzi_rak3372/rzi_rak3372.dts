@@ -1,9 +1,12 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
  * Product board for the RAK3372 WisBlock Core (RAK3172 stamp module).
  * Radio is the STM32WLE5 on-chip SUBGHZ (st,stm32wl-subghz-radio), not an
  * SPI SX1262 shield. USP support is the RAK3372 west patch in
  * zephyr/patches/usp_zephyr. Single-slot flash: no FUOTA.
+ * Console is usart1 (PB6/PB7). The RUI3-compatible AT port is usart2
+ * (PA2/PA3).
  */
 
 /dts-v1/;
@@ -39,6 +42,7 @@
 	aliases {
 		led0 = &green_led;
 		lora0 = &lora;
+		rzi-at-uart = &usart2;
 		watchdog0 = &iwdg;
 	};
 };
@@ -48,6 +52,10 @@
 };
 
 &usart1 {
+	status = "okay";
+};
+
+&usart2 {
 	status = "okay";
 };
 

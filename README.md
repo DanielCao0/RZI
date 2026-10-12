@@ -264,14 +264,16 @@ scripts/generate-doxygen.sh
 
 Open `doc/doxygen/html/index.html`. Rules: [`doc/api-docs.md`](doc/api-docs.md).
 
-Source-level SBOM (SPDX 2.3 and CycloneDX 1.6) for this module and the
-backends it pins:
+SBOMs follow the CRA / BSI TR-03183-2 expectations: SPDX 3.0.1 for every
+release image (`west spdx`), plus a module SBOM in SPDX 3.0.1 and CycloneDX
+1.6 for this repository and the backends it pins:
 
 ```bash
 scripts/generate-sbom.sh
 ```
 
-See [`doc/sbom.md`](doc/sbom.md).
+See [`doc/sbom.md`](doc/sbom.md) and, for vulnerability handling,
+[`doc/security.md`](doc/security.md).
 
 ## Development
 
@@ -289,8 +291,9 @@ scripts/check-style.sh --fix     # apply clang-format in place
 ```
 
 CI runs those checks, twister on `native_sim`, sample builds for both
-product boards, public-header compilation (C and C++), Doxygen, and SBOM
-regeneration. Jobs and local reproduction: [`doc/ci.md`](doc/ci.md).
+product boards, public-header compilation (C and C++), Doxygen, REUSE
+compliance, and SPDX 3 / CycloneDX SBOM validation. Jobs and local
+reproduction: [`doc/ci.md`](doc/ci.md).
 
 Architecture, ownership boundaries, and the service roadmap are documented in
 [`doc/architecture.md`](doc/architecture.md). See

@@ -17,11 +17,13 @@ rzi/
     └── patches/
         └── usp_zephyr/
             ├── 0005-stm32wl-subghz-radio.patch
-            └── 0006-zephyr-4.5-warning-fixes.patch
+            ├── 0006-zephyr-4.5-warning-fixes.patch
+            └── 0007-reuse-license-annotations.patch
         └── usp/
             ├── 0001-export-secure-element-session-keys.patch
             ├── 0002-ral-sx126x-frequency-limits.patch
-            └── 0003-user-channel-mask.patch
+            ├── 0003-user-channel-mask.patch
+            └── 0004-reuse-license-annotations.patch
 ```
 
 Pins are USP v1.2.1 and Zephyr 4.5.0-rc1. v1.2.1 already contains the former
@@ -41,6 +43,9 @@ every default channel mask (join, the post-join defaults, and the CN470
 session plan). It also makes the US915/AU915 channel rotation ignore disabled
 channels; otherwise a mask stalls the rotation. A network LinkADRReq and the
 ADR back-off still replace the mask until the next join, as LoRaWAN requires.
+`usp/0004` and `usp_zephyr/0007` add a `REUSE.toml` to each module so that
+`west spdx` records licenses and copyrights for Semtech sources, which carry
+the Clear BSD text without SPDX tags; see [sbom.md](./sbom.md).
 
 ## Applying the patches
 
@@ -62,8 +67,9 @@ operation if a later patch fails.
 
 Warning: `clean` runs the configured `checkout-command`, currently
 `git checkout .`, in every destination module. It discards uncommitted tracked
-changes in those modules. `clean-command` is deliberately empty so that
-untracked files are preserved.
+changes in those modules. `clean-command` removes only the untracked
+`REUSE.toml` that `usp/0004` and `usp_zephyr/0007` create, so the next
+`apply` can add it again; other untracked files are preserved.
 
 ## Maintaining the manifest
 

@@ -9,25 +9,31 @@ Public-header, documentation, and SBOM checks are RZI gates. Pull requests
 also run the Developer Certificate of Origin check.
 
 See also: [coding-standards.md](./coding-standards.md),
-[architecture.md](./architecture.md), [west-patch.md](./west-patch.md).
+[architecture.md](./architecture.md), [west-patch.md](./west-patch.md),
+[sbom.md](./sbom.md).
 
 ## Workflow
 
-`.github/workflows/ci.yml` runs six jobs in parallel. A composite action,
-`.github/actions/setup-workspace`, builds the west workspace for the jobs
-that need one.
+`.github/workflows/ci.yml` runs six jobs in parallel. Composite actions
+`.github/actions/setup-workspace` and `.github/actions/setup-sdk` build the
+west workspace and install the Zephyr SDK for the jobs that need them.
 
 | Job | What it proves |
 |---|---|
-| Compliance | `scripts/check-compliance.sh` (Zephyr `check_compliance.py`), `scripts/check-style.sh --no-checkpatch` (clang-format, `@file` / `@brief`), no backend symbols in `include/rzi/`, ASCII-only source, SPDX tags, version strings in sync |
+| Compliance | `scripts/check-compliance.sh` (Zephyr `check_compliance.py`), `scripts/check-style.sh --no-checkpatch` (clang-format, `@file` / `@brief`), no backend symbols in `include/rzi/`, ASCII-only source, `reuse lint`, version strings in sync (`version.h`, `Doxyfile`, `module.yml` CPE / PURL) |
 | DCO | `Signed-off-by` on every pull-request commit (`.github/workflows/dco.yml`) |
 | Twister (native_sim) | `west twister -T rzi/tests --integration` on the host |
-| Samples (product boards) | `west twister -T rzi/samples --integration` for `rzi_rak4631`, `rzi_rak3372` and `rzi_rak3362` with the Zephyr SDK |
+| Samples (product boards) | `west twister -T rzi/samples --integration` for `rzi_rak4631`, `rzi_rak3372` and `rzi_rak3362` with the Zephyr SDK; then `samples/at` on RAK4631 with build metadata, an SPDX 3 firmware SBOM, `spdx3-validate`, and `check-sbom.py --strict` |
 | Public headers | every `include/rzi/**.h` compiles standalone as C11 and as C++17 |
 | Documentation | `scripts/generate-doxygen.sh` with zero warnings |
-| SBOM | `scripts/generate-sbom.sh` regenerates valid SPDX and CycloneDX JSON |
+| SBOM | `scripts/generate-sbom.sh`, `spdx3-validate`, CycloneDX 1.6 schema, and `check-sbom.py --strict` on the module SBOM |
 
-Failed twister jobs upload `twister-out/` as a build artifact.
+Failed twister jobs upload `twister-out/` as a build artifact. The SBOM and
+Samples jobs upload the module and firmware SBOMs.
+
+`.github/workflows/release.yml` runs on a `v<version>` tag and publishes the
+release images, their SBOMs, the module SBOM, and checksums; see
+[sbom.md](./sbom.md#releases).
 
 ## Workspace construction
 
@@ -120,10 +126,17 @@ west twister -T rzi/samples --inline-logs -v --integration
 west build -b native_sim/native/64 rzi/tests/lorawan/service -d build-headers
 python3 scripts/check-public-headers.py build-headers
 
-# Documentation and SBOM
+# Documentation, REUSE, and SBOM
 scripts/generate-doxygen.sh
-scripts/generate-sbom.sh
+reuse lint
+scripts/generate-sbom.sh --allow-dirty
+spdx3-validate -j build/sbom/rzi.spdx.jsonld
+python3 scripts/check-sbom.py --strict build/sbom/rzi.spdx.jsonld build/sbom/rzi.cdx.json
 ```
+
+Firmware SBOM steps are in [sbom.md](./sbom.md#firmware-sbom).
+`spdx3-validate` downloads the SPDX 3 context and SHACL model, so it needs
+network access.
 
 On a host without the Zephyr SDK, the native_sim jobs also work with
 `ZEPHYR_TOOLCHAIN_VARIANT=host`, which skips the SDK lookup that

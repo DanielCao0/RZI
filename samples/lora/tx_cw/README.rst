@@ -19,7 +19,7 @@ therefore starts the LoRaWAN service to bring up the modem, but never joins.
 Requirements
 ************
 
-* ``rzi_rak4631`` or ``rzi_rak3372``
+* ``rzi_rak4631``, ``rzi_rak3372`` or ``rzi_rak3362``
 * An antenna, or a cable and attenuator to the measuring instrument
 
 A CW carrier occupies the channel continuously. Transmit only into a
