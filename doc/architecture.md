@@ -153,7 +153,7 @@ must never control the same radio instance at runtime.
 - upstream protocol APIs when they are available and stable.
 
 RZI exports a product `board_root` (`rzi_rak4631`, `rzi_rak3372`,
-`rzi_rak3362`). Partition
+`rzi_rak3172_f`, `rzi_rak3362`). Partition
 tables live next to each board DTS. It does not fork SoC bindings. Customers
 target RZI product boards, not the upstream board names. The boot contract is
 `CONFIG_RZI_MCUBOOT`, sysbuild, and a merged image; see
@@ -166,14 +166,17 @@ reuse the radio, clock, and pad setup that RZI validates:
 | Module | Include | Used by |
 |---|---|---|
 | RAK4630 (nRF52840 + SX1262) | `<rakwireless/rzi_rak4630.dtsi>` | `rzi_rak4631` |
-| RAK3172 (STM32WLE5) | `<rakwireless/rzi_rak3172.dtsi>` | `rzi_rak3372` |
+| RAK3172 (STM32WLE5CC) | `<rakwireless/rzi_rak3172.dtsi>` | `rzi_rak3372` |
+| RAK3172-F (STM32WLE5JC + MX25L400) | `<rakwireless/rzi_rak3172_f.dtsi>` | `rzi_rak3172_f` |
 | RAK3162 (nRF54L15 + SX1262) | `<rakwireless/rzi_rak3162.dtsi>` | `rzi_rak3362` |
 
 The module file owns what is fixed inside the module: SoC, regulators or
 clock tree, the LoRa radio node, and the pinmux of the module pads. It
-configures the pad peripherals (UART, I2C, SPI) but leaves them disabled. The
-carrier board DTS enables the ones it wires with `status = "okay"`, and adds
-LEDs, the console, USB, external flash, NFC pin use, and the partition map.
+configures the pad peripherals (UART, I2C, SPI) but leaves them disabled.
+Devices wired inside the module, such as the RAK3172-F SPI NOR, are enabled
+in the module file. The carrier board DTS enables the pad peripherals it
+wires with `status = "okay"`, and adds LEDs, the console, USB, carrier
+flash, NFC pin use, and the partition map.
 The `rzi_` prefix keeps these files distinct from the upstream
 `rakwireless/rak4630.dtsi` on the same include path.
 

@@ -12,7 +12,8 @@ See also: [lorawan-backends.md](./lorawan-backends.md),
 [boot.md](./boot.md).
 
 `CONFIG_RZI_LORAWAN_FUOTA` depends on `CONFIG_RZI_MCUBOOT_DUAL_SLOT` when
-MCUBoot is enabled, so `rzi_rak3372` cannot select it.
+MCUBoot is enabled. `rzi_rak4631` and `rzi_rak3172_f` select it.
+`rzi_rak3372` is single-slot and cannot.
 
 ## Device-side flow
 
@@ -98,7 +99,11 @@ Without `CONFIG_IMG_MANAGER`, `rzi_fuota_apply()` returns `-RZI_ERR_NOT_SUPPORTE
 Applications can still extract the image with `rzi_fuota_read_image()`.
 
 `rzi_rak3372` is single-slot (no `image-1`), so
-`CONFIG_RZI_LORAWAN_FUOTA` cannot be selected.
+`CONFIG_RZI_LORAWAN_FUOTA` cannot be selected. `rzi_rak3172_f` places
+`image-1` on the on-module MX25L400 (200 KiB, same size as `image-0`).
+MCUboot mode is overwrite. The default fragment buffer is still about
+20 KB; a whole-image upgrade still needs a larger fragment count and
+context partition, then `rzi_fuota_apply()` copies the image into slot1.
 
 ## Public API
 

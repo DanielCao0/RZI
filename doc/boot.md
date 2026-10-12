@@ -31,6 +31,7 @@ Adding a board only adds that board's DTS and flash notes.
 |---|---|---|---|
 | `rzi_rak4631` | RZI RAK4631 | `rzi_rak4631/nrf52840` | MCUBoot and LoRaWAN samples wired |
 | `rzi_rak3372` | RZI RAK3372 | `rzi_rak3372/stm32wle5xx` | Single-slot MCUBoot; on-chip SUBGHZ (USP patch); no FUOTA |
+| `rzi_rak3172_f` | RZI RAK3172-F | `rzi_rak3172_f/stm32wle5xx` | Overwrite-only MCUBoot; image-1 on the on-module MX25L400; FUOTA |
 | `rzi_rak3362` | RZI RAK3362 | `rzi_rak3362/nrf54l15/cpuapp` | Overwrite-only MCUBoot; SX1262 on SPI22; console and AT on uart20 |
 
 nRF52840 (RAK4631) partitions are shared by native Zephyr and
@@ -65,8 +66,18 @@ upstream nRF54L15 boards without FLPR:
 | `image-1` | `0x0c2000` | 712 KB | FUOTA / overwrite |
 | `storage` | `0x174000` | 36 KB | settings |
 
-Sysbuild mode comes from the board `Kconfig.sysbuild`: 4631 and 3362 are
-overwrite-only; 3372 is `MCUBOOT_MODE_SINGLE_APP`. The radio is the
+RAK3172-F uses a larger boot partition than RAK3372, because MCUboot
+must drive the MX25L400, and adds the secondary slot on that NOR:
+
+| Partition | Device | Address | Size | Use |
+|---|---|---|---|---|
+| `mcuboot` | internal | `0x00000` | 48 KB | Sole bootloader (includes the SPI NOR driver) |
+| `image-0` | internal | `0x0c000` | 200 KB | RZI application |
+| `storage` | internal | `0x3e000` | 8 KB | settings |
+| `image-1` | MX25L400 | `0x00000` | 200 KB | FUOTA / overwrite |
+
+Sysbuild mode comes from the board `Kconfig.sysbuild`: 4631, 3362, and
+3172-F are overwrite-only; 3372 is `MCUBOOT_MODE_SINGLE_APP`. The radio is the
 STM32WLE5 on-chip SUBGHZ (`st,stm32wl-subghz-radio`). The USP driver
 needs `zephyr/patches/usp_zephyr/0005-stm32wl-subghz-radio.patch`.
 
@@ -113,3 +124,16 @@ west build -p always --sysbuild \
 
 The artifact is `build/rzi-periodical-uplink-3372/merged_rzi_rak3372_stm32wle5xx.hex`.
 There is no slot1, so FUOTA is not available.
+
+## RZI RAK3172-F (external secondary slot)
+
+```bash
+west build -p always --sysbuild \
+  -b rzi_rak3172_f/stm32wle5xx \
+  -d build/rzi-fuota-3172f \
+  rzi/samples/lorawan/fuota
+```
+
+The artifact is `build/rzi-fuota-3172f/merged_rzi_rak3172_f_stm32wle5xx.hex`.
+FUOTA writes the signed image to `image-1` on the MX25L400. MCUboot copies
+it over `image-0` on the next boot.

@@ -15,8 +15,9 @@ config RZI_MCUBOOT
 config RZI_MCUBOOT_DUAL_SLOT
 	bool "MCUboot secondary slot (image-1)"
 	depends on RZI_MCUBOOT
-	default y if BOARD_RZI_RAK4631
+	default y if BOARD_RZI_RAK4631 || BOARD_RZI_RAK3172_F
 	help
 	  The product board has slot1_partition. LoRaWAN FUOTA writes a
-	  signed image there. Single-slot boards such as rzi_rak3372
-	  (256 KiB) leave this off.
+	  signed image there. rzi_rak3172_f keeps that slot on the
+	  on-module MX25L400. Single-slot boards such as rzi_rak3372
+	  (256 KiB internal, no external NOR) leave this off.

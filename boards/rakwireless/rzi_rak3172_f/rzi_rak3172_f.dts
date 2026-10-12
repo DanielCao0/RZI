@@ -1,0 +1,65 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Product board for the RAK3172-F WisDuo module (STM32WLE5JC + MX25L400).
+ * Radio is the STM32WLE5 on-chip SUBGHZ (st,stm32wl-subghz-radio).
+ * image-1 is the on-module SPI NOR, so LoRaWAN FUOTA installs by
+ * overwrite. USP support is the STM32WL west patch in
+ * zephyr/patches/usp_zephyr.
+ * Console is usart1 (PB6/PB7). The RUI3-compatible AT port is usart2
+ * (PA2/PA3).
+ */
+
+/dts-v1/;
+#include <rakwireless/rzi_rak3172_f.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include "rzi_rak3172_f-partitions.dtsi"
+
+/ {
+	model = "RZI RAK3172-F (STM32WLE5JC + MX25L400)";
+	compatible = "rakwireless,rzi-rak3172-f-stm32wl";
+
+	chosen {
+		zephyr,console = &usart1;
+		zephyr,shell-uart = &usart1;
+		zephyr,system-timer = &lptim1;
+		zephyr,lorawan-transceiver = &lora;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		blue_led: led_2 {
+			gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;
+			label = "Blue LED";
+		};
+
+		green_led: led_1 {
+			gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
+			label = "Green LED";
+		};
+	};
+
+	aliases {
+		led0 = &green_led;
+		lora0 = &lora;
+		rzi-at-uart = &usart2;
+		watchdog0 = &iwdg;
+	};
+};
+
+&lptim1 {
+	status = "okay";
+};
+
+&usart1 {
+	status = "okay";
+};
+
+&usart2 {
+	status = "okay";
+};
+
+&rng {
+	status = "okay";
+};

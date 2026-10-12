@@ -1,0 +1,115 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * RAK3172-F WisDuo module: STM32WLE5JC (UFBGA73), the same 32 MHz TCXO,
+ * 32.768 kHz crystal, clock tree, and on-chip sub-GHz radio as the RAK3172,
+ * plus the 512 KB Macronix MX25L400 wired inside the module on SPI2.
+ * The pad peripherals (USART, I2C, SPI1), the low power timer, and the RTC
+ * are configured but left disabled; the carrier board enables the ones it
+ * uses and adds LEDs, the console choice, and the flash map.
+ *
+ * The NOR is not brought out to the pads:
+ *   PB9 CS, PB10 SCK, PC1 MOSI, PC2 MISO, PC0 WP#, PC3 RESET#.
+ * rzi_rak3172_f maps image-1 onto this device for overwrite FUOTA.
+ * PB12 is the frequency strap. Leave it unused.
+ */
+
+#include <st/wl/stm32wle5Xc.dtsi>
+#include <st/wl/stm32wle5jcix-pinctrl.dtsi>
+
+&clk_hse {
+	status = "okay";
+	clock-frequency = <DT_FREQ_M(32)>;
+};
+
+&clk_lse {
+	status = "okay";
+	clock-frequency = <32768>;
+};
+
+&pll {
+	div-m = <1>;
+	mul-n = <6>;
+	div-r = <4>;
+	div-q = <4>;
+	clocks = <&clk_hse>;
+	status = "okay";
+};
+
+&rcc {
+	clocks = <&pll>;
+	clock-frequency = <DT_FREQ_M(48)>;
+	cpu1-prescaler = <1>;
+	ahb3-prescaler = <1>;
+	apb1-prescaler = <1>;
+	apb2-prescaler = <1>;
+};
+
+&subghzspi {
+	status = "okay";
+
+	lora: radio@0 {
+		status = "okay";
+		tx-enable-gpios = <&gpioc 13 GPIO_ACTIVE_HIGH>; /* FE_CTRL1 */
+		rx-enable-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;  /* FE_CTRL2 */
+		power-amplifier-output = "rfo-hp";
+		rfo-hp-max-power = <22>;
+	};
+};
+
+&lptim1 {
+	clocks = <&rcc STM32_CLOCK(APB1, 31)>,
+		 <&rcc STM32_SRC_LSE LPTIM1_SEL(3)>;
+};
+
+&rtc {
+	clocks = <&rcc STM32_CLOCK(APB1, 10)>,
+		 <&rcc STM32_SRC_LSE RTC_SEL(1)>;
+};
+
+&usart1 {
+	pinctrl-0 = <&usart1_tx_pb6 &usart1_rx_pb7>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+};
+
+&usart2 {
+	pinctrl-0 = <&usart2_tx_pa2 &usart2_rx_pa3>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+};
+
+&i2c2 {
+	pinctrl-0 = <&i2c2_scl_pa12 &i2c2_sda_pa11>;
+	pinctrl-names = "default";
+	scl-gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>;
+	sda-gpios = <&gpioa 11 GPIO_ACTIVE_HIGH>;
+	clock-frequency = <I2C_BITRATE_FAST>;
+};
+
+&spi1 {
+	pinctrl-0 = <&spi1_nss_pa4 &spi1_sck_pa5
+		     &spi1_miso_pa6 &spi1_mosi_pa7>;
+	pinctrl-names = "default";
+};
+
+/* Internal MX25L400. CS is GPIO so the NOR driver can frame each command. */
+&spi2 {
+	pinctrl-0 = <&spi2_sck_pb10 &spi2_mosi_pc1 &spi2_miso_pc2>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpiob 9 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	ext_flash: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		/* 4 Mbit. JEDEC C2 20 13 is the MX25L400 family. */
+		size = <DT_SIZE_M(4)>;
+		jedec-id = [c2 20 13];
+		wp-gpios = <&gpioc 0 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpioc 3 GPIO_ACTIVE_LOW>;
+		t-reset-recovery = <100000>;
+		status = "okay";
+	};
+};
