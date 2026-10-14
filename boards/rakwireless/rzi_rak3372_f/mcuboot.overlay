@@ -1,0 +1,11 @@
+/*
+ * MCUboot on RAK3372-F. USB-UART is USART2. The boot partition choice
+ * replaces the default MCUboot overlay when this file is selected.
+ */
+/ {
+	chosen {
+		zephyr,code-partition = &boot_partition;
+		zephyr,console = &usart2;
+		zephyr,shell-uart = &usart2;
+	};
+};

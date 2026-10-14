@@ -1,0 +1,42 @@
+/*
+ * Debug logs use the RAK19007 USB-UART (USART2). The WisBlock header
+ * console stays USART1 in the board devicetree; this overlay only
+ * applies to the AT sample.
+ *
+ * The shared board map is 48K boot + 200K slot0 + 8K storage. AT keeps
+ * settings NVS and the LoRaWAN modem context in separate 8K areas so a
+ * join cannot erase DevEUI. Slot1 matches the smaller slot0.
+ */
+/ {
+	chosen {
+		zephyr,console = &usart2;
+		zephyr,shell-uart = &usart2;
+		lora-basics-modem-context-partition = &lora_context_partition;
+	};
+};
+
+&slot0_partition {
+	reg = <0x0000c000 DT_SIZE_K(192)>;
+};
+
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		storage_partition: partition@3c000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <0x0003c000 DT_SIZE_K(8)>;
+		};
+
+		lora_context_partition: partition@3e000 {
+			compatible = "zephyr,mapped-partition";
+			label = "lora_context";
+			reg = <0x0003e000 DT_SIZE_K(8)>;
+		};
+	};
+};
+
+&slot1_partition {
+	reg = <0x00000000 DT_SIZE_K(192)>;
+};

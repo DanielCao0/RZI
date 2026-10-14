@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * rzi_rak3172_f flash map.
+ * rzi_rak3372_f flash map.
  *
  * Internal STM32WLE5 flash is 256 KiB and holds the running image:
  * 48K boot + 200K slot0 + 8K storage. MCUboot is larger than on

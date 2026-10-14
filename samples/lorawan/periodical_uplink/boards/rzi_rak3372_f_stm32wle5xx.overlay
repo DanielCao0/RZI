@@ -1,0 +1,15 @@
+/*
+ * RAK19007 USB-UART is USART2 (PA2/PA3, 115200 8N1).
+ * The board devicetree keeps the WisBlock header (USART1) as the console.
+ *
+ * A board overlay replaces app.overlay, so the shared credentials
+ * are included from there.
+ */
+#include "../app.overlay"
+
+/ {
+	chosen {
+		zephyr,console = &usart2;
+		zephyr,shell-uart = &usart2;
+	};
+};

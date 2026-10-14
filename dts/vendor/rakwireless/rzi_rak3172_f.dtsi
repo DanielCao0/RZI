@@ -1,25 +1,31 @@
 /* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * RAK3172-F WisDuo module: STM32WLE5JC (UFBGA73), the same 32 MHz TCXO,
- * 32.768 kHz crystal, clock tree, and on-chip sub-GHz radio as the RAK3172,
- * plus the 512 KB Macronix MX25L400 wired inside the module on SPI2.
- * The pad peripherals (USART, I2C, SPI1), the low power timer, and the RTC
- * are configured but left disabled; the carrier board enables the ones it
- * uses and adds LEDs, the console choice, and the flash map.
+ * RAK3172-F WisDuo module: STM32WLE5JC (UFBGA73), 32 MHz TCXO on OSC_IN
+ * supplied by PB0-VDD_TCXO, 32.768 kHz crystal, and the on-chip sub-GHz
+ * radio, plus the 512 KiB Macronix MX25L400 wired inside the module on SPI2.
+ * USART, I2C2, and SPI1 are configured here; the carrier enables them.
  *
  * The NOR is not brought out to the pads:
- *   PB9 CS, PB10 SCK, PC1 MOSI, PC2 MISO, PC0 WP#, PC3 RESET#.
- * rzi_rak3172_f maps image-1 onto this device for overwrite FUOTA.
+ *   PB9 CS, PB10 SCK, PC1 MOSI, PC2 MISO.
+ * rzi_rak3372_f maps image-1 onto this device for overwrite FUOTA.
  * PB12 is the frequency strap. Leave it unused.
  */
 
 #include <st/wl/stm32wle5Xc.dtsi>
 #include <st/wl/stm32wle5jcix-pinctrl.dtsi>
+#include <zephyr/dt-bindings/lora/sx126x.h>
 
+/*
+ * SYSCLK is 48 MHz from the 32 MHz TCXO. hse-tcxo enables PB0-VDD_TCXO;
+ * the TCXO is not powered from radio DIO3.
+ * PLL input must stay within 2.66-16 MHz and PLLN must be at least 6,
+ * so PLLM=2, PLLN=6, PLLR=2: 32 MHz / 2 * 6 / 2 = 48 MHz.
+ */
 &clk_hse {
 	status = "okay";
 	clock-frequency = <DT_FREQ_M(32)>;
+	hse-tcxo;
 };
 
 &clk_lse {
@@ -28,10 +34,10 @@
 };
 
 &pll {
-	div-m = <1>;
+	div-m = <2>;
 	mul-n = <6>;
-	div-r = <4>;
-	div-q = <4>;
+	div-r = <2>;
+	div-q = <2>;
 	clocks = <&clk_hse>;
 	status = "okay";
 };
@@ -50,10 +56,17 @@
 
 	lora: radio@0 {
 		status = "okay";
-		tx-enable-gpios = <&gpioc 13 GPIO_ACTIVE_HIGH>; /* FE_CTRL1 */
-		rx-enable-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;  /* FE_CTRL2 */
+		/* RTC66006: EN stays high in TX and RX, CTR is high for TX. */
+		antenna-enable-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;
+		tx-enable-gpios = <&gpioc 13 GPIO_ACTIVE_HIGH>;
 		power-amplifier-output = "rfo-hp";
 		rfo-hp-max-power = <22>;
+		/*
+		 * On STM32WL this is SET_TCXOMODE, which sets PB0-VDD_TCXO.
+		 * A radio reset clears that regulator. 3.0 V is the module default.
+		 */
+		dio3-tcxo-voltage = <SX126X_DIO3_TCXO_3V0>;
+		tcxo-power-startup-delay-ms = <10>;
 	};
 };
 
@@ -95,21 +108,22 @@
 
 /* Internal MX25L400. CS is GPIO so the NOR driver can frame each command. */
 &spi2 {
-	pinctrl-0 = <&spi2_sck_pb10 &spi2_mosi_pc1 &spi2_miso_pc2>;
+	pinctrl-0 = <&spi2_sck_pb10 &spi2_miso_pc2 &spi2_mosi_pc1>;
 	pinctrl-names = "default";
 	cs-gpios = <&gpiob 9 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
+	/* Label stays ext_flash so the board partition file can reference it. */
 	ext_flash: flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <8000000>;
-		/* 4 Mbit. JEDEC C2 20 13 is the MX25L400 family. */
+		/* Binding unit is bits: 4 Mbit == 512 KiB. Probed ID is c2 23 13. */
+		jedec-id = [c2 23 13];
 		size = <DT_SIZE_M(4)>;
-		jedec-id = [c2 20 13];
-		wp-gpios = <&gpioc 0 GPIO_ACTIVE_LOW>;
-		reset-gpios = <&gpioc 3 GPIO_ACTIVE_LOW>;
-		t-reset-recovery = <100000>;
+		has-dpd;
+		t-enter-dpd = <10000>;
+		t-exit-dpd = <35000>;
 		status = "okay";
 	};
 };

@@ -15,22 +15,24 @@ rzi/
 └── zephyr/
     ├── patches.yml
     └── patches/
-        └── usp_zephyr/
-            ├── 0005-stm32wl-subghz-radio.patch
-            ├── 0006-zephyr-4.5-warning-fixes.patch
-            └── 0007-reuse-license-annotations.patch
-        └── usp/
-            ├── 0001-export-secure-element-session-keys.patch
-            ├── 0002-ral-sx126x-frequency-limits.patch
-            ├── 0003-user-channel-mask.patch
-            └── 0004-reuse-license-annotations.patch
+        ├── usp/
+        │   ├── 0001-export-secure-element-session-keys.patch
+        │   ├── 0002-ral-sx126x-frequency-limits.patch
+        │   ├── 0003-user-channel-mask.patch
+        │   └── 0004-reuse-license-annotations.patch
+        ├── usp_zephyr/
+        │   ├── 0005-stm32wl-subghz-radio.patch
+        │   ├── 0006-zephyr-4.5-warning-fixes.patch
+        │   ├── 0007-reuse-license-annotations.patch
+        │   └── 0008-stm32wl-tcxo-reset-and-irq.patch
 ```
 
 Pins are USP v1.2.1 and Zephyr 4.5.0-rc1. v1.2.1 already contains the former
 Zephyr 4.4 warning fixes, the LR-FHSS source path, removal of the duplicate
 `xiao_nrf54l15` board, and the global SX1262 compile definition.
 `0005` teaches the USP SX126x driver the STM32WL on-chip SUBGHZ radio used by
-RAK3372. `0006` replaces the deprecated `<zephyr/sys_clock.h>` include and
+RAK3372. `0008` keeps that radio's level IRQ from spinning, and parks the CPU
+on HSI across a radio reset when HSE is the TCXO on PB0-VDD_TCXO. `0006` replaces the deprecated `<zephyr/sys_clock.h>` include and
 `SPI_OP_MODE_MASTER` on Zephyr 4.5.0-rc1. `usp/0001` exports session keys
 from the software secure element. The LR11xx crypto engine cannot export key
 material and returns an error. `usp/0002` turns the SX126x frequency-limit
