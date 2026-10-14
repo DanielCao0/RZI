@@ -84,7 +84,11 @@ config RZI_AT_TX_BUFFER_SIZE
 config RZI_AT_THREAD_STACK_SIZE
 	int "AT execution thread stack size"
 	range 1024 8192
-	default 2048
+	default 4096
+	help
+	  AT+NWM starts the USP modem on this thread. smtc_modem_init
+	  overflows a 2 KiB stack, and the persisted mode then faults
+	  on every boot.
 
 config RZI_AT_THREAD_PRIORITY
 	int "AT execution thread preemptive priority"
