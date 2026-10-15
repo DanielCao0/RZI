@@ -4,10 +4,11 @@
  * rzi_rak3372_f flash map.
  *
  * Internal STM32WLE5 flash is 256 KiB and holds the running image:
- * 48K boot + 200K slot0 + 8K storage. MCUboot is larger than on
- * RAK3372 because it has to read the MX25L400. The 512 KiB NOR holds
- * slot1 at the same size as slot0. MCUboot copies slot1 over slot0
- * (overwrite). LoRaWAN FUOTA writes the signed image to image-1.
+ * 48K boot + 192K slot0 + 8K storage + 8K LoRaWAN context. MCUboot is
+ * larger than on RAK3372 because it has to read the MX25L400. The
+ * 512 KiB NOR holds slot1 at the same size as slot0. MCUboot copies
+ * slot1 over slot0 (overwrite). LoRaWAN FUOTA writes the signed image
+ * to image-1.
  */
 
 / {
@@ -15,6 +16,7 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,code-partition = &slot0_partition;
+		lora-basics-modem-context-partition = &lora_context_partition;
 	};
 };
 
@@ -34,12 +36,18 @@
 		slot0_partition: partition@c000 {
 			compatible = "zephyr,mapped-partition";
 			label = "image-0";
-			reg = <0x0000c000 DT_SIZE_K(200)>;
+			reg = <0x0000c000 DT_SIZE_K(192)>;
 		};
 
-		storage_partition: partition@3e000 {
+		storage_partition: partition@3c000 {
 			compatible = "zephyr,mapped-partition";
 			label = "storage";
+			reg = <0x0003c000 DT_SIZE_K(8)>;
+		};
+
+		lora_context_partition: partition@3e000 {
+			compatible = "zephyr,mapped-partition";
+			label = "lora_context";
 			reg = <0x0003e000 DT_SIZE_K(8)>;
 		};
 	};
@@ -53,7 +61,7 @@
 
 		slot1_partition: partition@0 {
 			label = "image-1";
-			reg = <0x00000000 DT_SIZE_K(200)>;
+			reg = <0x00000000 DT_SIZE_K(192)>;
 		};
 	};
 };
