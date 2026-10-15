@@ -147,7 +147,7 @@ module's reference package. Modules that contributed no files are not in
 the image and are skipped. CycloneDX documents are also validated against
 the 1.6 schema. CI runs the check with `--strict`.
 
-## Releases
+## Releases {#releases}
 
 `.github/workflows/release.yml` runs on a `v<version>` tag that matches
 `RZI_VERSION_STRING`. It builds the release images with build metadata,

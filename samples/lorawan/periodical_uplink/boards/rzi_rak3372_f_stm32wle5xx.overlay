@@ -1,4 +1,9 @@
 /*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * RAK19007 USB-UART is USART2 (PA2/PA3, 115200 8N1).
  * The board devicetree keeps the WisBlock header (USART1) as the console.
  *
