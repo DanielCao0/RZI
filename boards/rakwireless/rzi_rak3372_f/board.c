@@ -1,21 +1,30 @@
 /* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <zephyr/kernel.h>
+#include <stdint.h>
 
-#ifdef CONFIG_PM
-#include <zephyr/pm/policy.h>
+#include <cmsis_core.h>
 
-/*
- * SYSCLK is the 32 MHz TCXO on PB0-VDD_TCXO. STOP switches that supply off,
- * and the wake path does not get HSE back before the log thread can run.
- * Stay in WFI until that restore is confirmed on hardware.
- */
-static int rak3372_f_lock_stop(void)
+void arch_busy_wait(uint32_t time_us)
 {
-	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
-	return 0;
-}
+	uint64_t remaining_cycles = (uint64_t)time_us * (SystemCoreClock / 1000000U);
 
-SYS_INIT(rak3372_f_lock_stop, POST_KERNEL, 0);
-#endif
+	/*
+	 * The LPTIM-based system cycle counter may not remain monotonic while
+	 * its interrupt is pending. Use the Cortex-M4 cycle counter for PM
+	 * resume and MCUboot warm-reset delays.
+	 */
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+	while (remaining_cycles > 0U) {
+		uint32_t chunk = remaining_cycles > UINT32_MAX ? UINT32_MAX :
+								 (uint32_t)remaining_cycles;
+		uint32_t start = DWT->CYCCNT;
+
+		while ((uint32_t)(DWT->CYCCNT - start) < chunk) {
+			__NOP();
+		}
+		remaining_cycles -= chunk;
+	}
+}

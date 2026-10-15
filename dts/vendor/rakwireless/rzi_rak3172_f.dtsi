@@ -17,15 +17,18 @@
 #include <zephyr/dt-bindings/lora/sx126x.h>
 
 /*
- * SYSCLK is 48 MHz from the 32 MHz TCXO. hse-tcxo enables PB0-VDD_TCXO;
- * the TCXO is not powered from radio DIO3.
- * PLL input must stay within 2.66-16 MHz and PLLN must be at least 6,
- * so PLLM=2, PLLN=6, PLLR=2: 32 MHz / 2 * 6 / 2 = 48 MHz.
+ * Run SYSCLK directly from MSI at 48 MHz. HSE32 is the radio reference
+ * TCXO on PB0-VDD_TCXO and is controlled by the SUBGHZ radio, so STOP wake
+ * never depends on restarting HSE or the PLL.
  */
 &clk_hse {
-	status = "okay";
 	clock-frequency = <DT_FREQ_M(32)>;
 	hse-tcxo;
+};
+
+&clk_msi {
+	status = "okay";
+	msi-range = <11>;
 };
 
 &clk_lse {
@@ -34,21 +37,21 @@
 };
 
 &pll {
-	div-m = <2>;
-	mul-n = <6>;
-	div-r = <2>;
-	div-q = <2>;
-	clocks = <&clk_hse>;
-	status = "okay";
+	status = "disabled";
 };
 
 &rcc {
-	clocks = <&pll>;
+	clocks = <&clk_msi>;
 	clock-frequency = <DT_FREQ_M(48)>;
 	cpu1-prescaler = <1>;
 	ahb3-prescaler = <1>;
 	apb1-prescaler = <1>;
 	apb2-prescaler = <1>;
+};
+
+&rng {
+	clocks = <&rcc STM32_CLOCK(AHB3, 18)>,
+		 <&rcc STM32_SRC_MSI RNG_SEL(3)>;
 };
 
 &subghzspi {

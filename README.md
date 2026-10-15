@@ -159,7 +159,7 @@ this when the Zephyr revision changes:
 west packages pip --install
 ```
 
-Apply RZI's patches to `usp_zephyr` and `usp`. Repeat this after every
+Apply RZI's patches to `zephyr`, `usp_zephyr`, and `usp`. Repeat this after every
 `west update`:
 
 ```sh
@@ -167,10 +167,10 @@ west patch -sm rzi clean
 west patch -sm rzi apply --roll-back
 ```
 
-The patches add the RAK3372 radio to `usp_zephyr`, adapt it to the pinned
-Zephyr release, let `usp` export LoRaWAN session keys, and fix a header that
-warns on every SX1262 build. `clean` discards
-uncommitted changes in those two modules.
+The patches add the RAK3372 radio to `usp_zephyr`, repair STM32WL STOP
+resume in Zephyr, adapt the backend to the pinned Zephyr release, let `usp`
+export LoRaWAN session keys, and fix a header that warns on every SX1262
+build. `clean` discards uncommitted changes in those three modules.
 See [`doc/west-patch.md`](doc/west-patch.md).
 
 Check that every project resolved to the expected revision:

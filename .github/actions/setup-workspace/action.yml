@@ -71,6 +71,32 @@ runs:
         # by git as an unadvertised object, which fails this step immediately.
         west update --narrow -o=--filter=blob:none
 
+    - name: Apply the RZI Zephyr patches
+      shell: bash
+      working-directory: zephyr
+      run: |
+        set -eux
+        rev="$(python3 - <<'PY'
+        import os
+        import pathlib
+
+        import yaml
+
+        root = pathlib.Path(os.environ["GITHUB_WORKSPACE"])
+        projects = yaml.safe_load((root / "rzi/west.yml").read_text())["manifest"]["projects"]
+        for project in projects:
+            if project["name"] == "zephyr":
+                print(project["revision"].split()[0])
+                raise SystemExit(0)
+        raise SystemExit("zephyr revision missing from rzi/west.yml")
+        PY
+        )"
+        git reset --hard "${rev}"
+        git clean -fd
+        for patch in "${GITHUB_WORKSPACE}"/rzi/zephyr/patches/zephyr/*.patch; do
+          git apply -v "${patch}"
+        done
+
     - name: Apply the RZI backend patches
       shell: bash
       working-directory: modules/usp_zephyr

@@ -13,4 +13,7 @@ config IDLE_STACK_SIZE
 	default 2048
 endif
 
+config ARCH_HAS_CUSTOM_BUSY_WAIT
+	default y
+
 endif # BOARD_RZI_RAK3372_F
