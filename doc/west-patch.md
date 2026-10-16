@@ -15,22 +15,26 @@ rzi/
 └── zephyr/
     ├── patches.yml
     └── patches/
-        └── usp_zephyr/
-            ├── 0005-stm32wl-subghz-radio.patch
-            ├── 0006-zephyr-4.5-warning-fixes.patch
-            └── 0007-reuse-license-annotations.patch
-        └── usp/
-            ├── 0001-export-secure-element-session-keys.patch
-            ├── 0002-ral-sx126x-frequency-limits.patch
-            ├── 0003-user-channel-mask.patch
-            └── 0004-reuse-license-annotations.patch
+        ├── usp/
+        │   ├── 0001-export-secure-element-session-keys.patch
+        │   ├── 0002-ral-sx126x-frequency-limits.patch
+        │   ├── 0003-user-channel-mask.patch
+        │   └── 0004-reuse-license-annotations.patch
+        ├── usp_zephyr/
+        │   ├── 0005-stm32wl-subghz-radio.patch
+        │   ├── 0006-zephyr-4.5-warning-fixes.patch
+        │   ├── 0007-reuse-license-annotations.patch
+        │   └── 0008-stm32wl-tcxo-reset-and-irq.patch
+        └── zephyr/
+            └── 0009-stm32wl-stop-resume.patch
 ```
 
 Pins are USP v1.2.1 and Zephyr 4.5.0-rc1. v1.2.1 already contains the former
 Zephyr 4.4 warning fixes, the LR-FHSS source path, removal of the duplicate
 `xiao_nrf54l15` board, and the global SX1262 compile definition.
 `0005` teaches the USP SX126x driver the STM32WL on-chip SUBGHZ radio used by
-RAK3372. `0006` replaces the deprecated `<zephyr/sys_clock.h>` include and
+RAK3372. `0008` keeps that radio's level IRQ from spinning, and parks the CPU
+on HSI across a radio reset when HSE is the TCXO on PB0-VDD_TCXO. `0006` replaces the deprecated `<zephyr/sys_clock.h>` include and
 `SPI_OP_MODE_MASTER` on Zephyr 4.5.0-rc1. `usp/0001` exports session keys
 from the software secure element. The LR11xx crypto engine cannot export key
 material and returns an error. `usp/0002` turns the SX126x frequency-limit
@@ -46,6 +50,9 @@ ADR back-off still replace the mask until the next join, as LoRaWAN requires.
 `usp/0004` and `usp_zephyr/0007` add a `REUSE.toml` to each module so that
 `west spdx` records licenses and copyrights for Semtech sources, which carry
 the Clear BSD text without SPDX tags; see [sbom.md](./sbom.md).
+`zephyr/0009` keeps STM32WL wake ISRs pending until STOP resume restores
+system-managed devices, uses non-scheduling SPI NOR wake delays, and forces
+the STM32 SPI controller to restore configuration lost in STOP.
 
 ## Applying the patches
 
@@ -58,8 +65,8 @@ west patch -sm rzi apply --roll-back
 
 `-sm rzi` (`--src-module rzi`) tells `west patch` to read the patch definition
 from the RZI module. It does not mean that the patches target RZI. Each entry's
-`module` field in `patches.yml` selects the destination module, currently
-`usp_zephyr` or `usp`.
+`module` field in `patches.yml` selects the destination module: `zephyr`,
+`usp_zephyr`, or `usp`.
 
 `apply` is not idempotent, so automated build wrappers should run `clean`
 before `apply`. `--roll-back` cleans modules already modified by the current

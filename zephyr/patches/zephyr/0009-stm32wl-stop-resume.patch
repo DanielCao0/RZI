@@ -1,0 +1,138 @@
+From: rzi <patches@rzi.local>
+Date: Thu, 15 Oct 2026 12:30:00 +0800
+Subject: [PATCH] stm32wl: make STOP resume safe for system-managed devices
+
+Keep regular wake interrupts pending until the PM core restores clocks and
+devices. SPI NOR delays sleep only when the caller can yield, because
+system-managed PM resume runs from the idle thread. Also invalidate STM32
+SPI's cached configuration because STOP does not retain CR1/CR2.
+
+diff --git a/drivers/flash/spi_nor.c b/drivers/flash/spi_nor.c
+index db712f5da30..d3a6c8ee980 100644
+--- a/drivers/flash/spi_nor.c
++++ b/drivers/flash/spi_nor.c
+@@ -320,6 +320,23 @@ static inline void record_entered_dpd(const struct device *const dev)
+ }
+ 
+ #if ANY_INST_HAS_DPD
++/*
++ * DPD timings are stored in milliseconds. System-managed PM resume runs in
++ * the idle thread while wake interrupts are masked, so that path cannot sleep.
++ */
++static void spi_nor_delay_ms(uint32_t delay_ms)
++{
++	if (delay_ms == 0U) {
++		return;
++	}
++
++	if (k_can_yield()) {
++		k_sleep(K_MSEC(delay_ms));
++	} else {
++		k_busy_wait(delay_ms * USEC_PER_MSEC);
++	}
++}
++
+ /* Check the current time against the time DPD was entered and delay
+  * until it's ok to initiate the DPD exit process.
+  */
+@@ -348,7 +365,7 @@ static inline void delay_until_exit_dpd_ok(const struct device *const dev)
+ 			 * until it reaches zero before we can proceed.
+ 			 */
+ 			if (since < 0) {
+-				k_sleep(K_MSEC((uint32_t)-since));
++				spi_nor_delay_ms((uint32_t)-since);
+ 			}
+ 		}
+ 	}
+@@ -637,7 +654,7 @@ static int exit_dpd(const struct device *const dev)
+ 			ret = spi_nor_cmd_write(dev, SPI_NOR_CMD_RDID);
+ 
+ 			/* Deassert CSn and wait for tRDP */
+-			k_sleep(K_MSEC(cfg->t_rdp_ms));
++			spi_nor_delay_ms(cfg->t_rdp_ms);
+ #endif /* ANY_INST_HAS_DPD_WAKEUP_SEQUENCE */
+ 		} else {
+ 			ret = spi_nor_cmd_write(dev, SPI_NOR_CMD_RDPD);
+@@ -645,7 +662,7 @@ static int exit_dpd(const struct device *const dev)
+ #if ANY_INST_HAS_T_EXIT_DPD
+ 			if (ret == 0) {
+ 				if (cfg->dpd_exist) {
+-					k_sleep(K_MSEC(cfg->t_exit_dpd));
++					spi_nor_delay_ms(cfg->t_exit_dpd);
+ 				}
+ 			}
+ #endif /* T_EXIT_DPD */
+diff --git a/drivers/spi/spi_stm32.c b/drivers/spi/spi_stm32.c
+index b63a35cc83f..506ed2bd261 100644
+--- a/drivers/spi/spi_stm32.c
++++ b/drivers/spi/spi_stm32.c
+@@ -2276,6 +2276,12 @@ static int spi_stm32_pm_action(const struct device *dev, enum pm_device_action a
+ 		if (err < 0) {
+ 			return err;
+ 		}
++		/*
++		 * STOP may not retain the SPI controller configuration. Force
++		 * the next transfer to restore CR1/CR2 even when the client
++		 * reuses the same spi_config pointer.
++		 */
++		data->ctx.config = NULL;
+ 		break;
+ 	case PM_DEVICE_ACTION_SUSPEND:
+ 		/* Stop device clock. */
+diff --git a/soc/st/stm32/stm32wlx/Kconfig b/soc/st/stm32/stm32wlx/Kconfig
+index 043639064a6..de7b398ff5e 100644
+--- a/soc/st/stm32/stm32wlx/Kconfig
++++ b/soc/st/stm32/stm32wlx/Kconfig
+@@ -13,7 +13,6 @@ config SOC_SERIES_STM32WLX
+ 	# Software options
+ 	select HAS_PM
+ 	select HAS_POWEROFF
+-	select PM_STATE_SET_IRQ_UNLOCKED
+ 	select SOC_EARLY_INIT_HOOK
+ 	# STM32-specific options
+ 	select HAS_STM32CUBE
+diff --git a/soc/st/stm32/stm32wlx/power.c b/soc/st/stm32/stm32wlx/power.c
+index 64337d498ea..5c4ab112762 100644
+--- a/soc/st/stm32/stm32wlx/power.c
++++ b/soc/st/stm32/stm32wlx/power.c
+@@ -30,6 +30,8 @@ LOG_MODULE_DECLARE(soc, CONFIG_SOC_LOG_LEVEL);
+ /* Invoke Low Power/System Off specific Tasks */
+ void pm_state_set(enum pm_state state, uint8_t substate_id)
+ {
++	unsigned int key;
++
+ 	switch (state) {
+ 	case PM_STATE_SUSPEND_TO_IDLE:
+ 		LL_RCC_SetClkAfterWakeFromStop(RCC_STOP_WAKEUPCLOCK_SELECTED);
+@@ -49,7 +51,14 @@ void pm_state_set(enum pm_state state, uint8_t substate_id)
+ 			return;
+ 		}
+ 		LL_LPM_EnableDeepSleep();
+-		k_cpu_idle();
++
++		/*
++		 * Keep wake-source ISRs pending until clocks and system-managed
++		 * devices have been restored by the PM core.
++		 */
++		key = arch_pm_state_set_prepare();
++		__WFI();
++		arch_pm_state_set_finish(key);
+ 		break;
+ 	default:
+ 		LOG_DBG("Unsupported power state %u", state);
+@@ -73,13 +82,6 @@ void pm_state_exit_post_ops(enum pm_state state, uint8_t substate_id)
+ 		LOG_DBG("Unsupported power substate-id %u", state);
+ 		break;
+ 	}
+-
+-	/*
+-	 * System is now in active mode.
+-	 * Reenable interrupts which were disabled
+-	 * when OS started idling code.
+-	 */
+-	irq_unlock(0);
+ }
+ 
+ /* Initialize STM32 Power */
+-- 
+2.51.0

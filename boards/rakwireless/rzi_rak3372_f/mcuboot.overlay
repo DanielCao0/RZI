@@ -1,0 +1,43 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * MCUboot on RAK3372-F. USB-UART is USART2. The boot partition choice
+ * replaces the default MCUboot overlay when this file is selected.
+ */
+/ {
+	chosen {
+		zephyr,code-partition = &boot_partition;
+		zephyr,console = &usart2;
+		zephyr,shell-uart = &usart2;
+	};
+};
+
+/*
+ * Keep the bootloader on the hardware-validated HSE PLL clock. The
+ * application switches to MSI, so its STOP wake path does not depend on
+ * restarting the TCXO.
+ */
+&clk_hse {
+	status = "okay";
+};
+
+&clk_msi {
+	status = "disabled";
+};
+
+&pll {
+	div-m = <2>;
+	mul-n = <6>;
+	div-r = <2>;
+	div-q = <2>;
+	clocks = <&clk_hse>;
+	status = "okay";
+};
+
+&rcc {
+	clocks = <&pll>;
+	clock-frequency = <DT_FREQ_M(48)>;
+};

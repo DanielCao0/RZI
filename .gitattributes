@@ -1,5 +1,4 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
 
-config BOARD_RZI_RAK3172_F
-	select SOC_STM32WLE5XX
+*.patch whitespace=-blank-at-eol,-space-before-tab

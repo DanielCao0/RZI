@@ -97,3 +97,31 @@ patches:
       Add a REUSE.toml so west spdx attributes the Clear BSD license and
       Semtech copyright to sources and build files that carry no SPDX tags.
       Files with their own SPDX tags keep them.
+
+  - path: usp_zephyr/0008-stm32wl-tcxo-reset-and-irq.patch
+    sha256sum: 2efaabacfc9636810205b06626c1a1b18fe1b819a17c8d2828dd8b9e86493cea
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-14
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      On RAK3372-F the radio IRQ line stays high until ClearIrqStatus, so the
+      ISR masks NVIC and the HAL arms it again after that command. A radio
+      reset also clears PB0-VDD_TCXO; park SYSCLK on HSI, program the
+      regulator, then restore the HSE PLL when SYSCLK uses the TCXO.
+
+  - path: zephyr/0009-stm32wl-stop-resume.patch
+    sha256sum: de889802ff3f91cf82539da69bee6c4930b19fe8b52abf581be984fd8fade858
+    module: zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-15
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Keep STM32WL wake interrupts pending until PM restores clocks and
+      system-managed devices. Sleep for SPI NOR DPD delays only when the
+      caller can yield. Force STM32 SPI to restore controller registers after
+      STOP.

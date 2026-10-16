@@ -1,23 +1,23 @@
 /* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * Product board for the RAK3172-F WisDuo module (STM32WLE5JC + MX25L400).
+ * Product board for the RAK3372-F (RAK3172-F WisDuo module, STM32WLE5JC + MX25L400).
  * Radio is the STM32WLE5 on-chip SUBGHZ (st,stm32wl-subghz-radio).
  * image-1 is the on-module SPI NOR, so LoRaWAN FUOTA installs by
  * overwrite. USP support is the STM32WL west patch in
  * zephyr/patches/usp_zephyr.
- * Console is usart1 (PB6/PB7). The RUI3-compatible AT port is usart2
- * (PA2/PA3).
+ * Console is usart1 (PB6/PB7) on the WisBlock header. The RUI3 AT port
+ * and the RAK19007 USB-UART are usart2 (PA2/PA3).
  */
 
 /dts-v1/;
 #include <rakwireless/rzi_rak3172_f.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
-#include "rzi_rak3172_f-partitions.dtsi"
+#include "rzi_rak3372_f-partitions.dtsi"
 
 / {
-	model = "RZI RAK3172-F (STM32WLE5JC + MX25L400)";
-	compatible = "rakwireless,rzi-rak3172-f-stm32wl";
+	model = "RZI RAK3372-F (STM32WLE5JC + MX25L400)";
+	compatible = "rakwireless,rzi-rak3372-f-stm32wl";
 
 	chosen {
 		zephyr,console = &usart1;
@@ -29,22 +29,24 @@
 	leds {
 		compatible = "gpio-leds";
 
-		blue_led: led_2 {
-			gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;
-			label = "Blue LED";
+		/* RAK3372-F carrier: LED1=PA0, LED2=PA1 */
+		led1: led_1 {
+			gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
+			label = "LED1";
 		};
 
-		green_led: led_1 {
-			gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
-			label = "Green LED";
+		led2: led_2 {
+			gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;
+			label = "LED2";
 		};
 	};
 
 	aliases {
-		led0 = &green_led;
+		led0 = &led1;
 		lora0 = &lora;
 		rzi-at-uart = &usart2;
 		watchdog0 = &iwdg;
+		spi-flash0 = &ext_flash;
 	};
 };
 
@@ -57,6 +59,22 @@
 };
 
 &usart2 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+&rtc {
+	status = "okay";
+};
+
+&aes {
 	status = "okay";
 };
 

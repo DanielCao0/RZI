@@ -24,7 +24,7 @@ Fragmentation (FPort 201) remain inside LoRa Basics Modem.
 Requirements
 ************
 
-* An RZI RAK4631 (``rzi_rak4631``) or RAK3172-F (``rzi_rak3172_f``) with its LoRa antenna connected
+* An RZI RAK4631 (``rzi_rak4631``) or RAK3372-F (``rzi_rak3372_f``) with its LoRa antenna connected
 * A LoRaWAN gateway and ChirpStack v4
 * Device-profile application-layer packages enabled: Clock Sync v1,
   Remote Multicast Setup v1 and Fragmentation v1
@@ -43,15 +43,15 @@ From the workspace root:
 
    west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lorawan/fuota
 
-For RAK3172-F use ``-b rzi_rak3172_f/stm32wle5xx``. Console is usart1.
-Flash ``build/merged_rzi_rak3172_f_stm32wle5xx.hex``.
+For RAK3372-F use ``-b rzi_rak3372_f/stm32wle5xx``. Console is usart1.
+Flash ``build/merged_rzi_rak3372_f_stm32wle5xx.hex``.
 
 Credentials are in ``app.overlay``, with the same properties as
 ``samples/lorawan/periodical_uplink``; here GenAppKey is required.
 Flash ``build/merged_rzi_rak4631_nrf52840.hex``. See ``doc/boot.md``.
 
 FUOTA needs the secondary image slot. This sample builds for
-``rzi_rak4631`` and ``rzi_rak3172_f`` (slot1 on the MX25L400).
+``rzi_rak4631`` and ``rzi_rak3372_f`` (slot1 on the MX25L400).
 ``rzi_rak3372`` is single-slot.
 
 Expected output
