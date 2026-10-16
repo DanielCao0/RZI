@@ -3,11 +3,11 @@
 /*
  * RAK3172-F WisDuo module: STM32WLE5JC (UFBGA73), 32 MHz TCXO on OSC_IN
  * supplied by PB0-VDD_TCXO, 32.768 kHz crystal, and the on-chip sub-GHz
- * radio, plus the 512 KiB Macronix MX25L400 wired inside the module on SPI2.
+ * radio, plus the 512 KiB Macronix SPI NOR wired inside the module on SPI2.
  * USART, I2C2, and SPI1 are configured here; the carrier enables them.
  *
  * The NOR is not brought out to the pads:
- *   PB9 CS, PB10 SCK, PC1 MOSI, PC2 MISO.
+ *   PB9 CS, PB10 SCK, PC1 MOSI, PC2 MISO, PC0 WP#/SIO2, PC3 HOLD#/SIO3.
  * rzi_rak3372_f maps image-1 onto this device for overwrite FUOTA.
  * PB12 is the frequency strap. Leave it unused.
  */
@@ -109,7 +109,7 @@
 	pinctrl-names = "default";
 };
 
-/* Internal MX25L400. CS is GPIO so the NOR driver can frame each command. */
+/* Internal SPI NOR. CS is GPIO so the driver can frame each command. */
 &spi2 {
 	pinctrl-0 = <&spi2_sck_pb10 &spi2_miso_pc2 &spi2_mosi_pc1>;
 	pinctrl-names = "default";
@@ -121,7 +121,9 @@
 		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <8000000>;
-		/* Binding unit is bits: 4 Mbit == 512 KiB. Probed ID is c2 23 13. */
+		wp-gpios = <&gpioc 0 GPIO_ACTIVE_LOW>;
+		hold-gpios = <&gpioc 3 GPIO_ACTIVE_LOW>;
+		/* Binding unit is bits: 4 Mbit == 512 KiB. Observed ID: c2 23 13. */
 		jedec-id = [c2 23 13];
 		size = <DT_SIZE_M(4)>;
 		has-dpd;
