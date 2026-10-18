@@ -49,13 +49,14 @@ replace them before a radio test:
 
 The region is ``LORAWAN_REGION`` in ``src/main.c``. The checked-in value is
 ``RZI_LORAWAN_REGION_EU_868``. The device class is ``LORAWAN_CLASS`` in the
-same file, checked in as ``RZI_LORAWAN_CLASS_A``, and applied after the stack
-is ready and before the join. The uplink interval, port and retry delay are
+same file, checked in as ``RZI_LORAWAN_CLASS_A``. The uplink interval, port
+and retry delay are
 ``UPLINK_INTERVAL_MS``, ``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same
 file.
 
-``LORAWAN_ADR`` and ``LORAWAN_DATA_RATE`` are applied in the ``JOINED``
-callback. With ``LORAWAN_ADR`` true, ``rzi_lorawan_set_adr(true)`` lets the
+``LORAWAN_CLASS``, ``LORAWAN_ADR`` and ``LORAWAN_DATA_RATE`` are applied in
+the ``JOINED`` callback. The modem rejects a class change until the device
+has joined. With ``LORAWAN_ADR`` true, ``rzi_lorawan_set_adr(true)`` lets the
 network choose the rate. Set it to false to call
 ``rzi_lorawan_set_data_rate(LORAWAN_DATA_RATE)`` instead; that pins one rate
 and turns ADR off. EU868 accepts ``RZI_LORAWAN_DR_0`` through
@@ -130,10 +131,13 @@ Failed calls print an ``RZI_ERR_*`` name from ``include/rzi/err.h``.
    AppKey match the server byte for byte, that the region matches the gateway,
    and that the gateway is online. The placeholder zero keys never join.
 
-``Credentials failed``, ``LoRaWAN init failed`` or ``Class failed`` right after boot
-   Credentials, stack initialization, or the device class was rejected. Check
-   the property lengths in ``app.overlay``, plus ``LORAWAN_REGION`` and
-   ``LORAWAN_CLASS`` in ``src/main.c``.
+``Credentials failed`` or ``LoRaWAN init failed`` right after boot
+   Credentials or stack initialization was rejected. Check the property
+   lengths in ``app.overlay`` and ``LORAWAN_REGION`` in ``src/main.c``.
+
+``Class failed`` while handling the join
+   The modem rejected the class change. Class A is already the default.
+   Class B or C is accepted only after the device has joined.
 
 ``Uplink rejected: RZI_ERR_*``
    The stack refused the uplink. ``RZI_ERR_BUSY`` (the previous uplink is

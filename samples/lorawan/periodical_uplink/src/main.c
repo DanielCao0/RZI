@@ -68,10 +68,15 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		}
 		break;
 	case RZI_LORAWAN_EVENT_JOINED:
-		/* ADR and a fixed data rate apply only after join. Earlier,
-		 * both calls return RZI_ERR_NOT_JOINED. set_data_rate() pins
-		 * one rate and turns ADR off, so this sample uses one of them.
+		/* Class, ADR, and a fixed data rate apply only after join.
+		 * USP rejects set_class() until the modem is joined.
+		 * set_data_rate() pins one rate and turns ADR off, so this
+		 * sample uses one of them.
 		 */
+		rc = rzi_lorawan_set_class(LORAWAN_CLASS);
+		if (rc != 0) {
+			LOG_ERR("Class failed: %s", rzi_err_str(rc));
+		}
 		if (LORAWAN_ADR) {
 			rc = rzi_lorawan_set_adr(true);
 		} else {
@@ -190,12 +195,6 @@ int main(void)
 	}
 
 	k_sem_take(&stack_ready, K_FOREVER);
-
-	rc = rzi_lorawan_set_class(LORAWAN_CLASS);
-	if (rc != 0) {
-		LOG_ERR("Class failed: %s", rzi_err_str(rc));
-		return rc;
-	}
 
 	while (request_join() != 0) {
 		ignore_result(rzi_lorawan_leave());
