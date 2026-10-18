@@ -161,7 +161,7 @@ rzi_at_uart_start()
 - Use `init` to bring up a service and `start` when processing begins
   without a separate configuration argument. `rzi_init()` prepares power
   and storage. `rzi_lorawan_init()` brings up LoRaWAN for one region.
-  Raw LoRa and AT still use `start`.
+  Raw LoRa uses `rzi_lora_init()`. AT still uses `start`.
 - Use `get_<noun>` when copying into an output parameter.
 - Use `is_<state>` for boolean queries.
 - Use `set_<noun>` only when changing an existing setting.

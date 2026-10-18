@@ -252,7 +252,7 @@ commands, RAK3172 `AT+UID`, and transparent / binary API modes.
 | Credentials | `get_McRoot_key` | AT `MCROOTKEY` | AT-only | |
 | Join / send | `service_lora_join` | `rzi_lorawan_join` | present | `start, auto_join, interval, attempts`; `-1` keeps the stored value |
 | Join / send | `get/set_njm`, `get_njs` | `rzi_lorawan_get/set_activation`; `rzi_lorawan_is_joined` | present | `AT+NJM` maps 0/1 onto the activation enum |
-| Join / send | `get/set_nwm` | `rzi_lora_start/stop`; AT `NWM` | AT-only | P2P vs LoRaWAN is not LoRaWAN ABI |
+| Join / send | `get/set_nwm` | `rzi_lora_init/stop`; AT `NWM` | AT-only | P2P vs LoRaWAN is not LoRaWAN ABI |
 | Join / send | `get/set_retry`, `get/set_cfm`, `get_cfs` | AT `RETY` / `CFM` / `CFS` | AT-only | |
 | Join / send | `get/set_join_start`, `auto_join*` | `rzi_lorawan_join` policy | present | AT starts the service when auto-join is stored |
 | Join / send | `service_lora_send` | `rzi_lorawan_send` | present | Confirm flag comes from AT context |
@@ -279,7 +279,7 @@ commands, RAK3172 `AT+UID`, and transparent / binary API modes.
 | Multicast | add / remove / list / clear | `rzi_lorawan_*_multicast_session` | present | |
 | Power | `suspend` / `resume` | `rzi_power_sleep` / `set_policy` | present | Different names |
 | FUOTA | RUI LmHandler FUOTA packages | `rzi_fuota_*` | limited | ChirpStack dual-slot, not LoRa Alliance FUOTA |
-| P2P | `p2p_init/config/send/recv` | `rzi_lora_start/set_config/send/receive` | present | USP runs P2P as RAC transactions below LoRaWAN priority |
+| P2P | `p2p_init/config/send/recv` | `rzi_lora_init/set_config/send/receive` | present | USP runs P2P as RAC transactions below LoRaWAN priority |
 | P2P | freq/SF/BW/CR/preamble/power/IQ/sync/CAD/FSK | `rzi_lora_get/set_config` | present | |
 | P2P | `check_runtime_*` validators | inside `set_config` | missing | No standalone validator APIs |
 | P2P | crypto enable/key/IV | `config.encrypt/key/iv` | limited | XOR of key+IV, not AES-CTR |

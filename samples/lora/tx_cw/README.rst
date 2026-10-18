@@ -91,7 +91,7 @@ Troubleshooting
    The radio did not answer. Check that the board target matches the
    hardware.
 
-``LoRa start failed`` or ``Carrier start failed``
+``LoRa init failed`` or ``Carrier start failed``
    The line names the code from ``include/rzi/err.h``. ``RZI_ERR_INVALID``
    usually means the frequency or power is outside what the radio supports.
 

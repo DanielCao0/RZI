@@ -158,7 +158,7 @@ Troubleshooting
    The radio did not answer. Check that the board target matches the
    hardware.
 
-``Step N setup failed``, ``Step N start failed`` or ``Packet N rejected``
+``Step N setup failed``, ``Step N init failed`` or ``Packet N rejected``
    The line names the code from ``include/rzi/err.h``. ``RZI_ERR_INVALID``
    usually means the frequency or power is outside what the radio supports.
 

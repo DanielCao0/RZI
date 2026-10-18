@@ -97,8 +97,8 @@ static int on_network_mode(uint8_t mode)
 	if (mode == RZI_AT_NETWORK_MODE_LORAWAN) {
 		return rzi_lora_stop();
 	}
-	return rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
-								  : RZI_LORA_MOD_LORA);
+	return rzi_lora_init(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
+								 : RZI_LORA_MOD_LORA);
 }
 
 int rzi_at_lora_ensure_started(void)
@@ -111,8 +111,8 @@ int rzi_at_lora_ensure_started(void)
 	if (rzi_lora_is_started()) {
 		return 0;
 	}
-	return rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
-								  : RZI_LORA_MOD_LORA);
+	return rzi_lora_init(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
+								 : RZI_LORA_MOD_LORA);
 }
 
 static void on_tx_done(int error, void *user_data)

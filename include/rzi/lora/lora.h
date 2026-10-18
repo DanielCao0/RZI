@@ -28,7 +28,7 @@ extern "C" {
 /** Maximum storage reserved for a P2P payload. */
 #define RZI_LORA_MAX_PAYLOAD 255
 
-/** Physical modulation selected by rzi_lora_start(). */
+/** Physical modulation selected by rzi_lora_init(). */
 enum rzi_lora_modulation {
 	/** LoRa chirp modulation. */
 	RZI_LORA_MOD_LORA = 0,
@@ -116,23 +116,23 @@ struct rzi_lora_callbacks {
 __must_check int rzi_lora_register_callbacks(const struct rzi_lora_callbacks *callbacks);
 
 /**
- * @brief Start the raw LoRa service in LoRa or FSK mode.
+ * @brief Initialize the raw LoRa service in LoRa or FSK mode.
  *
  * @param modulation Physical modulation used by later send and receive calls.
  *
- * @retval 0 Service started.
+ * @retval 0 Service initialized.
  * @retval -RZI_ERR_INVALID modulation is not a supported enumerator.
- * @retval -RZI_ERR_NOT_SUPPORTED The selected backend cannot start.
+ * @retval -RZI_ERR_NOT_SUPPORTED The selected backend cannot initialize.
  * @retval -RZI_ERR_BUSY The radio is owned by another service.
  * @retval -RZI_ERR_NOT_READY The backend is not initialized.
  * @retval -RZI_ERR_NO_DEVICE The radio device is missing.
- * @retval -RZI_ERR_IO The radio failed to start.
+ * @retval -RZI_ERR_IO The radio failed to initialize.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
- * @since 0.3
+ * @since 0.4
  */
-__must_check int rzi_lora_start(enum rzi_lora_modulation modulation);
+__must_check int rzi_lora_init(enum rzi_lora_modulation modulation);
 
 /**
  * @brief Stop the raw LoRa service and any radio test.
@@ -149,7 +149,7 @@ __must_check int rzi_lora_stop(void);
 /**
  * @brief Return whether the raw LoRa service has started.
  *
- * @return True after a successful rzi_lora_start().
+ * @return True after a successful rzi_lora_init().
  *
  * @note May be called from any thread.
  * @since 0.3

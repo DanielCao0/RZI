@@ -166,7 +166,7 @@ static bool wait_for(struct k_sem *sem, uint32_t timeout_ms)
 }
 
 /* The USP raw LoRa backend runs on the LoRa Basics Modem test API, so the
- * modem must be started, but not joined, before rzi_lora_start().
+ * modem must be initialized, but not joined, before rzi_lora_init().
  */
 static int start_radio(void)
 {
@@ -286,9 +286,9 @@ static int run_step(size_t index, uint32_t duration_ms, uint32_t *counter)
 		LOG_ERR("Step %zu setup failed: %s", index + 1U, rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lora_start(step->modulation);
+	rc = rzi_lora_init(step->modulation);
 	if (rc != 0) {
-		LOG_ERR("Step %zu start failed: %s", index + 1U, rzi_err_str(rc));
+		LOG_ERR("Step %zu init failed: %s", index + 1U, rzi_err_str(rc));
 		return rc;
 	}
 	if (step->hop_channels != 0U) {

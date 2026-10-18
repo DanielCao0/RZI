@@ -85,7 +85,7 @@ int rzi_lora_register_callbacks(const struct rzi_lora_callbacks *table)
 	return 0;
 }
 
-int rzi_lora_start(enum rzi_lora_modulation value)
+int rzi_lora_init(enum rzi_lora_modulation value)
 {
 	int rc = check_thread();
 

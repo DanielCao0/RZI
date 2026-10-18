@@ -103,7 +103,7 @@ static int configure_radio(void)
 }
 
 /* The USP raw LoRa backend runs on the LoRa Basics Modem test API, so the
- * modem must be started, but not joined, before rzi_lora_start().
+ * modem must be initialized, but not joined, before rzi_lora_init().
  */
 static int start_radio(void)
 {
@@ -132,9 +132,9 @@ static int start_radio(void)
 		LOG_ERR("LoRa config failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lora_start(RZI_LORA_MOD_LORA);
+	rc = rzi_lora_init(RZI_LORA_MOD_LORA);
 	if (rc != 0) {
-		LOG_ERR("LoRa start failed: %s", rzi_err_str(rc));
+		LOG_ERR("LoRa init failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	return 0;
