@@ -15,9 +15,6 @@ application interface.
 
 - **Current version:** [0.2.0](include/rzi/version.h)
 - **License:** [Apache-2.0](LICENSE)
-- **Supported boards:** `rzi_rak4631/nrf52840`,
-  `rzi_rak3372/stm32wle5xx`, `rzi_rak3372_f/stm32wle5xx` and
-  `rzi_rak3362/nrf54l15/cpuapp`
 
 ## Key capabilities
 
@@ -52,8 +49,8 @@ RZI is validated with this stack, pinned in [`west.yml`](west.yml):
 |---|---|
 | Zephyr | v4.5.0-rc1 |
 | Zephyr SDK | 1.0.1 |
-| `usp_zephyr` | v1.2.1 |
-| `usp` | v1.2.1 |
+| usp_zephyr | v1.2.1 |
+| usp | v1.2.1 |
 
 Other Zephyr revisions are not validated. The patches RZI applies to
 `usp_zephyr` use Zephyr 4.5 APIs and do not build on Zephyr 4.4.
@@ -72,7 +69,7 @@ Create the workspace in its own directory, not inside an existing Zephyr
 workspace. Every layout imports all of Zephyr's modules, which is several
 gigabytes; `west update --narrow -o=--filter=blob:none` fetches less history.
 After setting up any layout, continue with
-[after `west update`](#after-west-update).
+[After west update](#after-west-update).
 
 ### Standalone workspace
 
@@ -146,7 +143,7 @@ without changing it. Any other revision is untested. Do not override
 `usp_zephyr` or `usp` in the application manifest: RZI's patches are
 generated against the revisions it pins.
 
-### After `west update`
+### After west update
 
 Run these from the workspace root, inside the Python environment that has
 west.
@@ -229,6 +226,7 @@ install, not `zephyr.hex`; see [`doc/boot.md`](doc/boot.md).
 | [`samples/lorawan/fuota`](samples/lorawan/fuota/README.rst) | ChirpStack-compatible FUOTA (`rzi_rak4631`, `rzi_rak3372_f`) |
 | [`samples/at`](samples/at/README.rst) | RUI3-compatible AT modem (LoRaWAN, P2P, radio tests) over USB CDC (`rzi_rak4631`) or uart20 (`rzi_rak3362`) |
 | [`samples/lora/tx_cw`](samples/lora/tx_cw/README.rst) | Continuous-wave carrier for RF measurements |
+
 See [`samples/README.md`](samples/README.md) for board support and where to
 start. The LoRaWAN overlays ship zero-valued credentials; replace them before
 a radio test.
@@ -236,7 +234,7 @@ a radio test.
 ## Layout
 
 ```text
-include/rzi/    Public C API (`#include <rzi/...>`)
+include/rzi/    Public C API, #include <rzi/...>
 src/            Service implementations and private backends
 boards/         Product boards and partition tables
 zephyr/         Module metadata, Kconfig, CMake, and west patches
@@ -254,12 +252,12 @@ west.yml        Validated Zephyr and USP revisions
 | [`doc/README.md`](doc/README.md) | Catalog |
 | [`doc/architecture.md`](doc/architecture.md) | Layers, ownership, roadmap |
 | [`doc/lorawan-api.md`](doc/lorawan-api.md) | LoRaWAN C contract |
-| [`doc/boot.md`](doc/boot.md) | Boards, MCUBoot, merged image |
+| [`doc/boot.md`](doc/boot.md) | Boards, MCUboot, merged image |
 | [`doc/coding-standards.md`](doc/coding-standards.md) | Layout, naming, errors |
 
 Public headers use Zephyr-style Doxygen:
 
-```bash
+```sh
 scripts/generate-doxygen.sh
 ```
 
@@ -269,7 +267,7 @@ SBOMs follow the CRA / BSI TR-03183-2 expectations: SPDX 3.0.1 for every
 release image (`west spdx`), plus a module SBOM in SPDX 3.0.1 and CycloneDX
 1.6 for this repository and the backends it pins:
 
-```bash
+```sh
 scripts/generate-sbom.sh
 ```
 
@@ -281,21 +279,19 @@ See [`doc/sbom.md`](doc/sbom.md) and, for vulnerability handling,
 Contributions must follow [`doc/coding-standards.md`](doc/coding-standards.md)
 and the Zephyr coding style. Enable the repository hook once per clone:
 
-```bash
+```sh
 git config core.hooksPath .githooks
 ```
 
-```bash
+Check style before pushing:
+
+```sh
 scripts/check-style.sh           # working tree, or HEAD when clean
 scripts/check-style.sh --staged  # staged changes only
 scripts/check-style.sh --fix     # apply clang-format in place
 ```
 
-CI runs those checks, twister on `native_sim`, sample builds for both
+CI runs those checks, twister on `native_sim`, sample builds for the
 product boards, public-header compilation (C and C++), Doxygen, REUSE
 compliance, and SPDX 3 / CycloneDX SBOM validation. Jobs and local
 reproduction: [`doc/ci.md`](doc/ci.md).
-
-Architecture, ownership boundaries, and the service roadmap are documented in
-[`doc/architecture.md`](doc/architecture.md). See
-[`doc/README.md`](doc/README.md) for the complete documentation index.
