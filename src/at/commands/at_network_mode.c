@@ -41,11 +41,18 @@ static int parse_long(const char *argument, long *value)
 	return 0;
 }
 
-static void notify_listeners(uint8_t mode)
+static int notify_listeners(uint8_t mode)
 {
+	int rc = 0;
+
 	for (size_t i = 0; i < listener_count; ++i) {
-		listeners[i](mode);
+		int one = listeners[i](mode);
+
+		if (one != 0 && rc == 0) {
+			rc = one;
+		}
 	}
+	return rc;
 }
 
 #if defined(CONFIG_RZI_AT_NVM)
@@ -130,12 +137,25 @@ static int handle_nwm(const struct rzi_at_request *request, void *user_data)
 	if ((uint8_t)parsed == network_mode) {
 		return rzi_at_respond_status(RZI_AT_STATUS_OK);
 	}
-	network_mode = (uint8_t)parsed;
+	/*
+	 * Start or stop the radio before persisting. A fault during USP init
+	 * must not leave P2P mode in flash, or every later boot faults too.
+	 */
+	{
+		uint8_t previous = network_mode;
+
+		network_mode = (uint8_t)parsed;
+		rc = notify_listeners(network_mode);
+		if (rc != 0) {
+			network_mode = previous;
+			(void)notify_listeners(network_mode);
+			return rc;
+		}
+	}
 	rc = save_mode(network_mode);
 	if (rc != 0) {
 		return rc;
 	}
-	notify_listeners(network_mode);
 	rc = rzi_at_respond_status(RZI_AT_STATUS_OK);
 	if (IS_ENABLED(CONFIG_RZI_AT_COMMAND_LORAWAN) && !IS_ENABLED(CONFIG_ZTEST)) {
 		sys_reboot(SYS_REBOOT_COLD);
@@ -162,6 +182,23 @@ static const struct rzi_at_extension extension = {
 	.factory_reset = extension_factory_reset,
 };
 #endif
+
+int rzi_at_network_mode_restore_default(void)
+{
+	network_mode = IS_ENABLED(CONFIG_RZI_AT_COMMAND_LORAWAN) ? RZI_AT_NETWORK_MODE_LORAWAN
+								 : RZI_AT_NETWORK_MODE_P2P_LORA;
+#if defined(CONFIG_RZI_AT_NVM)
+	int rc = rzi_storage_init();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_storage_delete("rzi", "nwm");
+	return (rc == 0 || rc == -RZI_ERR_NOT_FOUND) ? 0 : rc;
+#else
+	return 0;
+#endif
+}
 
 int rzi_at_network_mode_register(void)
 {

@@ -74,7 +74,12 @@ config RZI_LORAWAN_MAX_CALLBACKS
 config RZI_LORAWAN_DISPATCHER_STACK_SIZE
 	int "LoRaWAN callback dispatcher stack size"
 	range 1024 8192
+	default 4096 if RZI_AT_COMMAND_LORAWAN
 	default 2048
+	help
+	  Callbacks run on this stack. The AT LoRaWAN extension formats
+	  downlinks here (hex buffer plus AT TX buffer), which needs more
+	  than 2 KiB.
 
 config RZI_LORAWAN_DISPATCHER_PRIORITY
 	int "LoRaWAN callback dispatcher preemptive priority"

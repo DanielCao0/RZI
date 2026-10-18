@@ -92,14 +92,13 @@ int rzi_at_lora_parse_bool(const char *argument, bool *value)
 	return -RZI_ERR_INVALID;
 }
 
-static void on_network_mode(uint8_t mode)
+static int on_network_mode(uint8_t mode)
 {
 	if (mode == RZI_AT_NETWORK_MODE_LORAWAN) {
-		ignore_result(rzi_lora_stop());
-		return;
+		return rzi_lora_stop();
 	}
-	ignore_result(rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
-									 : RZI_LORA_MOD_LORA));
+	return rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
+								 : RZI_LORA_MOD_LORA);
 }
 
 int rzi_at_lora_ensure_started(void)
@@ -141,6 +140,12 @@ static const struct rzi_lora_callbacks callbacks = {
 	.rx_done = on_rx_done,
 };
 
+/*
+ * USP init is deeper than the main stack. Arm it here and run it on the
+ * AT thread, which is sized for smtc_modem_init.
+ */
+static bool p2p_start_pending;
+
 static int extension_start(void)
 {
 	int rc = rzi_lora_register_callbacks(&callbacks);
@@ -148,14 +153,19 @@ static int extension_start(void)
 	if (rc != 0) {
 		return rc;
 	}
-	if (rzi_at_network_mode_get() != RZI_AT_NETWORK_MODE_LORAWAN) {
-		rc = rzi_at_lora_ensure_started();
-	}
-	return rc;
+	p2p_start_pending = rzi_at_network_mode_get() != RZI_AT_NETWORK_MODE_LORAWAN;
+	return 0;
 }
 
 static void extension_process(void)
 {
+	if (p2p_start_pending) {
+		p2p_start_pending = false;
+		if (rzi_at_network_mode_get() != RZI_AT_NETWORK_MODE_LORAWAN &&
+		    rzi_at_lora_ensure_started() != 0) {
+			(void)rzi_at_network_mode_restore_default();
+		}
+	}
 	rzi_lora_poll();
 }
 

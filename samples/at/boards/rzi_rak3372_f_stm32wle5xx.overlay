@@ -1,0 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Debug logs use the RAK19007 USB-UART (USART2). The WisBlock header
+ * console stays USART1 in the board devicetree; this overlay only
+ * applies to the AT sample.
+ */
+/ {
+	chosen {
+		zephyr,console = &usart2;
+		zephyr,shell-uart = &usart2;
+	};
+};
