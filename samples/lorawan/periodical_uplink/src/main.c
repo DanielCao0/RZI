@@ -5,7 +5,6 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/sys/byteorder.h>
 #include <rzi/err.h>
 #include <rzi/init.h>
 #include <rzi/lorawan/lorawan.h>
@@ -138,6 +137,15 @@ static int request_join(void)
 	return 0;
 }
 
+/* Highest byte first, so a server reads the counter as a normal integer. */
+static void encode_uplink_counter(uint32_t counter, uint8_t payload[4])
+{
+	payload[0] = (uint8_t)(counter >> 24);
+	payload[1] = (uint8_t)(counter >> 16);
+	payload[2] = (uint8_t)(counter >> 8);
+	payload[3] = (uint8_t)counter;
+}
+
 int main(void)
 {
 	uint32_t uplink_counter = 0;
@@ -175,7 +183,7 @@ int main(void)
 	LOG_INF("Joined");
 
 	for (;;) {
-		sys_put_be32(uplink_counter, payload);
+		encode_uplink_counter(uplink_counter, payload);
 		rc = rzi_lorawan_send(UPLINK_PORT, payload, sizeof(payload),
 				      RZI_LORAWAN_MSG_UNCONFIRMED);
 		if (rc == 0) {
