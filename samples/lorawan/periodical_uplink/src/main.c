@@ -30,33 +30,6 @@ static K_SEM_DEFINE(stack_ready, 0, 1);
 static K_SEM_DEFINE(join_done, 0, 1);
 static volatile bool joined;
 
-static int configure_credentials(void)
-{
-	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
-	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
-	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
-	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
-	int rc;
-
-	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
-	if (rc != 0) {
-		return rc;
-	}
-	return rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
-}
-
 static const char *tx_status_str(enum rzi_lorawan_tx_status status)
 {
 	switch (status) {
@@ -166,6 +139,10 @@ static void encode_uplink_counter(uint32_t counter, uint8_t payload[4])
 
 int main(void)
 {
+	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
+	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
+	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
+	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
 	uint32_t uplink_counter = 0;
 	uint8_t payload[sizeof(uplink_counter)];
 	int rc;
@@ -181,7 +158,19 @@ int main(void)
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = configure_credentials();
+	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
+	if (rc == 0) {
+		rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
+	}
 	if (rc != 0) {
 		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
 		return rc;
