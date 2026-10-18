@@ -177,18 +177,26 @@ int main(void)
 		return rc;
 	}
 	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
-	if (rc == 0) {
-		rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
+	if (rc != 0) {
+		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
+		return rc;
 	}
-	if (rc == 0) {
-		rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+	rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
+	if (rc != 0) {
+		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
+		return rc;
 	}
-	if (rc == 0) {
-		rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
+	rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+	if (rc != 0) {
+		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
+		return rc;
 	}
-	if (rc == 0) {
-		rc = rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
+	rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
+	if (rc != 0) {
+		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
+		return rc;
 	}
+	rc = rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
 	if (rc != 0) {
 		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
 		return rc;
