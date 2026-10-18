@@ -48,13 +48,22 @@ ArduinoCore-zephyr:
 Changing mode only replaces the signed image in slot0. MCUBoot stays.
 Native applications ignore the `user` partition.
 
-STM32WLE5 (RAK3372, 256 KB) is single-slot and has no `image-1` / `user`:
+STM32WLE5 (RAK3372, 256 KB) is single-slot and has no `image-1` / `user`.
+Settings and the LoRa Basics Modem context do not share a partition:
 
 | Partition | Address | Size | Use |
 |---|---|---|---|
 | `mcuboot` | `0x00000` | 32 KB | Sole bootloader |
-| `image-0` | `0x08000` | 216 KB | RZI application |
-| `storage` | `0x3e000` | 8 KB | settings |
+| `image-0` | `0x08000` | 208 KB | RZI application |
+| `storage` | `0x3c000` | 8 KB | Zephyr settings / NVS |
+| `lora_context` | `0x3e000` | 8 KB | LoRa Basics Modem context |
+
+The previous layout used a 216 KB `image-0` and one 8 KB area at `0x3e000`.
+That area was documented as settings, and the modem context also fell back
+to it. A current image must be flashed as a merged hex after a full erase.
+The old context bytes are not a valid session, and the device has to rejoin.
+Do not boot a current application with a bootloader that still expects the
+216 KB slot: its trailer address now sits in `storage`.
 
 nRF54L15 (RAK3362, 1524 KB RRAM) uses the same dual-slot layout as the
 upstream nRF54L15 boards without FLPR:

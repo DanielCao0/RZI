@@ -3,9 +3,10 @@
 /*
  * rzi_rak3372 flash map (STM32WLE5, 256 KiB).
  *
- * Single slot: 256 KB cannot hold two signed images plus storage. There is
- * no image-1, so LoRaWAN FUOTA is not supported. Flash the merged
- * image (mcuboot + signed slot0).
+ * Single slot: 256 KB cannot hold two signed images. There is no image-1,
+ * so LoRaWAN FUOTA is not supported. Settings and the LoRa Basics Modem
+ * context each have their own 8 KB area. Flash the merged image
+ * (mcuboot + signed slot0).
  */
 
 / {
@@ -13,6 +14,7 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,code-partition = &slot0_partition;
+		lora-basics-modem-context-partition = &lora_context_partition;
 	};
 };
 
@@ -32,12 +34,18 @@
 		slot0_partition: partition@8000 {
 			compatible = "zephyr,mapped-partition";
 			label = "image-0";
-			reg = <0x00008000 DT_SIZE_K(216)>;
+			reg = <0x00008000 DT_SIZE_K(208)>;
 		};
 
-		storage_partition: partition@3e000 {
+		storage_partition: partition@3c000 {
 			compatible = "zephyr,mapped-partition";
 			label = "storage";
+			reg = <0x0003c000 DT_SIZE_K(8)>;
+		};
+
+		lora_context_partition: partition@3e000 {
+			compatible = "zephyr,mapped-partition";
+			label = "lora_context";
 			reg = <0x0003e000 DT_SIZE_K(8)>;
 		};
 	};
