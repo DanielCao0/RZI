@@ -121,7 +121,11 @@ jobs:
           fi
 
       - name: REUSE (license and copyright on every file)
-        run: reuse --root rzi lint
+        # Run inside the repository. `reuse --root rzi` from the workspace
+        # parent treats rzi as a subdirectory of a non-repository and skips
+        # Git ignore, so the ruff cache written by compliance fails the lint.
+        working-directory: rzi
+        run: reuse lint
 
       - name: Version strings stay in sync
         run: |
