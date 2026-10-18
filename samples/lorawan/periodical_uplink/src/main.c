@@ -19,6 +19,9 @@ LOG_MODULE_REGISTER(rzi_periodical_uplink, LOG_LEVEL_INF);
 
 #define USER_NODE          DT_PATH(zephyr_user)
 #define LORAWAN_REGION     RZI_LORAWAN_REGION_EU_868
+#define LORAWAN_CLASS      RZI_LORAWAN_CLASS_A
+#define LORAWAN_ADR        true
+#define LORAWAN_DATA_RATE  RZI_LORAWAN_DR_5
 #define RETRY_DELAY_MS     5000
 #define UPLINK_INTERVAL_MS 60000
 #define UPLINK_PORT        101
@@ -79,6 +82,8 @@ static void log_uplink_done(const struct rzi_lorawan_tx_result *tx)
 
 static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
+	int rc;
+
 	ARG_UNUSED(user_data);
 	switch (event->type) {
 	case RZI_LORAWAN_EVENT_READY:
@@ -90,6 +95,19 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		}
 		break;
 	case RZI_LORAWAN_EVENT_JOINED:
+		/* ADR and a fixed data rate apply only after join. Earlier,
+		 * both calls return RZI_ERR_NOT_JOINED. set_data_rate() pins
+		 * one rate and turns ADR off, so this sample uses one of them.
+		 */
+		if (LORAWAN_ADR) {
+			rc = rzi_lorawan_set_adr(true);
+		} else {
+			rc = rzi_lorawan_set_data_rate(LORAWAN_DATA_RATE);
+		}
+		if (rc != 0) {
+			LOG_ERR("%s failed: %s", LORAWAN_ADR ? "ADR" : "Data rate",
+				rzi_err_str(rc));
+		}
 		joined = true;
 		k_sem_give(&join_done);
 		break;
@@ -175,6 +193,12 @@ int main(void)
 	}
 
 	k_sem_take(&stack_ready, K_FOREVER);
+
+	rc = rzi_lorawan_set_class(LORAWAN_CLASS);
+	if (rc != 0) {
+		LOG_ERR("Class failed: %s", rzi_err_str(rc));
+		return rc;
+	}
 
 	while (request_join() != 0) {
 		ignore_result(rzi_lorawan_leave());
