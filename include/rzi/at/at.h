@@ -118,7 +118,7 @@ struct rzi_at_io {
  * @param count Number of entries in commands.
  *
  * @retval 0 Commands registered.
- * @retval -RZI_ERR_DENIED The registry is sealed because the service has started.
+ * @retval -RZI_ERR_INVALID_STATE The registry is sealed because the service has started.
  * @retval -RZI_ERR_ALREADY A command name is already registered.
  * @retval -RZI_ERR_INVALID The array, count, name, handler, or capacity is invalid.
  *
@@ -140,7 +140,7 @@ __must_check int rzi_at_register(const struct rzi_at_command *commands, size_t c
  * @retval 0 Started.
  * @retval -RZI_ERR_INVALID io or write is NULL.
  * @retval -RZI_ERR_ALREADY The service has already started.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only. Runtime stop and restart are not supported.
  *       Command-package or extension startup may also return a negative

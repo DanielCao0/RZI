@@ -431,7 +431,7 @@ static int extension_start(void)
 	}
 #endif
 	rc = rzi_lorawan_set_region(context->region);
-	if (rc != 0 && rc != -RZI_ERR_ALREADY) {
+	if (rc != 0 && rc != -RZI_ERR_INVALID_STATE) {
 		return rc;
 	}
 	rc = 0;

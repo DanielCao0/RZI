@@ -255,7 +255,7 @@ int rzi_power_init(void)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -269,7 +269,7 @@ int rzi_power_set_policy(enum rzi_power_policy next)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if ((unsigned int)next > RZI_POWER_POLICY_SHUTDOWN) {
 		return -RZI_ERR_INVALID;
@@ -290,7 +290,7 @@ int rzi_power_get_policy(enum rzi_power_policy *out_policy)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (out_policy == NULL) {
 		return -RZI_ERR_INVALID;
@@ -310,7 +310,7 @@ int rzi_power_block(enum rzi_power_blocker blocker)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if ((unsigned int)blocker >= RZI_POWER_BLOCK_COUNT) {
 		return -RZI_ERR_INVALID;
@@ -335,7 +335,7 @@ int rzi_power_unblock(enum rzi_power_blocker blocker)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if ((unsigned int)blocker >= RZI_POWER_BLOCK_COUNT) {
 		return -RZI_ERR_INVALID;
@@ -360,7 +360,7 @@ int rzi_power_get_blockers(uint32_t *blockers)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (blockers == NULL) {
 		return -RZI_ERR_INVALID;
@@ -397,7 +397,7 @@ int rzi_power_set_wake_deadline(int64_t uptime_ms)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -415,7 +415,7 @@ int rzi_power_get_wake_deadline(int64_t *uptime_ms)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (uptime_ms == NULL) {
 		return -RZI_ERR_INVALID;
@@ -435,7 +435,7 @@ int rzi_power_set_wake_sources(uint32_t sources)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -452,7 +452,7 @@ int rzi_power_get_wake_sources(uint32_t *sources)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (sources == NULL) {
 		return -RZI_ERR_INVALID;
@@ -472,7 +472,7 @@ int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (reason == NULL) {
 		return -RZI_ERR_INVALID;
@@ -494,7 +494,7 @@ int rzi_power_sleep(int32_t timeout_ms)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
@@ -531,7 +531,7 @@ int rzi_power_shutdown(void)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);

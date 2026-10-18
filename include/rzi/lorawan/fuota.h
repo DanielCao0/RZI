@@ -87,7 +87,7 @@ struct rzi_fuota_callbacks {
  *
  * @retval 0 Callbacks stored.
  * @retval -RZI_ERR_INVALID callbacks is NULL or empty.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -102,7 +102,7 @@ __must_check int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *
  *
  * @retval 0 Coordination started or already running.
  * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not advertise FUOTA.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only. rzi_lorawan_start() starts this service when
  *       CONFIG_RZI_LORAWAN_FUOTA is enabled.
@@ -117,7 +117,7 @@ __must_check int rzi_fuota_start(void);
  *
  * @retval 0 Status stored.
  * @retval -RZI_ERR_INVALID status is NULL.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -135,7 +135,7 @@ __must_check int rzi_fuota_get_status(struct rzi_fuota_status *status);
  *
  * @retval 0 Size stored.
  * @retval -RZI_ERR_INVALID size is zero.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -153,7 +153,7 @@ __must_check int rzi_fuota_set_expected_size(size_t size);
  * @retval -RZI_ERR_INVALID buffer is NULL or size is zero.
  * @retval -RZI_ERR_NOT_FOUND No reconstructed image is available.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend cannot expose the stored image.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
@@ -171,7 +171,7 @@ __must_check int rzi_fuota_read_image(size_t offset, void *buffer, size_t size);
  * @retval -RZI_ERR_NO_DATA The image size is unknown.
  * @retval -RZI_ERR_NOT_SUPPORTED No installer is compiled into this firmware.
  * @retval -RZI_ERR_IO Copying the image into the secondary slot failed.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @warning Must not be called from a FUOTA callback.
  * @note Thread context only.

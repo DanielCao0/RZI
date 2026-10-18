@@ -94,7 +94,7 @@ enum rzi_power_wake_reason {
  * and blockers.
  *
  * @retval 0 Coordinator is ready.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -107,7 +107,7 @@ __must_check int rzi_power_init(void);
  *
  * @retval 0 Policy stored and PM locks updated.
  * @retval -RZI_ERR_INVALID @p policy is out of range.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -120,7 +120,7 @@ __must_check int rzi_power_set_policy(enum rzi_power_policy policy);
  *
  * @retval 0 Policy copied.
  * @retval -RZI_ERR_INVALID @p policy is NULL.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -136,7 +136,7 @@ __must_check int rzi_power_get_policy(enum rzi_power_policy *policy);
  *
  * @retval 0 Reference taken.
  * @retval -RZI_ERR_INVALID @p blocker is invalid.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -149,7 +149,7 @@ __must_check int rzi_power_block(enum rzi_power_blocker blocker);
  *
  * @retval 0 Reference released.
  * @retval -RZI_ERR_INVALID @p blocker is invalid or has no matching take.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -162,7 +162,7 @@ __must_check int rzi_power_unblock(enum rzi_power_blocker blocker);
  *
  * @retval 0 Mask copied.
  * @retval -RZI_ERR_INVALID @p blockers is NULL.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -189,7 +189,7 @@ bool rzi_power_is_sleep_allowed(void);
  * @param uptime_ms Absolute @c k_uptime_get() deadline, or negative to clear.
  *
  * @retval 0 Deadline stored.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -202,7 +202,7 @@ __must_check int rzi_power_set_wake_deadline(int64_t uptime_ms);
  *
  * @retval 0 Value copied.
  * @retval -RZI_ERR_INVALID @p uptime_ms is NULL.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -218,7 +218,7 @@ __must_check int rzi_power_get_wake_deadline(int64_t *uptime_ms);
  *                the SoC default mask.
  *
  * @retval 0 Mask stored.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -231,7 +231,7 @@ __must_check int rzi_power_set_wake_sources(uint32_t sources);
  *
  * @retval 0 Mask copied.
  * @retval -RZI_ERR_INVALID @p sources is NULL.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -244,7 +244,7 @@ __must_check int rzi_power_get_wake_sources(uint32_t *sources);
  *
  * @retval 0 Reason copied.
  * @retval -RZI_ERR_INVALID @p reason is NULL.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -261,7 +261,7 @@ __must_check int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason);
  *                   or forever when no deadline is set.
  *
  * @retval 0 The timeout or wake deadline elapsed.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
@@ -277,7 +277,7 @@ __must_check int rzi_power_sleep(int32_t timeout_ms);
  * @retval -RZI_ERR_BUSY A blocker is held or the policy is not shutdown.
  * @retval -RZI_ERR_NOT_SUPPORTED Shutdown is unavailable or the wake-source mask cannot
  *                  wake this SoC from power-off.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */

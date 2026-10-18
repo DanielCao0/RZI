@@ -34,7 +34,7 @@ static bool valid_name(const char *name)
 int rzi_at_register(const struct rzi_at_command *commands, size_t count)
 {
 	if (sealed) {
-		return -RZI_ERR_DENIED;
+		return -RZI_ERR_INVALID_STATE;
 	}
 	if ((commands == NULL && count != 0U) || command_count + count > ARRAY_SIZE(registered)) {
 		return -RZI_ERR_INVALID;

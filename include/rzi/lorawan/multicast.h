@@ -52,7 +52,7 @@ struct rzi_lorawan_multicast_session {
  * @retval -RZI_ERR_NOT_READY The service has not started.
  * @retval -RZI_ERR_NO_RESOURCE No group slot remains.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -69,7 +69,7 @@ rzi_lorawan_add_multicast_session(const struct rzi_lorawan_multicast_session *se
  * @retval -RZI_ERR_NOT_FOUND No session uses this address.
  * @retval -RZI_ERR_NOT_READY The service has not started.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -85,7 +85,7 @@ __must_check int rzi_lorawan_remove_multicast_session(uint32_t dev_addr);
  * @retval -RZI_ERR_INVALID count is NULL.
  * @retval -RZI_ERR_NOT_READY The service has not started.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -104,7 +104,7 @@ __must_check int rzi_lorawan_get_multicast_count(size_t *count);
  * @retval -RZI_ERR_INVALID session is NULL or index is out of range.
  * @retval -RZI_ERR_NOT_READY The service has not started.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3
@@ -118,7 +118,7 @@ __must_check int rzi_lorawan_get_multicast_session(size_t index,
  * @retval 0 Sessions cleared.
  * @retval -RZI_ERR_NOT_READY The service has not started.
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support multicast.
- * @retval -RZI_ERR_WOULDBLOCK Called from an ISR.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.3

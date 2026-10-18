@@ -63,7 +63,7 @@ int rzi_at_uart_start(const struct device *uart)
 	}
 	rc = uart_irq_callback_user_data_set(uart, uart_isr, NULL);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	active_uart = uart;
 	rc = rzi_at_start(&io);
@@ -82,7 +82,7 @@ int rzi_at_uart_get_baud(uint32_t *baud_rate)
 		return -RZI_ERR_INVALID;
 	}
 	if (active_uart == NULL) {
-		return -RZI_ERR_NO_DEVICE;
+		return -RZI_ERR_NOT_READY;
 	}
 	*baud_rate = current_baud;
 	return 0;
@@ -97,16 +97,16 @@ int rzi_at_uart_set_baud(uint32_t baud_rate)
 		return -RZI_ERR_INVALID;
 	}
 	if (active_uart == NULL) {
-		return -RZI_ERR_NO_DEVICE;
+		return -RZI_ERR_NOT_READY;
 	}
 	rc = uart_config_get(active_uart, &config);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	config.baudrate = baud_rate;
 	rc = uart_configure(active_uart, &config);
 	if (rc != 0) {
-		return rc;
+		return rzi_err_from_errno(rc);
 	}
 	current_baud = baud_rate;
 	return 0;

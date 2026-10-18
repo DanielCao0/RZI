@@ -442,7 +442,7 @@ static void ensure_ready_and_left(void)
 		zassert_ok(rzi_lorawan_start());
 		zassert_ok(k_sem_take(&callback_sem, K_SECONDS(1)));
 	} else {
-		zassert_equal(rc, -RZI_ERR_ALREADY);
+		zassert_equal(rc, -RZI_ERR_INVALID_STATE);
 	}
 	zassert_ok(rzi_lorawan_join(0, RZI_LORAWAN_JOIN_KEEP, RZI_LORAWAN_JOIN_KEEP,
 				    RZI_LORAWAN_JOIN_KEEP));

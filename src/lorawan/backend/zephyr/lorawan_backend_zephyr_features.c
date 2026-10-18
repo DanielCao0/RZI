@@ -78,7 +78,7 @@ static int zephyr_set_data_rate(enum rzi_lorawan_data_rate value)
 		data_rate = value;
 	}
 	rzi_lorawan_zephyr_unlock();
-	return rzi_err_from_errno(rc);
+	return rzi_lorawan_zephyr_err(rc);
 }
 
 /* LoRaWAN Regional Parameters RP002 uplink data rates; bit n is DRn. */
@@ -234,7 +234,7 @@ static int zephyr_link_check_request(void)
 		return rc;
 	}
 	rzi_lorawan_zephyr_unlock();
-	return rzi_err_from_errno(lorawan_request_link_check(true));
+	return rzi_lorawan_zephyr_err(lorawan_request_link_check(true));
 #endif
 }
 
@@ -249,7 +249,7 @@ static int zephyr_device_time_request(void)
 		return rc;
 	}
 	rzi_lorawan_zephyr_unlock();
-	return rzi_err_from_errno(lorawan_request_device_time(true));
+	return rzi_lorawan_zephyr_err(lorawan_request_device_time(true));
 #endif
 }
 
@@ -268,7 +268,7 @@ static int zephyr_get_network_time(struct rzi_lorawan_network_time *time)
 	rzi_lorawan_zephyr_unlock();
 	rc = lorawan_device_time_get(&gps_time);
 	if (rc != 0) {
-		return rzi_err_from_errno(rc);
+		return rzi_lorawan_zephyr_err(rc);
 	}
 	time->gps_seconds = gps_time;
 	time->gps_subseconds = 0;

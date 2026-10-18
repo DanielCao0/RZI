@@ -6,22 +6,19 @@
  */
 
 #include <errno.h>
+#include <stddef.h>
 
 #include <rzi/err.h>
 
-const char *rzi_err_str(int err)
+static const char *catalog_name(int err)
 {
-	if (err < 0) {
-		err = -err;
-	}
-
 	switch ((enum rzi_err)err) {
 	case RZI_SUCCESS:
 		return "RZI_SUCCESS";
 	case RZI_ERR_INVALID:
 		return "RZI_ERR_INVALID";
-	case RZI_ERR_WOULDBLOCK:
-		return "RZI_ERR_WOULDBLOCK";
+	case RZI_ERR_ISR:
+		return "RZI_ERR_ISR";
 	case RZI_ERR_NOT_READY:
 		return "RZI_ERR_NOT_READY";
 	case RZI_ERR_ALREADY:
@@ -52,15 +49,31 @@ const char *rzi_err_str(int err)
 		return "RZI_ERR_NOT_JOINED";
 	case RZI_ERR_DENIED:
 		return "RZI_ERR_DENIED";
+	case RZI_ERR_INVALID_STATE:
+		return "RZI_ERR_INVALID_STATE";
 	}
 
-	return "RZI_ERR_UNKNOWN";
+	return NULL;
+}
+
+const char *rzi_err_str(int err)
+{
+	const char *name;
+
+	if (err < 0) {
+		err = -err;
+	}
+	name = catalog_name(err);
+	return name != NULL ? name : "RZI_ERR_UNKNOWN";
 }
 
 int rzi_err_from_errno(int rc)
 {
 	if (rc >= 0) {
 		return 0;
+	}
+	if (catalog_name(-rc) != NULL) {
+		return rc;
 	}
 
 	switch (rc) {
@@ -107,7 +120,7 @@ int rzi_err_from_errno(int rc)
 	case -ENODEV:
 		return -RZI_ERR_NO_DEVICE;
 	case -ENETDOWN:
-		return -RZI_ERR_NOT_JOINED;
+		return -RZI_ERR_NOT_READY;
 	case -EACCES:
 #ifdef EPERM
 #if EPERM != EACCES

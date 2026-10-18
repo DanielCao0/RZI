@@ -85,7 +85,7 @@ Rules:
 1. Callbacks may be registered before `start`. Doing so is recommended so
    `RZI_LORAWAN_EVENT_READY` is not missed;
 2. `set_region` and `set_join_backoff_bypass` may be called only before
-   `start`;
+   `start`. After `start` they return `-RZI_ERR_INVALID_STATE`;
 3. `start` is a process-wide one-shot. A repeat returns `-RZI_ERR_ALREADY`;
 4. `RZI_LORAWAN_EVENT_READY` means the backend can accept a join. It does
    not mean the device has joined the network;
@@ -291,10 +291,10 @@ catalog and AT mapping are in [error-codes.md](./error-codes.md). LoRaWAN
 uses this subset:
 
 - `-RZI_ERR_INVALID`: invalid argument, enum, or port;
-- `-RZI_ERR_WOULDBLOCK`: a thread-context API was called from an ISR;
+- `-RZI_ERR_ISR`: a thread-context API was called from an ISR;
 - `-RZI_ERR_NOT_READY`: the service or backend is not ready;
-- `-RZI_ERR_ALREADY`: repeated `start`, or a start-time setting changed
-  after `start`;
+- `-RZI_ERR_ALREADY`: repeated `start`;
+- `-RZI_ERR_INVALID_STATE`: a start-time setting changed after `start`;
 - `-RZI_ERR_BUSY`: a conflicting asynchronous operation is already in
   flight;
 - `-RZI_ERR_NOT_SUPPORTED`: the selected backend does not support the

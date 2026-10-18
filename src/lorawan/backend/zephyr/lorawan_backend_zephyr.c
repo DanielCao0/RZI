@@ -309,7 +309,7 @@ static void join_work_handler(struct k_work *work)
 		event.type = RZI_LORAWAN_BACKEND_JOINED;
 	} else {
 		event.type = RZI_LORAWAN_BACKEND_JOIN_FAILED;
-		event.error = rzi_err_from_errno(rc);
+		event.error = rzi_lorawan_zephyr_err(rc);
 	}
 	publish(&event);
 }
@@ -345,7 +345,7 @@ static void send_work_handler(struct k_work *work)
 
 	if (rc != 0) {
 		event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
-		event.error = rzi_err_from_errno(rc);
+		event.error = rzi_lorawan_zephyr_err(rc);
 	} else if (type == RZI_LORAWAN_MSG_CONFIRMED) {
 		event.tx_status = RZI_LORAWAN_TX_ACKED;
 	} else {
@@ -411,7 +411,7 @@ static int zephyr_fuota_start_clock_sync(void)
 	(void)lorawan_request_device_time(false);
 #endif
 #ifdef CONFIG_LORAWAN_APP_CLOCK_SYNC
-	rc = rzi_err_from_errno(lorawan_clock_sync_run());
+	rc = rzi_lorawan_zephyr_err(lorawan_clock_sync_run());
 	if (rc == 0) {
 		clock_poll_left = CLOCK_POLL_TRIES;
 		k_work_schedule_for_queue(&worker_q, &clock_poll_work, K_NO_WAIT);
@@ -426,7 +426,7 @@ static int zephyr_fuota_start_clock_sync(void)
 		lorawan_frag_transport_register_descriptor_callback(frag_descriptor);
 		frag_rc = lorawan_frag_transport_run(frag_finished);
 		if (frag_rc != 0 && rc == 0) {
-			rc = rzi_err_from_errno(frag_rc);
+			rc = rzi_lorawan_zephyr_err(frag_rc);
 		}
 		fuota_services_started = true;
 	}
@@ -461,7 +461,7 @@ static int zephyr_fuota_read_image(uint32_t offset, uint8_t *buffer, size_t size
 	}
 	rc = flash_area_open(PARTITION_ID(slot1_partition), &area);
 	if (rc != 0) {
-		return rzi_err_from_errno(rc);
+		return rzi_lorawan_zephyr_err(rc);
 	}
 	if (((uint64_t)offset + size) > area->fa_size) {
 		flash_area_close(area);
@@ -469,7 +469,7 @@ static int zephyr_fuota_read_image(uint32_t offset, uint8_t *buffer, size_t size
 	}
 	rc = flash_area_read(area, offset, buffer, size);
 	flash_area_close(area);
-	return rzi_err_from_errno(rc);
+	return rzi_lorawan_zephyr_err(rc);
 #else
 	ARG_UNUSED(offset);
 	ARG_UNUSED(buffer);
@@ -519,11 +519,11 @@ static int zephyr_start(enum rzi_lorawan_region selected_region, bool join_backo
 	current_region = selected_region;
 	rc = apply_region(selected);
 	if (rc != 0) {
-		return rzi_err_from_errno(rc);
+		return rzi_lorawan_zephyr_err(rc);
 	}
 	rc = lorawan_start();
 	if (rc != 0) {
-		return rzi_err_from_errno(rc);
+		return rzi_lorawan_zephyr_err(rc);
 	}
 	lorawan_register_downlink_callback(&downlink_cb);
 #ifndef CONFIG_LORAWAN_EMUL
@@ -564,7 +564,7 @@ static int apply_channel_mask(const struct rzi_lorawan_join_config *config)
 	} else {
 		return 0;
 	}
-	return rzi_err_from_errno(rzi_lorawan_zephyr_mib_set_channels(mask));
+	return rzi_lorawan_zephyr_err(rzi_lorawan_zephyr_mib_set_channels(mask));
 }
 
 static int zephyr_join(const struct rzi_lorawan_join_config *config)
@@ -660,7 +660,7 @@ static int zephyr_set_class(enum rzi_lorawan_class device_class)
 	if (rc == 0) {
 		rzi_lorawan_zephyr_set_class(device_class);
 	}
-	return rzi_err_from_errno(rc);
+	return rzi_lorawan_zephyr_err(rc);
 }
 
 static int zephyr_is_joined(bool *is_joined)

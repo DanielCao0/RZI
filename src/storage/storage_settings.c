@@ -60,7 +60,7 @@ int rzi_storage_init(void)
 	int rc = 0;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&storage_lock, K_FOREVER);

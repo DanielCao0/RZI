@@ -359,7 +359,7 @@ static void handle_fuota_event(const struct rzi_lorawan_backend_event *event)
 int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *table)
 {
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (table == NULL || callbacks_empty(table)) {
 		return -RZI_ERR_INVALID;
@@ -374,7 +374,7 @@ int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *table)
 int rzi_fuota_start(void)
 {
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);
@@ -396,7 +396,7 @@ int rzi_fuota_start(void)
 int rzi_fuota_get_status(struct rzi_fuota_status *status)
 {
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (status == NULL) {
 		return -RZI_ERR_INVALID;
@@ -414,7 +414,7 @@ int rzi_fuota_get_status(struct rzi_fuota_status *status)
 int rzi_fuota_set_expected_size(size_t size)
 {
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (size == 0U) {
 		return -RZI_ERR_INVALID;
@@ -434,7 +434,7 @@ int rzi_fuota_read_image(size_t offset, void *buffer, size_t size)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (buffer == NULL || size == 0U) {
 		return -RZI_ERR_INVALID;
@@ -455,7 +455,7 @@ int rzi_fuota_read_image(size_t offset, void *buffer, size_t size)
 int rzi_fuota_apply(void)
 {
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&lock, K_FOREVER);

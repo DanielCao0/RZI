@@ -277,7 +277,7 @@ public headers or public types.
 ## 6. Concurrency and context
 
 - Default: public functions are thread-context only. ISR callers return
-  `-RZI_ERR_WOULDBLOCK`.
+  `-RZI_ERR_ISR`.
 - Callbacks run serially on the documented thread (LoRaWAN uses the
   dispatcher thread). Do not assume they may block or re-enter arbitrarily.
 - Pointers passed to a callback are valid only for that invocation. Data

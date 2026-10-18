@@ -256,7 +256,7 @@ K_THREAD_DEFINE(rzi_lorawan_dispatcher, CONFIG_RZI_LORAWAN_DISPATCHER_STACK_SIZE
 
 int rzi_lorawan_check_thread(void)
 {
-	return k_is_in_isr() ? -RZI_ERR_WOULDBLOCK : 0;
+	return k_is_in_isr() ? -RZI_ERR_ISR : 0;
 }
 
 int rzi_lorawan_check_started(void)
@@ -296,7 +296,7 @@ int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks
 	struct callback_slot *available = NULL;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (callbacks == NULL || handle == NULL || callbacks_empty(callbacks)) {
 		return -RZI_ERR_INVALID;
@@ -330,7 +330,7 @@ int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t handle)
 	int rc = -RZI_ERR_NOT_FOUND;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (handle == RZI_LORAWAN_CALLBACK_HANDLE_INVALID) {
 		return -RZI_ERR_INVALID;
@@ -353,7 +353,7 @@ int rzi_lorawan_set_region(enum rzi_lorawan_region region)
 	int rc = 0;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if ((unsigned int)region > RZI_LORAWAN_REGION_RU_864) {
 		return -RZI_ERR_INVALID;
@@ -361,7 +361,7 @@ int rzi_lorawan_set_region(enum rzi_lorawan_region region)
 
 	k_mutex_lock(&config_lock, K_FOREVER);
 	if (atomic_get(&started)) {
-		rc = -RZI_ERR_ALREADY;
+		rc = -RZI_ERR_INVALID_STATE;
 	} else {
 		configured_region = region;
 	}
@@ -374,12 +374,12 @@ int rzi_lorawan_set_join_backoff_bypass(bool enabled)
 	int rc = 0;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&config_lock, K_FOREVER);
 	if (atomic_get(&started)) {
-		rc = -RZI_ERR_ALREADY;
+		rc = -RZI_ERR_INVALID_STATE;
 	} else {
 		configured_join_backoff_bypass = enabled;
 	}
@@ -421,7 +421,7 @@ int rzi_lorawan_start(void)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 
 	check_backend_contract();

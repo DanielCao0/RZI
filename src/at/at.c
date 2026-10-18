@@ -230,7 +230,7 @@ int rzi_at_start(const struct rzi_at_io *io)
 	int rc;
 
 	if (k_is_in_isr()) {
-		return -RZI_ERR_WOULDBLOCK;
+		return -RZI_ERR_ISR;
 	}
 	if (io == NULL || io->write == NULL) {
 		return -RZI_ERR_INVALID;

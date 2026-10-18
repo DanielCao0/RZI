@@ -49,7 +49,7 @@ __must_check int rzi_at_uart_start(const struct device *uart);
  * @param[out] baud_rate Destination.
  *
  * @retval 0 Baud rate stored.
- * @retval -RZI_ERR_NO_DEVICE The UART adapter is not started.
+ * @retval -RZI_ERR_NOT_READY The UART adapter is not started.
  * @retval -RZI_ERR_INVALID baud_rate is NULL.
  * @since 0.3
  */
@@ -61,7 +61,7 @@ __must_check int rzi_at_uart_get_baud(uint32_t *baud_rate);
  * @param baud_rate Requested baud rate.
  *
  * @retval 0 Baud rate applied.
- * @retval -RZI_ERR_NO_DEVICE The UART adapter is not started.
+ * @retval -RZI_ERR_NOT_READY The UART adapter is not started.
  * @retval -RZI_ERR_INVALID baud_rate is zero.
  * @since 0.3
  */

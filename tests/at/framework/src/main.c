@@ -138,7 +138,7 @@ ZTEST(rzi_at_framework, test_operation_validation)
 
 ZTEST(rzi_at_framework, test_registry_is_immutable_after_start)
 {
-	zassert_equal(rzi_at_register(&custom_command, 1), -RZI_ERR_DENIED);
+	zassert_equal(rzi_at_register(&custom_command, 1), -RZI_ERR_INVALID_STATE);
 }
 
 ZTEST(rzi_at_framework, test_system_lock_and_sleep)

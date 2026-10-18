@@ -7,10 +7,27 @@
 #ifndef RZI_LORAWAN_BACKEND_ZEPHYR_PRIV_H
 #define RZI_LORAWAN_BACKEND_ZEPHYR_PRIV_H
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <rzi/err.h>
+
 #include "../lorawan_backend.h"
+
+/**
+ * Map a Zephyr LoRaWAN return value.
+ *
+ * The native stack uses ENETDOWN when no session is active. That conversion
+ * stays in this backend; the generic mapper treats ENETDOWN as not ready.
+ */
+static inline int rzi_lorawan_zephyr_err(int rc)
+{
+	if (rc == -ENETDOWN) {
+		return -RZI_ERR_NOT_JOINED;
+	}
+	return rzi_err_from_errno(rc);
+}
 
 int rzi_lorawan_zephyr_mib_dev_addr(uint32_t *dev_addr);
 int rzi_lorawan_zephyr_mib_nwk_skey(uint8_t key[16]);

@@ -34,7 +34,7 @@ static atomic_t rx_active;
 
 static int check_thread(void)
 {
-	return k_is_in_isr() ? -RZI_ERR_WOULDBLOCK : 0;
+	return k_is_in_isr() ? -RZI_ERR_ISR : 0;
 }
 
 static void apply_cipher(uint8_t *data, size_t size, const struct rzi_lora_config *settings)

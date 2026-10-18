@@ -17,7 +17,7 @@ ZTEST(rzi_err_catalog, test_str_covers_closed_catalog)
 	} cases[] = {
 		{RZI_SUCCESS, "RZI_SUCCESS"},
 		{-RZI_ERR_INVALID, "RZI_ERR_INVALID"},
-		{RZI_ERR_WOULDBLOCK, "RZI_ERR_WOULDBLOCK"},
+		{RZI_ERR_ISR, "RZI_ERR_ISR"},
 		{-RZI_ERR_NOT_READY, "RZI_ERR_NOT_READY"},
 		{RZI_ERR_ALREADY, "RZI_ERR_ALREADY"},
 		{-RZI_ERR_BUSY, "RZI_ERR_BUSY"},
@@ -33,13 +33,23 @@ ZTEST(rzi_err_catalog, test_str_covers_closed_catalog)
 		{-RZI_ERR_NO_DEVICE, "RZI_ERR_NO_DEVICE"},
 		{RZI_ERR_NOT_JOINED, "RZI_ERR_NOT_JOINED"},
 		{-RZI_ERR_DENIED, "RZI_ERR_DENIED"},
+		{RZI_ERR_INVALID_STATE, "RZI_ERR_INVALID_STATE"},
 		{99, "RZI_ERR_UNKNOWN"},
+		{-EIO, "RZI_ERR_UNKNOWN"},
+		{-EBUSY, "RZI_ERR_UNKNOWN"},
+		{-ENOMEM, "RZI_ERR_UNKNOWN"},
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(cases); ++i) {
 		zassert_ok(strcmp(rzi_err_str(cases[i].value), cases[i].name), "value %d",
 			   cases[i].value);
 	}
+}
+
+ZTEST(rzi_err_catalog, test_catalog_values_do_not_alias_errno)
+{
+	zassert_true(RZI_ERR_INVALID > ECANCELED);
+	zassert_true(RZI_ERR_INVALID_STATE > ECANCELED);
 }
 
 ZTEST(rzi_err_catalog, test_errno_mapper_preserves_precision)
@@ -62,11 +72,15 @@ ZTEST(rzi_err_catalog, test_errno_mapper_preserves_precision)
 	zassert_equal(rzi_err_from_errno(-EOVERFLOW), -RZI_ERR_OVERFLOW);
 	zassert_equal(rzi_err_from_errno(-EBADMSG), -RZI_ERR_BAD_MESSAGE);
 	zassert_equal(rzi_err_from_errno(-ENODEV), -RZI_ERR_NO_DEVICE);
-	zassert_equal(rzi_err_from_errno(-ENETDOWN), -RZI_ERR_NOT_JOINED);
+	zassert_equal(rzi_err_from_errno(-ENETDOWN), -RZI_ERR_NOT_READY);
 	zassert_equal(rzi_err_from_errno(-EACCES), -RZI_ERR_DENIED);
 	zassert_equal(rzi_err_from_errno(-EPERM), -RZI_ERR_DENIED);
 	zassert_equal(rzi_err_from_errno(-EIO), -RZI_ERR_IO);
 	zassert_equal(rzi_err_from_errno(-12345), -RZI_ERR_IO);
+	zassert_equal(rzi_err_from_errno(-RZI_ERR_BUSY), -RZI_ERR_BUSY);
+	zassert_equal(rzi_err_from_errno(-RZI_ERR_NOT_JOINED), -RZI_ERR_NOT_JOINED);
+	zassert_equal(rzi_err_from_errno(-RZI_ERR_INVALID_STATE), -RZI_ERR_INVALID_STATE);
+	zassert_equal(rzi_err_from_errno(-RZI_ERR_ISR), -RZI_ERR_ISR);
 }
 
 ZTEST_SUITE(rzi_err_catalog, NULL, NULL, NULL, NULL, NULL);
