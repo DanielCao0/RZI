@@ -111,9 +111,8 @@ a downlink, the next uplink is followed by a line such as:
 
    <inf> rzi_periodical_uplink: Downlink: port 2, 3 bytes, RSSI -45 dBm, SNR 38/4 dB
 
-MCUboot prints its own lines before the Zephyr banner, and the USP stack logs
-under the ``usp`` module between the sample's lines. Set
-``CONFIG_USP_LOG_LEVEL_WRN=y`` to hide its informational messages.
+MCUboot prints its own lines before the Zephyr banner. LoRa Basics Modem
+traces stay off unless ``CONFIG_USP_LOG_LEVEL_INF=y`` is set.
 
 Troubleshooting
 ***************

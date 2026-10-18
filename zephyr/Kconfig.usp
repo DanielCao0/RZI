@@ -13,3 +13,21 @@ config RZI_USP
 	  initializes the platform, the radio access controller and LoRa Basics
 	  Modem once, serializes API calls, and routes modem events. Selected
 	  by the USP LoRaWAN and raw LoRa backends.
+
+# Sourced before the USP Kconfig, so these are the first choice defaults
+# and win over LOG_LEVEL_DEFAULT. LBM traces use the USP "lorawan" module.
+if LOG && USP
+
+choice USP_LOG_LEVEL_CHOICE
+	default USP_LOG_LEVEL_OFF
+endchoice
+
+choice LORA_BASICS_MODEM_LOG_LEVEL_CHOICE
+	default LORA_BASICS_MODEM_LOG_LEVEL_OFF
+endchoice
+
+choice LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL_CHOICE
+	default LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL_OFF
+endchoice
+
+endif
