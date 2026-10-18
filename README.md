@@ -16,7 +16,7 @@ application interface.
 - **Current version:** [0.2.0](include/rzi/version.h)
 - **License:** [Apache-2.0](LICENSE)
 - **Supported boards:** `rzi_rak4631/nrf52840`,
-  `rzi_rak3372/stm32wle5xx`, `rzi_rak3172_f/stm32wle5xx` and
+  `rzi_rak3372/stm32wle5xx`, `rzi_rak3372_f/stm32wle5xx` and
   `rzi_rak3362/nrf54l15/cpuapp`
 
 ## Key capabilities
@@ -159,7 +159,7 @@ this when the Zephyr revision changes:
 west packages pip --install
 ```
 
-Apply RZI's patches to `usp_zephyr` and `usp`. Repeat this after every
+Apply RZI's patches to `zephyr`, `usp_zephyr`, and `usp`. Repeat this after every
 `west update`:
 
 ```sh
@@ -167,10 +167,10 @@ west patch -sm rzi clean
 west patch -sm rzi apply --roll-back
 ```
 
-The patches add the RAK3372 radio to `usp_zephyr`, adapt it to the pinned
-Zephyr release, let `usp` export LoRaWAN session keys, and fix a header that
-warns on every SX1262 build. `clean` discards
-uncommitted changes in those two modules.
+The patches add the RAK3372 radio to `usp_zephyr`, repair STM32WL STOP
+resume in Zephyr, adapt the backend to the pinned Zephyr release, let `usp`
+export LoRaWAN session keys, and fix a header that warns on every SX1262
+build. `clean` discards uncommitted changes in those three modules.
 See [`doc/west-patch.md`](doc/west-patch.md).
 
 Check that every project resolved to the expected revision:
@@ -226,7 +226,7 @@ install, not `zephyr.hex`; see [`doc/boot.md`](doc/boot.md).
 | Sample | Purpose |
 |---|---|
 | [`samples/lorawan/periodical_uplink`](samples/lorawan/periodical_uplink/README.rst) | OTAA join and periodic uplink, with a low-power variant |
-| [`samples/lorawan/fuota`](samples/lorawan/fuota/README.rst) | ChirpStack-compatible FUOTA (`rzi_rak4631`, `rzi_rak3172_f`) |
+| [`samples/lorawan/fuota`](samples/lorawan/fuota/README.rst) | ChirpStack-compatible FUOTA (`rzi_rak4631`, `rzi_rak3372_f`) |
 | [`samples/at`](samples/at/README.rst) | RUI3-compatible AT modem (LoRaWAN, P2P, radio tests) over USB CDC (`rzi_rak4631`) or uart20 (`rzi_rak3362`) |
 | [`samples/lora/tx_cw`](samples/lora/tx_cw/README.rst) | Continuous-wave carrier for RF measurements |
 See [`samples/README.md`](samples/README.md) for board support and where to

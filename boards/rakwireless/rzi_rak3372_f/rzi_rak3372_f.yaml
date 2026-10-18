@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
-identifier: rzi_rak3172_f/stm32wle5xx
-name: RZI RAK3172-F
+identifier: rzi_rak3372_f/stm32wle5xx
+name: RZI RAK3372-F
 type: mcu
 arch: arm
 toolchain:

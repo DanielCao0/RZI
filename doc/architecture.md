@@ -153,7 +153,7 @@ must never control the same radio instance at runtime.
 - upstream protocol APIs when they are available and stable.
 
 RZI exports a product `board_root` (`rzi_rak4631`, `rzi_rak3372`,
-`rzi_rak3172_f`, `rzi_rak3362`). Partition
+`rzi_rak3372_f`, `rzi_rak3362`). Partition
 tables live next to each board DTS. It does not fork SoC bindings. Customers
 target RZI product boards, not the upstream board names. The boot contract is
 `CONFIG_RZI_MCUBOOT`, sysbuild, and a merged image; see
@@ -167,7 +167,7 @@ reuse the radio, clock, and pad setup that RZI validates:
 |---|---|---|
 | RAK4630 (nRF52840 + SX1262) | `<rakwireless/rzi_rak4630.dtsi>` | `rzi_rak4631` |
 | RAK3172 (STM32WLE5CC) | `<rakwireless/rzi_rak3172.dtsi>` | `rzi_rak3372` |
-| RAK3172-F (STM32WLE5JC + MX25L400) | `<rakwireless/rzi_rak3172_f.dtsi>` | `rzi_rak3172_f` |
+| RAK3172-F (STM32WLE5JC + MX25L400) | `<rakwireless/rzi_rak3172_f.dtsi>` | `rzi_rak3372_f` |
 | RAK3162 (nRF54L15 + SX1262) | `<rakwireless/rzi_rak3162.dtsi>` | `rzi_rak3362` |
 
 The module file owns what is fixed inside the module: SoC, regulators or
