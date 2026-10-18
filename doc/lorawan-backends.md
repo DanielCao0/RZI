@@ -106,7 +106,7 @@ CONFIG_LORAWAN_REGION_EU868=y
 Do not also write `CONFIG_LORA=n` / `CONFIG_LORAWAN=n`. `BACKEND_ZEPHYR`
 enables them. `CONFIG_LORAWAN_REGION_*` must match
 `rzi_lorawan_set_region()`. Building only EU868 and setting US915 at
-runtime makes `start()` fail.
+runtime makes `rzi_lorawan_init()` fail.
 
 Board requirements:
 
@@ -201,7 +201,7 @@ backend exists to prove a second stack can sit behind it. A backend:
   (`get_enabled_data_rates`). The service keeps no shadow copies;
 - reports stack-side event loss as `ERROR` with `-RZI_ERR_OVERFLOW`;
 - sets a capability bit exactly when the matching ops table is non-NULL.
-  `rzi_lorawan_start()` asserts this. USP derives class B, class C, and
+  `rzi_lorawan_init()` asserts this. USP derives class B, class C, and
   multicast from `CONFIG_LORA_BASICS_MODEM_CLASS_B`, `_CLASS_C`, and
   `_MULTICAST`;
 - with `RZI_LORAWAN_CAP_CHANNEL` (no ops table), applies

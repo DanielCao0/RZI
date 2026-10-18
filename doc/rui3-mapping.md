@@ -28,7 +28,7 @@ settings are kept for RUI3 source compatibility but return
 rate. Class B ping-slot periodicity is 0–7. Channel masks are US915 / AU915
 only (72 channels, 5 or 6 words). The core stores the mask with the
 credentials and applies it at the next join, so the channel calls work before
-`rzi_lorawan_start()`.
+`rzi_lorawan_init()`.
 
 ## `include/rzi/lorawan/lorawan.h`
 
@@ -41,7 +41,7 @@ int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks
 int rzi_lorawan_unregister_callbacks(const struct rzi_lorawan_callbacks *callbacks);
 int rzi_lorawan_set_region(enum rzi_lorawan_region region);
 int rzi_lorawan_set_join_backoff_bypass(bool enabled);
-int rzi_lorawan_start(void);
+int rzi_lorawan_init(enum rzi_lorawan_region region);
 int rzi_lorawan_get_dev_eui(uint8_t *eui, size_t len);
 int rzi_lorawan_set_dev_eui(const uint8_t *eui, size_t len);
 int rzi_lorawan_get_app_eui(uint8_t *eui, size_t len);
@@ -243,7 +243,7 @@ commands, RAK3172 `AT+UID`, and transparent / binary API modes.
 
 | Group | RUI3 | RZI | Status | Note |
 |---|---|---|---|---|
-| Lifecycle | `service_lora_init` | `rzi_lorawan_start` | present | |
+| Lifecycle | `service_lora_init` | `rzi_lorawan_init` | present | Region is the argument |
 | Lifecycle | `service_lora_get/set_band` | `rzi_lorawan_get/set_region` | limited | No EU433 / LA915 enum |
 | Lifecycle | `service_lora_region_isActive` | — | missing | No public “region compiled in?” probe |
 | Lifecycle | `service_lora_set_lora_default` | `ATR` / `AT+FACTORY` | AT-only | Not a C ABI |

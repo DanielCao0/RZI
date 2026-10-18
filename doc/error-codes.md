@@ -50,8 +50,8 @@ value returned by an API.
 | `RZI_ERR_INVALID_STATE` | 1017 | Service lifecycle does not allow this operation |
 
 `RZI_ERR_ALREADY` means the requested state or object is already present:
-a second `start`, or a duplicate AT command name. A start-time setting
-changed after `start`, and registration after the AT registry is sealed,
+a second `init` or `start`, or a duplicate AT command name. A setting
+changed after `rzi_lorawan_init`, and registration after the AT registry is sealed,
 return `RZI_ERR_INVALID_STATE`. `RZI_ERR_NO_DEVICE` means the hardware
 device is missing. An adapter or service that has not been started returns
 `RZI_ERR_NOT_READY`.

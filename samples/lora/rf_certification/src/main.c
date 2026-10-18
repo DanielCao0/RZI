@@ -176,9 +176,9 @@ static int start_radio(void)
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lorawan_start();
+	rc = rzi_lorawan_init(RZI_LORAWAN_REGION_EU_868);
 	if (rc != 0) {
-		LOG_ERR("LoRaWAN start failed: %s", rzi_err_str(rc));
+		LOG_ERR("LoRaWAN init failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	if (k_sem_take(&stack_ready, READY_TIMEOUT) != 0) {

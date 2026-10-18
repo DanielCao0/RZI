@@ -45,7 +45,7 @@ separate `CONFIG_RZI_LORA` and `include/rzi/lora/lora.h`.
 RZI keeps Zephyr's main operation order and uses RUI3's credential and join shape:
 
 ```text
-set_region -> set credentials -> start -> join(start, auto_join, interval, attempts) -> send
+set credentials -> init(region) -> join(start, auto_join, interval, attempts) -> send
 ```
 
 - DevEUI, AppEUI, AppKey, GenAppKey, and ABP credentials are stored before join;
@@ -74,19 +74,20 @@ rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
 rzi_lorawan_set_app_eui(app_eui, sizeof(app_eui));
 rzi_lorawan_set_app_key(app_key, sizeof(app_key));
 rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
-rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868);
-rzi_lorawan_start();
+rzi_lorawan_init(RZI_LORAWAN_REGION_EU_868);
 /* after on_event(RZI_LORAWAN_EVENT_READY) */
 rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0);
 ```
 
 Rules:
 
-1. Callbacks may be registered before `start`. Doing so is recommended so
+1. Callbacks may be registered before `init`. Doing so is recommended so
    `RZI_LORAWAN_EVENT_READY` is not missed;
-2. `set_region` and `set_join_backoff_bypass` may be called only before
-   `start`. After `start` they return `-RZI_ERR_INVALID_STATE`;
-3. `start` is a process-wide one-shot. A repeat returns `-RZI_ERR_ALREADY`;
+2. `set_region` stores a region for channel-mask commands before `init`.
+   `set_join_backoff_bypass` may be called only before `init`. After
+   `init` both return `-RZI_ERR_INVALID_STATE`. `init` overwrites the
+   stored region;
+3. `init` is a process-wide one-shot. A repeat returns `-RZI_ERR_ALREADY`;
 4. `RZI_LORAWAN_EVENT_READY` means the backend can accept a join. It does
    not mean the device has joined the network;
 5. After an unexpected modem reset, RZI reconfigures the backend and emits
@@ -295,8 +296,8 @@ uses this subset:
 - `-RZI_ERR_INVALID`: invalid argument, enum, or port;
 - `-RZI_ERR_ISR`: a thread-context API was called from an ISR;
 - `-RZI_ERR_NOT_READY`: the service or backend is not ready;
-- `-RZI_ERR_ALREADY`: repeated `start`, or the same callback subscriber;
-- `-RZI_ERR_INVALID_STATE`: a start-time setting changed after `start`;
+- `-RZI_ERR_ALREADY`: repeated `init`, or the same callback subscriber;
+- `-RZI_ERR_INVALID_STATE`: a setting changed after `init`;
 - `-RZI_ERR_BUSY`: a conflicting asynchronous operation is already in
   flight;
 - `-RZI_ERR_NOT_SUPPORTED`: the selected backend does not support the
@@ -324,7 +325,7 @@ and the internal event envelope. A backend:
 - follows LoRa Basics Modem semantics; other stacks emulate them (see
   [lorawan-backends.md](./lorawan-backends.md));
 - provides a capability bit mask and the mandatory `is_busy` operation;
-- receives region, development policy, and an event sink at `start`;
+- receives region, development policy, and an event sink at `init`;
 - deep-copies the join config and send payload;
 - converts vendor return values to negative `RZI_ERR_*`;
 - does not call user callbacks directly;
@@ -335,7 +336,7 @@ and the internal event envelope. A backend:
 backend contract. A NULL table means the backend does not implement that
 group; a NULL member still returns `-RZI_ERR_NOT_SUPPORTED`. A public
 capability bit advertises runtime support and must stay aligned with the
-non-NULL pointers; `rzi_lorawan_start()` asserts this with `CONFIG_ASSERT`. Core public APIs are always compiled except FUOTA, which
+non-NULL pointers; `rzi_lorawan_init()` asserts this with `CONFIG_ASSERT`. Core public APIs are always compiled except FUOTA, which
 remains Kconfig-gated.
 
 A new backend implements the lifecycle operations and fills in the tables it

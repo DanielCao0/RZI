@@ -146,7 +146,7 @@ typedef void (*rzi_lorawan_event_sink_t)(const struct rzi_lorawan_backend_event 
  * service does not shadow it.
  *
  * Each optional table must be present exactly when its RZI_LORAWAN_CAP_* bit
- * is set; rzi_lorawan_start() asserts this.
+ * is set; rzi_lorawan_init() asserts this.
  */
 struct rzi_lorawan_backend_api {
 	/** Bitwise OR of enum rzi_lorawan_capability values. */

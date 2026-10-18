@@ -104,7 +104,7 @@ __must_check int rzi_fuota_register_callbacks(const struct rzi_fuota_callbacks *
  * @retval -RZI_ERR_NOT_SUPPORTED The selected backend does not advertise FUOTA.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @note Thread context only. rzi_lorawan_start() starts this service when
+ * @note Thread context only. rzi_lorawan_init() starts this service when
  *       CONFIG_RZI_LORAWAN_FUOTA is enabled.
  * @since 0.2
  */

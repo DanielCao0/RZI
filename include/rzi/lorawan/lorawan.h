@@ -436,11 +436,13 @@ __must_check int rzi_lorawan_unregister_callbacks(const struct rzi_lorawan_callb
  *
  * @retval 0 Region stored.
  * @retval -RZI_ERR_INVALID The region value is invalid.
- * @retval -RZI_ERR_INVALID_STATE The service has already started.
+ * @retval -RZI_ERR_INVALID_STATE The service has already been initialized.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @pre The service has not started.
- * @note Thread context only.
+ * @pre The service has not been initialized. @ref rzi_lorawan_init overwrites
+ *      this value.
+ * @note Thread context only. Channel-mask commands use the stored region
+ *       before initialization.
  * @since 0.2
  */
 __must_check int rzi_lorawan_set_region(enum rzi_lorawan_region region);
@@ -452,34 +454,40 @@ __must_check int rzi_lorawan_set_region(enum rzi_lorawan_region region);
  *        behavior.
  *
  * @retval 0 Policy stored.
- * @retval -RZI_ERR_INVALID_STATE The service has already started.
+ * @retval -RZI_ERR_INVALID_STATE The service has already been initialized.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @warning Enabling this option may violate regional duty-cycle requirements
  *          and must not be used in production. Backends that have no join
  *          duty-cycle control ignore this setting.
- * @pre The service has not started.
+ * @pre The service has not been initialized.
  * @note Thread context only.
  * @since 0.2
  */
 __must_check int rzi_lorawan_set_join_backoff_bypass(bool enabled);
 
 /**
- * @brief Start the process-wide LoRaWAN service.
+ * @brief Initialize the process-wide LoRaWAN service for one region.
  *
- * A return value of zero means startup was accepted. Readiness is reported
- * through on_event() with RZI_LORAWAN_EVENT_READY.
+ * Stores @p region and brings the backend up. A return value of zero means
+ * initialization was accepted. Readiness is reported through on_event()
+ * with RZI_LORAWAN_EVENT_READY. Register callbacks first so that event is
+ * not missed.
  *
- * @retval 0 Startup accepted.
- * @retval -RZI_ERR_ALREADY The service has already started.
- * @retval -RZI_ERR_IO Backend startup failed.
+ * @param region Region used by the selected backend.
+ *
+ * @retval 0 Initialization accepted.
+ * @retval -RZI_ERR_INVALID The region value is invalid.
+ * @retval -RZI_ERR_ALREADY The service has already been initialized.
+ * @retval -RZI_ERR_IO Backend initialization failed.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only. Runtime stop and reinitialization are not
- *       supported.
- * @since 0.2
+ *       supported. Credentials may be stored before or after this call,
+ *       and must be stored before join.
+ * @since 0.4
  */
-__must_check int rzi_lorawan_start(void);
+__must_check int rzi_lorawan_init(enum rzi_lorawan_region region);
 
 /** @} */
 
@@ -1068,7 +1076,7 @@ uint32_t rzi_lorawan_get_capabilities(void);
  */
 
 /**
- * @brief Return the region selected by rzi_lorawan_set_region().
+ * @brief Return the region stored by set_region() or init().
  *
  * @param[out] region Stored region.
  *
@@ -1076,7 +1084,7 @@ uint32_t rzi_lorawan_get_capabilities(void);
  * @retval -RZI_ERR_INVALID region is NULL.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @note Thread context only. May be called before start.
+ * @note Thread context only. May be called before @ref rzi_lorawan_init.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_region(enum rzi_lorawan_region *region);
@@ -1958,7 +1966,7 @@ __must_check int rzi_lorawan_send_empty(bool with_port, uint8_t port,
  * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @note Thread context only. Works before @ref rzi_lorawan_start.
+ * @note Thread context only. Works before @ref rzi_lorawan_init.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_channel_mask(uint16_t *mask, size_t words);
@@ -1978,7 +1986,7 @@ __must_check int rzi_lorawan_get_channel_mask(uint16_t *mask, size_t words);
  * @retval -RZI_ERR_NOT_SUPPORTED The region or backend does not support channel masks.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @note Thread context only. Works before @ref rzi_lorawan_start.
+ * @note Thread context only. Works before @ref rzi_lorawan_init.
  * @since 0.3
  */
 __must_check int rzi_lorawan_set_channel_mask(const uint16_t *mask, size_t words);

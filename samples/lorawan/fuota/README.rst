@@ -10,7 +10,7 @@ Overview
 This sample starts the stack, waits until it is ready, joins, then sends an
 uplink every 5 seconds. The application blocks on semaphores that the event
 callback gives; callbacks only signal and print logs.
-``rzi_lorawan_start()`` starts FUOTA coordination when
+``rzi_lorawan_init()`` starts FUOTA coordination when
 ``CONFIG_RZI_LORAWAN_FUOTA`` is enabled. The application registers FUOTA
 callbacks to observe session state and completion. RZI and the USP backend
 handle clock sync, Class C multicast and image reconstruction.

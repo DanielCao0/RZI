@@ -27,7 +27,7 @@ the public header. The rest is absorbed by the backend.
 | `join()` / `send()` return immediately; completion is an event | Both calls block until finished | Dedicated work queue |
 | `READY` / `JOINED` / `JOIN_FAILED` / `TX_DONE` / `DOWNLINK` | No peer events; success is the return value | Publish events after the worker finishes |
 | `start_clock_sync` / image read-write / reboot | `lorawan_clock_sync_run()`, slot1 flash, `sys_reboot()` | FUOTA ops table |
-| Runtime `set_region()` | `lorawan_set_region()`, also trimmed by Kconfig | `start()` fails if the mapping fails |
+| Runtime `rzi_lorawan_init()` | `lorawan_set_region()`, also trimmed by Kconfig | `init()` fails if the mapping fails |
 
 ## Friction exposed by the second backend
 

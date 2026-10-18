@@ -28,11 +28,8 @@
 #define USER_NODE DT_PATH(zephyr_user)
 #if DT_NODE_HAS_PROP(USER_NODE, user_lorawan_device_eui) &&                                        \
 	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_join_eui) &&                                      \
-	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_app_key) &&                                       \
-	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_region)
+	DT_NODE_HAS_PROP(USER_NODE, user_lorawan_app_key)
 #define AT_HAS_DT_DEFAULTS 1
-#define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
-#define AT_DT_REGION       REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region))
 #endif
 
 struct rzi_at_lorawan_context rzi_at_lorawan_context = {
@@ -278,12 +275,10 @@ bool rzi_at_lorawan_is_joined(void)
 static int start_service(void)
 {
 	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
-	int rc = rzi_lorawan_set_region(context->region);
+	int rc;
 
-	if (rc == 0) {
-		atomic_set(&context->join_pending, 1);
-		rc = rzi_lorawan_start();
-	}
+	atomic_set(&context->join_pending, 1);
+	rc = rzi_lorawan_init(context->region);
 	if (rc != 0) {
 		atomic_clear(&context->join_pending);
 		return rc;
@@ -411,7 +406,6 @@ static int extension_start(void)
 		    rzi_lorawan_get_app_key(stored, sizeof(app_key)) == -RZI_ERR_NO_DATA) {
 			rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
 		}
-		context->region = AT_DT_REGION;
 		if (rc != 0) {
 			return rc;
 		}

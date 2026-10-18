@@ -19,7 +19,7 @@ static __maybe_unused void ignore_result(int result)
 LOG_MODULE_REGISTER(rzi_periodical_uplink, LOG_LEVEL_INF);
 
 #define USER_NODE          DT_PATH(zephyr_user)
-#define REGION_ENUM(name)  DT_CAT(RZI_LORAWAN_REGION_, name)
+#define LORAWAN_REGION     RZI_LORAWAN_REGION_EU_868
 #define RETRY_DELAY_MS     5000
 #define UPLINK_INTERVAL_MS 60000
 #define UPLINK_PORT        101
@@ -160,15 +160,9 @@ int main(void)
 		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lorawan_set_region(
-		REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region)));
+	rc = rzi_lorawan_init(LORAWAN_REGION);
 	if (rc != 0) {
-		LOG_ERR("Region failed: %s", rzi_err_str(rc));
-		return rc;
-	}
-	rc = rzi_lorawan_start();
-	if (rc != 0) {
-		LOG_ERR("Start failed: %s", rzi_err_str(rc));
+		LOG_ERR("LoRaWAN init failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 

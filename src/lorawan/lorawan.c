@@ -420,14 +420,16 @@ static void check_backend_contract(void)
 	__ASSERT(rzi_lorawan_backend.is_busy != NULL, "backend must report busy");
 }
 
-int rzi_lorawan_start(void)
+int rzi_lorawan_init(enum rzi_lorawan_region region)
 {
-	enum rzi_lorawan_region region;
 	bool bypass;
 	int rc;
 
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
+	}
+	if ((unsigned int)region > RZI_LORAWAN_REGION_RU_864) {
+		return -RZI_ERR_INVALID;
 	}
 
 	check_backend_contract();
@@ -436,7 +438,7 @@ int rzi_lorawan_start(void)
 		k_mutex_unlock(&config_lock);
 		return -RZI_ERR_ALREADY;
 	}
-	region = configured_region;
+	configured_region = region;
 	bypass = configured_join_backoff_bypass;
 	k_mutex_unlock(&config_lock);
 

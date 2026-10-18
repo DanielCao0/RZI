@@ -98,7 +98,6 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 
 	lorawan_emul_register_uplink_callback(on_emul_uplink);
 	zassert_ok(rzi_lorawan_register_callbacks(&callbacks));
-	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868));
 	zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
 
 	caps = rzi_lorawan_get_capabilities();
@@ -108,7 +107,7 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 	zassert_true((caps & RZI_LORAWAN_CAP_CLASS_C) != 0U);
 	zassert_true((caps & RZI_LORAWAN_CAP_CLASS_B) == 0U);
 
-	zassert_ok(rzi_lorawan_start());
+	zassert_ok(rzi_lorawan_init(RZI_LORAWAN_REGION_EU_868));
 	wait_for_callbacks(1);
 	zassert_equal(atomic_get(&stats.ready), 1);
 

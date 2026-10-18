@@ -9,37 +9,10 @@
 
 LOG_MODULE_REGISTER(rzi_lctt, LOG_LEVEL_INF);
 
-#define USER_NODE         DT_PATH(zephyr_user)
-#define REGION_ENUM(name) DT_CAT(RZI_LORAWAN_REGION_, name)
+#define USER_NODE      DT_PATH(zephyr_user)
+#define LORAWAN_REGION RZI_LORAWAN_REGION_EU_868
 
 static K_SEM_DEFINE(stack_ready, 0, 1);
-
-static int configure_credentials(void)
-{
-	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
-	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
-	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
-	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
-	int rc;
-
-	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
-	if (rc != 0) {
-		return rc;
-	}
-	return rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
-}
 
 static const char *tx_status_str(enum rzi_lorawan_tx_status status)
 {
@@ -125,6 +98,10 @@ static const struct rzi_lorawan_callbacks callbacks = {
 
 int main(void)
 {
+	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
+	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
+	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
+	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
 	const bool wanted = IS_ENABLED(CONFIG_APP_LCTT_CERTIFICATION);
 	bool enabled = false;
 	int rc;
@@ -135,20 +112,26 @@ int main(void)
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = configure_credentials();
+	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
+	if (rc == 0) {
+		rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
+	}
+	if (rc == 0) {
+		rc = rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
+	}
 	if (rc != 0) {
 		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lorawan_set_region(
-		REGION_ENUM(DT_STRING_UNQUOTED(USER_NODE, user_lorawan_region)));
+	rc = rzi_lorawan_init(LORAWAN_REGION);
 	if (rc != 0) {
-		LOG_ERR("Region failed: %s", rzi_err_str(rc));
-		return rc;
-	}
-	rc = rzi_lorawan_start();
-	if (rc != 0) {
-		LOG_ERR("Start failed: %s", rzi_err_str(rc));
+		LOG_ERR("LoRaWAN init failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 

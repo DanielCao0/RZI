@@ -172,8 +172,7 @@ ZTEST(rzi_lorawan_fuota, test_session_and_image_access)
 	};
 
 	zassert_ok(rzi_fuota_register_callbacks(&fuota_callbacks));
-	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868));
-	zassert_ok(rzi_lorawan_start());
+	zassert_ok(rzi_lorawan_init(RZI_LORAWAN_REGION_EU_868));
 	zassert_true((rzi_lorawan_get_capabilities() & RZI_LORAWAN_CAP_FUOTA) != 0U);
 	zassert_ok(rzi_lorawan_join(1, 0, RZI_LORAWAN_JOIN_INTERVAL_DEFAULT, 0));
 	wait_for(1);

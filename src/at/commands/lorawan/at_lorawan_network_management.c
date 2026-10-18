@@ -109,7 +109,7 @@ static int handle_band(const struct rzi_at_request *request, void *user_data)
 
 	uint8_t stored = (uint8_t)band;
 
-	/* The core needs the region before start for the channel-mask commands. */
+	/* The core needs the region before init for the channel-mask commands. */
 	rc = rzi_lorawan_set_region(region);
 	if (rc != 0) {
 		return rc;

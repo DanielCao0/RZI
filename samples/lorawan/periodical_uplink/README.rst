@@ -30,8 +30,8 @@ Requirements
 Configuration
 *************
 
-Credentials and region are in ``app.overlay``. The checked-in values are
-zeros; replace them before a radio test:
+Credentials are in ``app.overlay``. The checked-in values are zeros;
+replace them before a radio test:
 
 .. list-table::
    :header-rows: 1
@@ -46,15 +46,11 @@ zeros; replace them before a radio test:
      - AppKey, 16 bytes
    * - ``user-lorawan-gen_app-key``
      - GenAppKey, 16 bytes; only used by FUOTA, may stay zero here
-   * - ``user-lorawan-region``
-     - Region name: ``EU_868``, ``US_915``, ``AU_915``, ``CN_470``,
-       ``AS_923_GRP1`` to ``AS_923_GRP4``, ``IN_865``, ``KR_920`` or ``RU_864``
 
-The region names are the ``RZI_LORAWAN_REGION_*`` enumerators in
-``include/rzi/lorawan/lorawan.h`` without the prefix.
-
-The uplink interval, port and retry delay are ``UPLINK_INTERVAL_MS``,
-``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in ``src/main.c``.
+The region is ``LORAWAN_REGION`` in ``src/main.c``. The checked-in value is
+``RZI_LORAWAN_REGION_EU_868``. The uplink interval, port and retry delay are
+``UPLINK_INTERVAL_MS``, ``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same
+file.
 
 Building
 ********
@@ -124,9 +120,9 @@ Failed calls print an ``RZI_ERR_*`` name from ``include/rzi/err.h``.
    AppKey match the server byte for byte, that the region matches the gateway,
    and that the gateway is online. The placeholder zero keys never join.
 
-``Credentials failed``, ``Region failed`` or ``Start failed`` right after boot
-   Credentials, region, or stack startup was rejected. Check the property
-   lengths in ``app.overlay`` and that the region is one of the names above.
+``Credentials failed`` or ``LoRaWAN init failed`` right after boot
+   Credentials or stack initialization was rejected. Check the property
+   lengths in ``app.overlay`` and ``LORAWAN_REGION`` in ``src/main.c``.
 
 ``Uplink rejected: RZI_ERR_*``
    The stack refused the uplink. ``RZI_ERR_BUSY`` (the previous uplink is

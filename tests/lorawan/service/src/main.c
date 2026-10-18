@@ -160,15 +160,14 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	zassert_equal(rzi_lorawan_register_callbacks(&first_callbacks), -RZI_ERR_ALREADY);
 	zassert_equal(rzi_lorawan_register_callbacks(&callbacks), -RZI_ERR_NO_RESOURCE);
 
-	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_US_915));
 	zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
-	zassert_ok(rzi_lorawan_start());
+	zassert_ok(rzi_lorawan_init(RZI_LORAWAN_REGION_US_915));
 	wait_for_callbacks(2);
 	zassert_equal(atomic_get(&first.ready), 1);
 	zassert_equal(atomic_get(&second.ready), 1);
 	zassert_equal(atomic_get(&first.states), 1);
 	zassert_equal(atomic_get(&first.last_state), RZI_LORAWAN_STATE_STARTING);
-	zassert_equal(rzi_lorawan_start(), -RZI_ERR_ALREADY);
+	zassert_equal(rzi_lorawan_init(RZI_LORAWAN_REGION_US_915), -RZI_ERR_ALREADY);
 	zassert_equal(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_CONFIRMED),
 		      -RZI_ERR_NOT_JOINED);
 
@@ -431,11 +430,10 @@ static void unsubscribe_after(void *fixture)
 
 static void ensure_ready_and_left(void)
 {
-	int rc = rzi_lorawan_set_region(RZI_LORAWAN_REGION_US_915);
+	int rc = rzi_lorawan_set_join_backoff_bypass(true);
 
 	if (rc == 0) {
-		zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
-		zassert_ok(rzi_lorawan_start());
+		zassert_ok(rzi_lorawan_init(RZI_LORAWAN_REGION_US_915));
 		zassert_ok(k_sem_take(&callback_sem, K_SECONDS(1)));
 	} else {
 		zassert_equal(rc, -RZI_ERR_INVALID_STATE);

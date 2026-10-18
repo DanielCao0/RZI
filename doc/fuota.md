@@ -23,7 +23,7 @@ automatically when `CONFIG_RZI_LORAWAN_FUOTA=y`:
 
 ```text
 OTAA join
-  -> rzi_fuota_start() (called automatically from lorawan_start)
+  -> rzi_fuota_start() (called automatically from rzi_lorawan_init)
   -> start ALCSync and request MAC DeviceTime
   -> periodic uplink (ChirpStack advances unicast steps from this)
   -> FPort 202 / 200 / 201 handled transparently by the backend
