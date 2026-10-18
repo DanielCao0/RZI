@@ -30,19 +30,17 @@ extern "C" {
  */
 
 /** Maximum storage reserved for a LoRaWAN application payload. */
-#define RZI_LORAWAN_MAX_PAYLOAD             242
+#define RZI_LORAWAN_MAX_PAYLOAD           242
 /** Channel-mask words accepted by the channel API; US915 and AU915 use 5 (72 channels). */
-#define RZI_LORAWAN_CHANNEL_MASK_WORDS      6
-/** Sentinel that never identifies a registered callback subscriber. */
-#define RZI_LORAWAN_CALLBACK_HANDLE_INVALID 0U
+#define RZI_LORAWAN_CHANNEL_MASK_WORDS    6
 /** Argument to @ref rzi_lorawan_join that leaves the stored value unchanged. */
-#define RZI_LORAWAN_JOIN_KEEP               (-1)
+#define RZI_LORAWAN_JOIN_KEEP             (-1)
 /** Minimum seconds between join attempts. */
-#define RZI_LORAWAN_JOIN_INTERVAL_MIN       7
+#define RZI_LORAWAN_JOIN_INTERVAL_MIN     7
 /** Maximum seconds between join attempts. */
-#define RZI_LORAWAN_JOIN_INTERVAL_MAX       255
+#define RZI_LORAWAN_JOIN_INTERVAL_MAX     255
 /** Join retry interval used until a caller stores another value. */
-#define RZI_LORAWAN_JOIN_INTERVAL_DEFAULT   8
+#define RZI_LORAWAN_JOIN_INTERVAL_DEFAULT 8
 
 /** LoRaWAN regional parameter selection. */
 enum rzi_lorawan_region {
@@ -300,9 +298,6 @@ struct rzi_lorawan_downlink {
 /** The threshold set by rzi_lorawan_set_no_downlink_threshold() was reached. */
 #define RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD  (1U << 1)
 
-/** Opaque callback subscriber registration handle. */
-typedef uint16_t rzi_lorawan_callback_handle_t;
-
 /**
  * @brief Events delivered to rzi_lorawan_callbacks.on_event.
  *
@@ -399,39 +394,40 @@ struct rzi_lorawan_callbacks {
  *
  * The callback table is copied. The caller owns the object referenced by
  * callbacks->user_data and must keep it valid until no callback is in flight
- * after unregistering.
+ * after unregistering. A subscriber is identified by its on_event function
+ * and user_data pointer.
  *
  * @param callbacks Callback table copied before this function returns.
- * @param[out] handle Registration handle used to unregister this subscriber.
  *
  * @retval 0 Subscriber registered.
- * @retval -RZI_ERR_INVALID A required pointer is NULL or the callback table is empty.
+ * @retval -RZI_ERR_INVALID callbacks is NULL or the callback table is empty.
+ * @retval -RZI_ERR_ALREADY This on_event and user_data pair is already registered.
  * @retval -RZI_ERR_NO_RESOURCE All callback subscriber slots are occupied.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
  */
-__must_check int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks,
-						rzi_lorawan_callback_handle_t *handle);
+__must_check int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks);
 
 /**
- * @brief Unregister a callback subscriber.
+ * @brief Unregister one callback subscriber.
  *
- * A callback already present in the dispatcher snapshot may still be in
- * flight when this function returns.
+ * The subscriber is the registration whose on_event and user_data match this
+ * table. A callback already present in the dispatcher snapshot may still be
+ * in flight when this function returns.
  *
- * @param handle Handle returned by rzi_lorawan_register_callbacks().
+ * @param callbacks Table identifying the subscriber.
  *
  * @retval 0 Subscriber unregistered.
- * @retval -RZI_ERR_INVALID The handle is invalid.
- * @retval -RZI_ERR_NOT_FOUND The handle is not registered.
+ * @retval -RZI_ERR_INVALID callbacks is NULL or on_event is NULL.
+ * @retval -RZI_ERR_NOT_FOUND No subscriber matches this table.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
  * @note Thread context only.
  * @since 0.2
  */
-__must_check int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t handle);
+__must_check int rzi_lorawan_unregister_callbacks(const struct rzi_lorawan_callbacks *callbacks);
 
 /**
  * @brief Select the LoRaWAN region.

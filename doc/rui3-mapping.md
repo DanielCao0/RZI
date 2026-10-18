@@ -37,9 +37,8 @@ Core lifecycle, network, channel, last-downlink RSSI/SNR, and Class B.
 including LinkCheck, DeviceTime, and Class B state changes.
 
 ```c
-int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks,
-                                   rzi_lorawan_callback_handle_t *handle);
-int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t handle);
+int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks);
+int rzi_lorawan_unregister_callbacks(const struct rzi_lorawan_callbacks *callbacks);
 int rzi_lorawan_set_region(enum rzi_lorawan_region region);
 int rzi_lorawan_set_join_backoff_bypass(bool enabled);
 int rzi_lorawan_start(void);

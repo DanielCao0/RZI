@@ -126,12 +126,11 @@ static const struct rzi_lorawan_callbacks callbacks = {
 int main(void)
 {
 	const bool wanted = IS_ENABLED(CONFIG_APP_LCTT_CERTIFICATION);
-	rzi_lorawan_callback_handle_t handle;
 	bool enabled = false;
 	int rc;
 
 	LOG_INF("RZI LoRaWAN certification (LCTT) sample");
-	rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
+	rc = rzi_lorawan_register_callbacks(&callbacks);
 	if (rc != 0) {
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;

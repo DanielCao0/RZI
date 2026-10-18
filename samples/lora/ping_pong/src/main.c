@@ -107,8 +107,7 @@ static int configure_radio(void)
  */
 static int start_radio(void)
 {
-	rzi_lorawan_callback_handle_t handle;
-	int rc = rzi_lorawan_register_callbacks(&lorawan_callbacks, &handle);
+	int rc = rzi_lorawan_register_callbacks(&lorawan_callbacks);
 
 	if (rc != 0) {
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));

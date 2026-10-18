@@ -142,7 +142,6 @@ int main(void)
 {
 	uint32_t uplink_counter = 0;
 	uint8_t payload[sizeof(uplink_counter)];
-	rzi_lorawan_callback_handle_t handle;
 	int rc;
 
 	LOG_INF("RZI LoRaWAN periodical uplink (%d s) sample", UPLINK_INTERVAL_MS / 1000);
@@ -151,7 +150,7 @@ int main(void)
 		LOG_ERR("Init failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
+	rc = rzi_lorawan_register_callbacks(&callbacks);
 	if (rc != 0) {
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;

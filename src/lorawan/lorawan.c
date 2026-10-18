@@ -31,12 +31,10 @@ static size_t service_count;
 
 struct callback_slot {
 	bool active;
-	rzi_lorawan_callback_handle_t handle;
 	struct rzi_lorawan_callbacks callbacks;
 };
 
 static struct callback_slot callback_slots[CONFIG_RZI_LORAWAN_MAX_CALLBACKS];
-static rzi_lorawan_callback_handle_t next_callback_handle = 1U;
 static enum rzi_lorawan_region configured_region = RZI_LORAWAN_REGION_EU_868;
 static enum rzi_lorawan_class configured_class = RZI_LORAWAN_CLASS_A;
 static bool configured_join_backoff_bypass;
@@ -290,23 +288,35 @@ static bool callbacks_empty(const struct rzi_lorawan_callbacks *callbacks)
 	return callbacks->on_event == NULL;
 }
 
-int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks,
-				   rzi_lorawan_callback_handle_t *handle)
+static bool same_subscriber(const struct rzi_lorawan_callbacks *registered,
+			    const struct rzi_lorawan_callbacks *callbacks)
+{
+	return registered->on_event == callbacks->on_event &&
+	       registered->user_data == callbacks->user_data;
+}
+
+int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks)
 {
 	struct callback_slot *available = NULL;
 
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if (callbacks == NULL || handle == NULL || callbacks_empty(callbacks)) {
+	if (callbacks == NULL || callbacks_empty(callbacks)) {
 		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&callbacks_lock, K_FOREVER);
 	for (size_t i = 0; i < ARRAY_SIZE(callback_slots); ++i) {
 		if (!callback_slots[i].active) {
-			available = &callback_slots[i];
-			break;
+			if (available == NULL) {
+				available = &callback_slots[i];
+			}
+			continue;
+		}
+		if (same_subscriber(&callback_slots[i].callbacks, callbacks)) {
+			k_mutex_unlock(&callbacks_lock);
+			return -RZI_ERR_ALREADY;
 		}
 	}
 	if (available == NULL) {
@@ -315,30 +325,26 @@ int rzi_lorawan_register_callbacks(const struct rzi_lorawan_callbacks *callbacks
 	}
 
 	available->callbacks = *callbacks;
-	available->handle = next_callback_handle++;
-	if (next_callback_handle == RZI_LORAWAN_CALLBACK_HANDLE_INVALID) {
-		next_callback_handle++;
-	}
 	available->active = true;
-	*handle = available->handle;
 	k_mutex_unlock(&callbacks_lock);
 	return 0;
 }
 
-int rzi_lorawan_unregister_callbacks(rzi_lorawan_callback_handle_t handle)
+int rzi_lorawan_unregister_callbacks(const struct rzi_lorawan_callbacks *callbacks)
 {
 	int rc = -RZI_ERR_NOT_FOUND;
 
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if (handle == RZI_LORAWAN_CALLBACK_HANDLE_INVALID) {
+	if (callbacks == NULL || callbacks_empty(callbacks)) {
 		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&callbacks_lock, K_FOREVER);
 	for (size_t i = 0; i < ARRAY_SIZE(callback_slots); ++i) {
-		if (callback_slots[i].active && callback_slots[i].handle == handle) {
+		if (callback_slots[i].active &&
+		    same_subscriber(&callback_slots[i].callbacks, callbacks)) {
 			memset(&callback_slots[i], 0, sizeof(callback_slots[i]));
 			rc = 0;
 			break;

@@ -39,8 +39,7 @@ static const struct rzi_lorawan_callbacks callbacks = {
  */
 static int start_radio(void)
 {
-	rzi_lorawan_callback_handle_t handle;
-	int rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
+	int rc = rzi_lorawan_register_callbacks(&callbacks);
 
 	if (rc != 0) {
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));

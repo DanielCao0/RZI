@@ -35,8 +35,6 @@ struct rzi_at_lorawan_context {
 	bool service_started;
 	/** Defers the first join until backend readiness. */
 	atomic_t join_pending;
-	/** Registration handle for service callbacks. */
-	rzi_lorawan_callback_handle_t callback_handle;
 	/** Stored NetID, 24-bit value. */
 	uint32_t net_id;
 	/** True when AT+NETID has been written. */

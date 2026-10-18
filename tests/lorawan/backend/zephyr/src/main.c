@@ -88,7 +88,6 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 		.on_event = on_event,
 		.user_data = &stats,
 	};
-	rzi_lorawan_callback_handle_t handle;
 	static const uint8_t dev_eui[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
 	static const uint8_t join_eui[8] = {0};
 	static const uint8_t app_key[16] = {0x11};
@@ -98,7 +97,7 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 	uint32_t caps;
 
 	lorawan_emul_register_uplink_callback(on_emul_uplink);
-	zassert_ok(rzi_lorawan_register_callbacks(&callbacks, &handle));
+	zassert_ok(rzi_lorawan_register_callbacks(&callbacks));
 	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_EU_868));
 	zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
 
@@ -174,7 +173,7 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 	zassert_ok(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_C));
 	zassert_equal(rzi_lorawan_set_class(RZI_LORAWAN_CLASS_B), -RZI_ERR_NOT_SUPPORTED);
 	zassert_equal(rzi_lorawan_leave(), -RZI_ERR_NOT_SUPPORTED);
-	zassert_ok(rzi_lorawan_unregister_callbacks(handle));
+	zassert_ok(rzi_lorawan_unregister_callbacks(&callbacks));
 }
 
 ZTEST_SUITE(rzi_lorawan_backend_zephyr, NULL, NULL, NULL, NULL, NULL);

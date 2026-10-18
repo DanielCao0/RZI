@@ -150,18 +150,15 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	struct callback_stats second = {0};
 	struct rzi_lorawan_callbacks first_callbacks = callbacks;
 	struct rzi_lorawan_callbacks second_callbacks = callbacks;
-	rzi_lorawan_callback_handle_t first_handle;
-	rzi_lorawan_callback_handle_t second_handle;
 	const uint8_t payload[] = {0x12, 0x34};
 	bool joined = false;
 
 	first_callbacks.user_data = &first;
 	second_callbacks.user_data = &second;
-	zassert_ok(rzi_lorawan_register_callbacks(&first_callbacks, &first_handle));
-	zassert_ok(rzi_lorawan_register_callbacks(&second_callbacks, &second_handle));
-	zassert_not_equal(first_handle, second_handle);
-	zassert_equal(rzi_lorawan_register_callbacks(&callbacks, &second_handle),
-		      -RZI_ERR_NO_RESOURCE);
+	zassert_ok(rzi_lorawan_register_callbacks(&first_callbacks));
+	zassert_ok(rzi_lorawan_register_callbacks(&second_callbacks));
+	zassert_equal(rzi_lorawan_register_callbacks(&first_callbacks), -RZI_ERR_ALREADY);
+	zassert_equal(rzi_lorawan_register_callbacks(&callbacks), -RZI_ERR_NO_RESOURCE);
 
 	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_US_915));
 	zassert_ok(rzi_lorawan_set_join_backoff_bypass(true));
@@ -214,7 +211,7 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 	zassert_equal(atomic_get(&second.states), 2);
 	zassert_equal(atomic_get(&second.last_state), RZI_LORAWAN_STATE_JOINING);
 
-	zassert_ok(rzi_lorawan_unregister_callbacks(first_handle));
+	zassert_ok(rzi_lorawan_unregister_callbacks(&first_callbacks));
 	zassert_ok(rzi_lorawan_send(10, payload, sizeof(payload), RZI_LORAWAN_MSG_CONFIRMED));
 	wait_for_callbacks(1);
 	zassert_equal(atomic_get(&first.uplink), 0);
@@ -386,8 +383,8 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 		zassert_equal(atomic_get(&second.last_device_time_error), -RZI_ERR_TIMEOUT);
 	}
 
-	zassert_ok(rzi_lorawan_unregister_callbacks(second_handle));
-	zassert_equal(rzi_lorawan_unregister_callbacks(second_handle), -RZI_ERR_NOT_FOUND);
+	zassert_ok(rzi_lorawan_unregister_callbacks(&second_callbacks));
+	zassert_equal(rzi_lorawan_unregister_callbacks(&second_callbacks), -RZI_ERR_NOT_FOUND);
 }
 
 ZTEST(rzi_lorawan_service, test_oversized_uplink_is_too_large)
@@ -398,7 +395,6 @@ ZTEST(rzi_lorawan_service, test_oversized_uplink_is_too_large)
 		      -RZI_ERR_TOO_LARGE);
 }
 
-static rzi_lorawan_callback_handle_t usp_handle;
 static bool usp_registered;
 
 static void wait_for_count(atomic_t *counter, atomic_val_t count)
@@ -418,7 +414,7 @@ static struct callback_stats *subscribe(void)
 	memset(&usp_stats, 0, sizeof(usp_stats));
 	usp_callbacks = callbacks;
 	usp_callbacks.user_data = &usp_stats;
-	zassert_ok(rzi_lorawan_register_callbacks(&usp_callbacks, &usp_handle));
+	zassert_ok(rzi_lorawan_register_callbacks(&usp_callbacks));
 	usp_registered = true;
 	return &usp_stats;
 }
@@ -427,7 +423,7 @@ static void unsubscribe_after(void *fixture)
 {
 	ARG_UNUSED(fixture);
 	if (usp_registered) {
-		zassert_ok(rzi_lorawan_unregister_callbacks(usp_handle));
+		zassert_ok(rzi_lorawan_unregister_callbacks(&usp_callbacks));
 		usp_registered = false;
 	}
 	fake_tx_hold = false;

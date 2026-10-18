@@ -69,7 +69,7 @@ static const struct rzi_lorawan_callbacks callbacks = {
     .user_data = context,
 };
 
-rzi_lorawan_register_callbacks(&callbacks, &handle);
+rzi_lorawan_register_callbacks(&callbacks);
 rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
 rzi_lorawan_set_app_eui(app_eui, sizeof(app_eui));
 rzi_lorawan_set_app_key(app_key, sizeof(app_key));
@@ -279,10 +279,12 @@ drops events (LBM `missed_events`), RZI reports the loss as
 subscriber limit, dispatcher stack, and priority are Kconfig settings.
 
 The callback table, including `user_data`, is copied at registration. The
-object `user_data` points to remains owned by the caller. Unregistration
-stops new dispatch snapshots from including that subscriber, but a callback
-already in flight may still run. The caller must free `user_data` only
-after every in-flight callback has returned.
+object `user_data` points to remains owned by the caller. A subscriber is
+the pair of `on_event` and `user_data`. `rzi_lorawan_unregister_callbacks()`
+takes a table with that same pair. Unregistration stops new dispatch
+snapshots from including that subscriber, but a callback already in flight
+may still run. The caller must free `user_data` only after every in-flight
+callback has returned.
 
 ## 7. Error semantics
 
@@ -293,14 +295,14 @@ uses this subset:
 - `-RZI_ERR_INVALID`: invalid argument, enum, or port;
 - `-RZI_ERR_ISR`: a thread-context API was called from an ISR;
 - `-RZI_ERR_NOT_READY`: the service or backend is not ready;
-- `-RZI_ERR_ALREADY`: repeated `start`;
+- `-RZI_ERR_ALREADY`: repeated `start`, or the same callback subscriber;
 - `-RZI_ERR_INVALID_STATE`: a start-time setting changed after `start`;
 - `-RZI_ERR_BUSY`: a conflicting asynchronous operation is already in
   flight;
 - `-RZI_ERR_NOT_SUPPORTED`: the selected backend does not support the
   requested capability;
 - `-RZI_ERR_NO_RESOURCE`: callback subscriber slots are full;
-- `-RZI_ERR_NOT_FOUND`: handle or multicast session does not exist;
+- `-RZI_ERR_NOT_FOUND`: callback subscriber or multicast session does not exist;
 - `-RZI_ERR_NO_DATA`: no downlink, beacon, or modem time/event is available;
 - `-RZI_ERR_TOO_LARGE`: the payload exceeds the API maximum or the current
   data rate;

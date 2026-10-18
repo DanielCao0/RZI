@@ -417,7 +417,7 @@ static int extension_start(void)
 		}
 	}
 #endif
-	rc = rzi_lorawan_register_callbacks(&callbacks, &context->callback_handle);
+	rc = rzi_lorawan_register_callbacks(&callbacks);
 	if (rc != 0) {
 		return rc;
 	}

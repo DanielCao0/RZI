@@ -186,7 +186,6 @@ static int request_join(void)
 int main(void)
 {
 	static const uint8_t payload[] = "RZI FUOTA";
-	rzi_lorawan_callback_handle_t handle;
 	int rc;
 
 	LOG_INF("RZI LoRaWAN FUOTA sample");
@@ -195,7 +194,7 @@ int main(void)
 		LOG_ERR("FUOTA callback registration failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
+	rc = rzi_lorawan_register_callbacks(&callbacks);
 	if (rc != 0) {
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;
