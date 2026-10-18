@@ -18,8 +18,8 @@ void arch_busy_wait(uint32_t time_us)
 	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
 	while (remaining_cycles > 0U) {
-		uint32_t chunk = remaining_cycles > UINT32_MAX ? UINT32_MAX :
-								 (uint32_t)remaining_cycles;
+		uint32_t chunk =
+			remaining_cycles > UINT32_MAX ? UINT32_MAX : (uint32_t)remaining_cycles;
 		uint32_t start = DWT->CYCCNT;
 
 		while ((uint32_t)(DWT->CYCCNT - start) < chunk) {

@@ -98,7 +98,7 @@ static int on_network_mode(uint8_t mode)
 		return rzi_lora_stop();
 	}
 	return rzi_lora_start(mode == RZI_AT_NETWORK_MODE_P2P_FSK ? RZI_LORA_MOD_FSK
-								 : RZI_LORA_MOD_LORA);
+								  : RZI_LORA_MOD_LORA);
 }
 
 int rzi_at_lora_ensure_started(void)
