@@ -213,6 +213,7 @@ Public header groups are:
 ```text
 include/rzi/
 ├── err.h                      Closed public error catalog
+├── init.h                     Init entry for compiled-in services
 ├── version.h                  SDK version and compatibility queries
 ├── lorawan/lorawan.h          Backend-independent LoRaWAN service
 ├── lorawan/multicast.h        Multicast-session facade
@@ -225,8 +226,10 @@ include/rzi/
 └── diagnostics/diagnostics.h  Stable counters and health data (planned)
 ```
 
-`err.h`, `version.h`, and the lorawan, at, storage, and power
-headers are implemented. `diagnostics/diagnostics.h` is still planned.
+`err.h`, `init.h`, `version.h`, and the lorawan, at, storage, and power
+headers are implemented. `rzi_init()` prepares power and storage when those
+services are compiled in. It does not start LoRaWAN, raw LoRa, or AT.
+`diagnostics/diagnostics.h` is still planned.
 
 ## 6. LoRaWAN service
 

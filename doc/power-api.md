@@ -62,7 +62,7 @@ Wake-source flags: `RZI_POWER_WAKE_TIMER`, `_GPIO`, `_UART`, `_USB`,
 ## Application usage
 
 ```c
-(void)rzi_power_init();
+(void)rzi_init(); /* calls rzi_power_init() when the power service is enabled */
 (void)rzi_power_set_policy(RZI_POWER_POLICY_SUSPEND); /* RUI3 lpm.set(1) */
 
 (void)rzi_power_block(RZI_POWER_BLOCK_TRANSPORT);

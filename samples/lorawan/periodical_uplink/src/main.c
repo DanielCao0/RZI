@@ -7,6 +7,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/byteorder.h>
 #include <rzi/err.h>
+#include <rzi/init.h>
 #include <rzi/lorawan/lorawan.h>
 #include <rzi/power/power.h>
 
@@ -145,9 +146,9 @@ int main(void)
 	int rc;
 
 	LOG_INF("RZI LoRaWAN periodical uplink (%d s) sample", UPLINK_INTERVAL_MS / 1000);
-	rc = rzi_power_init();
+	rc = rzi_init();
 	if (rc != 0) {
-		LOG_ERR("Power init failed: %s", rzi_err_str(rc));
+		LOG_ERR("Init failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	rc = rzi_lorawan_register_callbacks(&callbacks, &handle);

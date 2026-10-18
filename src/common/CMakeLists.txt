@@ -3,5 +3,6 @@
 
 zephyr_library_sources(
   common_err.c
+  common_init.c
   common_version.c
 )
