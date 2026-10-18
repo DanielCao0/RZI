@@ -97,3 +97,60 @@ patches:
       Add a REUSE.toml so west spdx attributes the Clear BSD license and
       Semtech copyright to sources and build files that carry no SPDX tags.
       Files with their own SPDX tags keep them.
+
+  - path: usp_zephyr/0008-stm32wl-tcxo-reset-and-irq.patch
+    sha256sum: 2efaabacfc9636810205b06626c1a1b18fe1b819a17c8d2828dd8b9e86493cea
+    module: usp_zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-14
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      On RAK3372-F the radio IRQ line stays high until ClearIrqStatus, so the
+      ISR masks NVIC and the HAL arms it again after that command. A radio
+      reset also clears PB0-VDD_TCXO; park SYSCLK on HSI, program the
+      regulator, then restore the HSE PLL when SYSCLK uses the TCXO.
+
+  - path: zephyr/0009-stm32wl-locked-pm-resume.patch
+    sha256sum: 22b3f283240da422119fcb8ccb2cd0f39f62f153073ec22a23086749eee19b92
+    module: zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-15
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      Keep STM32WL wake interrupts pending until PM restores clocks and
+      system-managed devices. Matches upstream
+      https://github.com/zephyrproject-rtos/zephyr/pull/122293.
+      Drop this patch once the pinned Zephyr revision contains it.
+
+  - path: zephyr/0010-stm32-spi-resume-config.patch
+    sha256sum: 544b6c60762a6cdc384ca8cc8444da64299f28bf0302167f4ff8ce8ea51b63a2
+    module: zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-15
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      STOP may clear STM32 SPI CR1/CR2 while the driver still caches the
+      spi_config pointer. Invalidate that cache on resume. Matches upstream
+      https://github.com/zephyrproject-rtos/zephyr/pull/122292.
+      Drop this patch once the pinned Zephyr revision contains it.
+
+  - path: zephyr/0011-spi-nor-dpd-resume-delay.patch
+    sha256sum: 23a65793bdcd05d75e6e1684e63c116eb94a3aa08a31c66ee393f0baa681a9fb
+    module: zephyr
+    author: rzi
+    email: patches@rzi.local
+    date: 2026-10-15
+    upstreamable: true
+    apply-command: git apply
+    comments: |
+      System-managed PM resume leaves SPI NOR deep power-down from the idle
+      thread while wake interrupts are masked. Busy-wait when the caller
+      cannot yield. Matches upstream
+      https://github.com/zephyrproject-rtos/zephyr/pull/122312.
+      Drop this patch once the pinned Zephyr revision contains it.

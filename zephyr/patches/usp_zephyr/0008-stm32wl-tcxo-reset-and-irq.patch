@@ -1,0 +1,256 @@
+diff --git a/drivers/usp/sx126x/sx126x_board.c b/drivers/usp/sx126x/sx126x_board.c
+index 40ecbe9..fd1b042 100644
+--- a/drivers/usp/sx126x/sx126x_board.c
++++ b/drivers/usp/sx126x/sx126x_board.c
+@@ -89,7 +89,12 @@ static void sx126x_wl_isr( const struct device* dev )
+     const struct sx126x_hal_context_cfg_t* config = dev->config;
+     struct sx126x_hal_context_data_t*      data   = dev->data;
+ 
++    /*
++     * The line stays high until ClearIrqStatus. Mask the NVIC here so the
++     * ISR cannot spin. sx126x_hal_write() arms it again after that command.
++     */
+     irq_disable( config->irqn );
++    LL_EXTI_ClearFlag_32_63( LL_EXTI_LINE_44 );
+     sx126x_board_event_callback( dev, NULL, 0, data );
+ }
+ #endif
+@@ -270,6 +275,15 @@ static int sx126x_init( const struct device* dev )
+             return ret;
+         }
+     }
++    if( config->antenna_enable.port )
++    {
++        ret = gpio_pin_configure_dt( &config->antenna_enable, GPIO_OUTPUT_INACTIVE );
++        if( ret < 0 )
++        {
++            LOG_ERR( "Could not configure antenna enable gpio" );
++            return ret;
++        }
++    }
+ 
+     /* DIO1 event pin */
+     if( config->dio1.port )
+@@ -471,12 +485,16 @@ DT_FOREACH_STATUS_OKAY( semtech_sx1268_new, SX126X_DEFINE )
+         .irqn    = DT_IRQN( node_id ),                                                                     \
+         .pa_hp   = DT_ENUM_HAS_VALUE( node_id, power_amplifier_output, rfo_hp ),                            \
+         CONFIGURE_GPIO_IF_IN_DT( node_id, tx_enable, tx_enable_gpios )                                     \
+-            CONFIGURE_GPIO_IF_IN_DT( node_id, rx_enable, rx_enable_gpios ).dio2_as_rf_switch = false,      \
++            CONFIGURE_GPIO_IF_IN_DT( node_id, rx_enable, rx_enable_gpios )                                 \
++                CONFIGURE_GPIO_IF_IN_DT( node_id, antenna_enable, antenna_enable_gpios )                   \
++                    .dio2_as_rf_switch = false,                                                           \
+         .tcxo_cfg =                                                                                        \
+             {                                                                                              \
+-                .xosc_cfg       = RAL_XOSC_CFG_XTAL,                                                       \
+-                .voltage        = 0,                                                                       \
+-                .wakeup_time_ms = 0,                                                                       \
++                /* dio3-tcxo-voltage selects the STM32WL VDDTCXO regulator. */                            \
++                .xosc_cfg = COND_CODE_1( DT_NODE_HAS_PROP( node_id, dio3_tcxo_voltage ),                   \
++                                         ( RAL_XOSC_CFG_TCXO_RADIO_CTRL ), ( RAL_XOSC_CFG_XTAL ) ),        \
++                .voltage  = ( sx126x_tcxo_ctrl_voltages_t ) DT_PROP_OR( node_id, dio3_tcxo_voltage, 0 ),   \
++                .wakeup_time_ms = DT_PROP_OR( node_id, tcxo_power_startup_delay_ms, 0 ),                   \
+             },                                                                                             \
+         .capa_xta = 0xFF, .capa_xtb = 0xFF, .reg_mode = SX126X_REG_MODE_DCDC,                              \
+         .tx_power_offset_db = DT_PROP_OR( node_id, tx_power_offset, 0 ),                                   \
+diff --git a/drivers/usp/sx126x/sx126x_hal.c b/drivers/usp/sx126x/sx126x_hal.c
+index be9cb13..e35c5da 100644
+--- a/drivers/usp/sx126x/sx126x_hal.c
++++ b/drivers/usp/sx126x/sx126x_hal.c
+@@ -43,6 +43,8 @@
+ #include "sx126x_hal_context.h"
+ 
+ #if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++#include <zephyr/irq.h>
++#include <stm32_ll_exti.h>
+ #include <stm32_ll_pwr.h>
+ #include <stm32_ll_rcc.h>
+ #endif
+@@ -59,6 +61,7 @@ LOG_MODULE_DECLARE( lora_sx126x, CONFIG_LORA_BASICS_MODEM_DRIVERS_LOG_LEVEL );
+ #define SX126X_CMD_SET_TX_CONTINUOUS_WAVE 0xD1
+ #define SX126X_CMD_SET_TX_INFINITE_PREAMBLE 0xD2
+ #define SX126X_CMD_GET_STATUS             0xC0
++#define SX126X_CMD_CLR_IRQ_STATUS         0x02
+ 
+ static void sx126x_hal_set_rf_path( const struct sx126x_hal_context_cfg_t* config, uint8_t opcode )
+ {
+@@ -66,7 +69,7 @@ static void sx126x_hal_set_rf_path( const struct sx126x_hal_context_cfg_t* confi
+     bool rx;
+     bool idle;
+ 
+-    if( !config->tx_enable.port && !config->rx_enable.port )
++    if( !config->tx_enable.port && !config->rx_enable.port && !config->antenna_enable.port )
+     {
+         return;
+     }
+@@ -88,6 +91,10 @@ static void sx126x_hal_set_rf_path( const struct sx126x_hal_context_cfg_t* confi
+         {
+             gpio_pin_set_dt( &config->tx_enable, 1 );
+         }
++        if( config->antenna_enable.port )
++        {
++            gpio_pin_set_dt( &config->antenna_enable, 1 );
++        }
+     }
+     else if( rx )
+     {
+@@ -99,6 +106,10 @@ static void sx126x_hal_set_rf_path( const struct sx126x_hal_context_cfg_t* confi
+         {
+             gpio_pin_set_dt( &config->rx_enable, 1 );
+         }
++        if( config->antenna_enable.port )
++        {
++            gpio_pin_set_dt( &config->antenna_enable, 1 );
++        }
+     }
+     else if( idle )
+     {
+@@ -110,6 +121,10 @@ static void sx126x_hal_set_rf_path( const struct sx126x_hal_context_cfg_t* confi
+         {
+             gpio_pin_set_dt( &config->rx_enable, 0 );
+         }
++        if( config->antenna_enable.port )
++        {
++            gpio_pin_set_dt( &config->antenna_enable, 0 );
++        }
+     }
+ }
+ 
+@@ -242,6 +257,19 @@ sx126x_hal_status_t sx126x_hal_write( const void* context, const uint8_t* comman
+         sx126x_hal_check_device_ready( context );
+     }
+ 
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++    /*
++     * The radio IRQ line stays high until ClearIrqStatus. The ISR masks the
++     * NVIC so that level does not spin. Re-arm only after the line drops.
++     */
++    if( config->stm32wl && command_length > 0U && command[0] == SX126X_CMD_CLR_IRQ_STATUS )
++    {
++        LL_EXTI_ClearFlag_32_63( LL_EXTI_LINE_44 );
++        NVIC_ClearPendingIRQ( config->irqn );
++        irq_enable( config->irqn );
++    }
++#endif
++
+     sx126x_hal_set_rf_path( config, command[0] );
+ 
+     return SX126X_HAL_STATUS_OK;
+@@ -271,6 +299,65 @@ sx126x_hal_status_t sx126x_hal_read( const void* context, const uint8_t* command
+     return SX126X_HAL_STATUS_OK;
+ }
+ 
++#if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
++/* Radio reset clears the VDDTCXO regulator. Park the CPU on HSI first when
++ * SYSCLK comes from that TCXO, then program the regulator before using HSE.
++ */
++static bool stm32wl_cpu_clock_is_tcxo( void )
++{
++    uint32_t source = LL_RCC_GetSysClkSource( );
++
++    if( LL_RCC_HSE_IsEnabledTcxo( ) == 0U )
++    {
++        return false;
++    }
++    return source == LL_RCC_SYS_CLKSOURCE_STATUS_HSE || source == LL_RCC_SYS_CLKSOURCE_STATUS_PLL;
++}
++
++static bool stm32wl_wait_until( uint32_t ( *flag )( void ), uint32_t expected )
++{
++    for( uint32_t i = 0U; i < 1000000U; i++ )
++    {
++        if( flag( ) == expected )
++        {
++            return true;
++        }
++    }
++    return false;
++}
++
++static void stm32wl_park_on_hsi( void )
++{
++    LL_RCC_HSI_Enable( );
++    ( void ) stm32wl_wait_until( LL_RCC_HSI_IsReady, 1U );
++    LL_RCC_SetSysClkSource( LL_RCC_SYS_CLKSOURCE_HSI );
++    ( void ) stm32wl_wait_until( LL_RCC_GetSysClkSource, LL_RCC_SYS_CLKSOURCE_STATUS_HSI );
++    LL_RCC_PLL_Disable( );
++    ( void ) stm32wl_wait_until( LL_RCC_PLL_IsReady, 0U );
++}
++
++static void stm32wl_restore_hse_pll( void )
++{
++    LL_RCC_HSE_Disable( );
++    ( void ) stm32wl_wait_until( LL_RCC_HSE_IsReady, 0U );
++    LL_RCC_HSE_EnableTcxo( );
++    LL_RCC_HSE_Enable( );
++    if( !stm32wl_wait_until( LL_RCC_HSE_IsReady, 1U ) )
++    {
++        LOG_ERR( "HSE TCXO did not restart after radio reset" );
++        return;
++    }
++    LL_RCC_PLL_Enable( );
++    if( !stm32wl_wait_until( LL_RCC_PLL_IsReady, 1U ) )
++    {
++        LOG_ERR( "PLL did not lock after radio reset" );
++        return;
++    }
++    LL_RCC_SetSysClkSource( LL_RCC_SYS_CLKSOURCE_PLL );
++    ( void ) stm32wl_wait_until( LL_RCC_GetSysClkSource, LL_RCC_SYS_CLKSOURCE_STATUS_PLL );
++}
++#endif
++
+ sx126x_hal_status_t sx126x_hal_reset( const void* context )
+ {
+     const struct device*                   dev    = ( const struct device* ) context;
+@@ -280,12 +367,34 @@ sx126x_hal_status_t sx126x_hal_reset( const void* context )
+ #if DT_HAS_COMPAT_STATUS_OKAY( st_stm32wl_subghz_radio )
+     if( config->stm32wl )
+     {
++        bool tcxo  = config->tcxo_cfg.xosc_cfg == RAL_XOSC_CFG_TCXO_RADIO_CTRL;
++        bool parked = tcxo && stm32wl_cpu_clock_is_tcxo( );
++
++        if( parked )
++        {
++            stm32wl_park_on_hsi( );
++        }
+         LL_RCC_RF_EnableReset( );
+-        k_msleep( 20 );
++        k_busy_wait( 20000 );
+         LL_RCC_RF_DisableReset( );
+-        k_msleep( 10 );
++        ( void ) stm32wl_wait_until( LL_RCC_IsRFUnderReset, 0U );
++        k_busy_wait( 1000 );
+         data->radio_status = RADIO_SLEEP;
+         sx126x_hal_check_device_ready( context );
++        if( tcxo )
++        {
++            uint32_t timeout = sx126x_convert_timeout_in_ms_to_rtc_step( config->tcxo_cfg.wakeup_time_ms );
++
++            ( void ) sx126x_set_dio3_as_tcxo_ctrl( context, config->tcxo_cfg.voltage, timeout );
++            if( config->tcxo_cfg.wakeup_time_ms != 0U )
++            {
++                k_busy_wait( config->tcxo_cfg.wakeup_time_ms * 1000U );
++            }
++        }
++        if( parked )
++        {
++            stm32wl_restore_hse_pll( );
++        }
+         return SX126X_HAL_STATUS_OK;
+     }
+ #endif
+diff --git a/drivers/usp/sx126x/sx126x_hal_context.h b/drivers/usp/sx126x/sx126x_hal_context.h
+index f960821..800a040 100644
+--- a/drivers/usp/sx126x/sx126x_hal_context.h
++++ b/drivers/usp/sx126x/sx126x_hal_context.h
+@@ -71,8 +71,9 @@ struct sx126x_hal_context_cfg_t
+     struct gpio_dt_spec dio2; /* DIO2 pin */
+     struct gpio_dt_spec dio3; /* DIO3 pin */
+ 
+-    struct gpio_dt_spec tx_enable; /* optional board RF switch TX */
+-    struct gpio_dt_spec rx_enable; /* optional board RF switch RX */
++    struct gpio_dt_spec tx_enable;       /* optional board RF switch TX */
++    struct gpio_dt_spec rx_enable;       /* optional board RF switch RX */
++    struct gpio_dt_spec antenna_enable;  /* optional RF switch enable, high in TX and RX */
+ 
+     bool stm32wl; /* on-chip STM32WL SUBGHZ, no reset/busy GPIO */
+     bool pa_hp;   /* STM32WL RFO_HP (SX1262-class PA) */
