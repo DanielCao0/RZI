@@ -32,8 +32,8 @@
 		return NETWORK_OP(member)(__VA_ARGS__);                                            \
 	} while (false)
 
-/* RUI3 parameters LoRa Basics Modem does not expose; see lorawan.h. */
-static int reserved(void)
+/* RUI3 parameters no current backend implements; see lorawan.h. */
+static int unsupported(void)
 {
 	int rc = rzi_lorawan_check_started();
 
@@ -112,97 +112,97 @@ int rzi_lorawan_set_data_rate(enum rzi_lorawan_data_rate data_rate)
 int rzi_lorawan_get_tx_power(uint8_t *tx_power)
 {
 	ARG_UNUSED(tx_power);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_tx_power(uint8_t tx_power)
 {
 	ARG_UNUSED(tx_power);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_duty_cycle(bool *enabled)
 {
 	ARG_UNUSED(enabled);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_duty_cycle(bool enabled)
 {
 	ARG_UNUSED(enabled);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_rx1_delay(uint32_t *delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_rx1_delay(uint32_t delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_rx2_delay(uint32_t *delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_rx2_delay(uint32_t delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_rx2_data_rate(enum rzi_lorawan_data_rate *data_rate)
 {
 	ARG_UNUSED(data_rate);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_rx2_data_rate(enum rzi_lorawan_data_rate data_rate)
 {
 	ARG_UNUSED(data_rate);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_rx2_frequency(uint32_t *frequency_hz)
 {
 	ARG_UNUSED(frequency_hz);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_rx2_frequency(uint32_t frequency_hz)
 {
 	ARG_UNUSED(frequency_hz);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_join_accept_delay1(uint32_t *delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_join_accept_delay1(uint32_t delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_join_accept_delay2(uint32_t *delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_set_join_accept_delay2(uint32_t delay_ms)
 {
 	ARG_UNUSED(delay_ms);
-	return reserved();
+	return unsupported();
 }
 
 int rzi_lorawan_get_public_network(bool *enabled)
