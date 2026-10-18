@@ -77,9 +77,9 @@ On the console UART at 115200 baud, with timestamps omitted:
 
 .. code-block:: console
 
-   <inf> rzi_tx_cw_sample: RZI continuous-wave test: 868100000 Hz, 14 dBm
-   <inf> rzi_tx_cw_sample: Carrier on for 10 s
-   <inf> rzi_tx_cw_sample: Carrier off
+   <inf> rzi_tx_cw: RZI continuous-wave test: 868100000 Hz, 14 dBm
+   <inf> rzi_tx_cw: Carrier on for 10 s
+   <inf> rzi_tx_cw: Carrier off
 
 The instrument shows a single tone at the configured frequency while
 ``Carrier on`` is active. Reset the board to transmit again.
@@ -87,13 +87,13 @@ The instrument shows a single tone at the configured frequency while
 Troubleshooting
 ***************
 
-``Modem did not become ready``
+``LoRaWAN ready timed out``
    The radio did not answer. Check that the board target matches the
    hardware.
 
-``Raw LoRa start failed`` or ``Carrier start failed``
-   Look up the code in ``include/rzi/err.h``. ``-RZI_ERR_INVALID`` usually
-   means the frequency or power is outside what the radio supports.
+``LoRa start failed`` or ``Carrier start failed``
+   The line names the code from ``include/rzi/err.h``. ``RZI_ERR_INVALID``
+   usually means the frequency or power is outside what the radio supports.
 
 The tone is offset from the configured frequency
    A small offset is the crystal tolerance. Measure it here before tuning

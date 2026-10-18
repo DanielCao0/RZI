@@ -6,7 +6,7 @@
 #include <rzi/lora/lora.h>
 #include <rzi/lorawan/lorawan.h>
 
-LOG_MODULE_REGISTER(rzi_tx_cw_sample, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(rzi_tx_cw, LOG_LEVEL_INF);
 
 #define READY_TIMEOUT K_SECONDS(10)
 
@@ -34,20 +34,22 @@ static int start_radio(void)
 	rzi_lorawan_callback_handle_t handle;
 	int rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
 
-	if (rc == 0) {
-		rc = rzi_lorawan_start();
-	}
 	if (rc != 0) {
-		LOG_ERR("Modem start failed: %d", rc);
+		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lorawan_start();
+	if (rc != 0) {
+		LOG_ERR("LoRaWAN start failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	if (k_sem_take(&stack_ready, READY_TIMEOUT) != 0) {
-		LOG_ERR("Modem did not become ready");
+		LOG_ERR("LoRaWAN ready timed out");
 		return -RZI_ERR_TIMEOUT;
 	}
 	rc = rzi_lora_start(RZI_LORA_MOD_LORA);
 	if (rc != 0) {
-		LOG_ERR("Raw LoRa start failed: %d", rc);
+		LOG_ERR("LoRa start failed: %s", rzi_err_str(rc));
 	}
 	return rc;
 }
@@ -66,7 +68,7 @@ int main(void)
 	rc = rzi_lora_test_cw(CONFIG_APP_TX_CW_FREQUENCY_HZ, CONFIG_APP_TX_CW_POWER_DBM,
 			      duration_ms);
 	if (rc != 0) {
-		LOG_ERR("Carrier start failed: %d", rc);
+		LOG_ERR("Carrier start failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	if (duration_ms == 0U) {
@@ -77,7 +79,7 @@ int main(void)
 	k_sleep(K_MSEC(duration_ms));
 	rc = rzi_lora_test_stop();
 	if (rc != 0) {
-		LOG_ERR("Carrier stop failed: %d", rc);
+		LOG_ERR("Carrier stop failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	LOG_INF("Carrier off");

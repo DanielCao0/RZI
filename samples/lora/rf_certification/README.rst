@@ -134,19 +134,19 @@ list shortened:
 
 .. code-block:: console
 
-   <inf> rzi_rf_cert_sample: RZI RF certification: ETSI, 15 steps
-   <inf> rzi_rf_cert_sample:  1  LoRa  863.100 MHz  SF7  BW125  14 dBm  255 B
-   <inf> rzi_rf_cert_sample:  2  LoRa  863.100 MHz  SF12 BW125  14 dBm  255 B
+   <inf> rzi_rf_certification: RZI RF certification: ETSI, 15 steps
+   <inf> rzi_rf_certification:  1  LoRa  863.100 MHz  SF7  BW125  14 dBm  255 B
+   <inf> rzi_rf_certification:  2  LoRa  863.100 MHz  SF12 BW125  14 dBm  255 B
    ...
-   <inf> rzi_rf_cert_sample: 15  FSK   869.900 MHz  50 kbps     14 dBm  255 B
-   <inf> rzi_rf_cert_sample: Step 1 of 15:
-   <inf> rzi_rf_cert_sample:  1  LoRa  863.100 MHz  SF7  BW125  14 dBm  255 B
-   <inf> rzi_rf_cert_sample: Step 1: 23 packets
+   <inf> rzi_rf_certification: 15  FSK   869.900 MHz  50 kbps     14 dBm  255 B
+   <inf> rzi_rf_certification: Step 1 of 15:
+   <inf> rzi_rf_certification:  1  LoRa  863.100 MHz  SF7  BW125  14 dBm  255 B
+   <inf> rzi_rf_certification: Step 1: 23 packets
    ...
-   <inf> rzi_rf_cert_sample: Step 1 done: 139 packets
-   <inf> rzi_rf_cert_sample: Step 2 of 15:
+   <inf> rzi_rf_certification: Step 1 done: 139 packets
+   <inf> rzi_rf_certification: Step 2 of 15:
    ...
-   <inf> rzi_rf_cert_sample: Sequence complete: 1874 packets
+   <inf> rzi_rf_certification: Sequence complete: 1874 packets
 
 Progress is logged every 10 seconds rather than for every packet. Reset the
 board to run the sequence again.
@@ -154,13 +154,13 @@ board to run the sequence again.
 Troubleshooting
 ***************
 
-``Modem did not become ready``
+``LoRaWAN ready timed out``
    The radio did not answer. Check that the board target matches the
    hardware.
 
-``Step N setup failed`` or ``Packet N rejected``
-   Look up the code in ``include/rzi/err.h``. ``-RZI_ERR_INVALID`` usually
-   means the frequency or power is outside what the radio supports.
+``Step N setup failed``, ``Step N start failed`` or ``Packet N rejected``
+   The line names the code from ``include/rzi/err.h``. ``RZI_ERR_INVALID``
+   usually means the frequency or power is outside what the radio supports.
 
 ``Packet N not sent``
    The radio never reported the end of the transmission. Check the radio

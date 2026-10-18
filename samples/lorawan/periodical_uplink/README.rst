@@ -95,13 +95,13 @@ baud. After reset the sample prints, with timestamps omitted:
 .. code-block:: console
 
    *** Booting Zephyr OS build ... ***
-   <inf> rzi_lorawan_sample: RZI LoRaWAN periodical uplink (60 s) sample
-   <inf> rzi_lorawan_sample: Joining
-   <inf> rzi_lorawan_sample: Joined
-   <inf> rzi_lorawan_sample: Uplink 0 on port 101
-   <inf> rzi_lorawan_sample: Uplink complete: 0
-   <inf> rzi_lorawan_sample: Uplink 1 on port 101
-   <inf> rzi_lorawan_sample: Uplink complete: 0
+   <inf> rzi_periodical_uplink: RZI LoRaWAN periodical uplink (60 s) sample
+   <inf> rzi_periodical_uplink: Joining
+   <inf> rzi_periodical_uplink: Joined
+   <inf> rzi_periodical_uplink: Uplink 0 on port 101
+   <inf> rzi_periodical_uplink: Uplink sent
+   <inf> rzi_periodical_uplink: Uplink 1 on port 101
+   <inf> rzi_periodical_uplink: Uplink sent
 
 The pair of lines repeats every 60 seconds; the network server shows payloads
 ``00000000``, ``00000001`` and so on. When the network server queues
@@ -109,7 +109,7 @@ a downlink, the next uplink is followed by a line such as:
 
 .. code-block:: console
 
-   <inf> rzi_lorawan_sample: Downlink: port 2, 3 bytes, RSSI -45 dBm, SNR 38/4 dB
+   <inf> rzi_periodical_uplink: Downlink: port 2, 3 bytes, RSSI -45 dBm, SNR 38/4 dB
 
 MCUboot prints its own lines before the Zephyr banner, and the USP stack logs
 under the ``usp`` module between the sample's lines. Set
@@ -118,22 +118,20 @@ under the ``usp`` module between the sample's lines. Set
 Troubleshooting
 ***************
 
-Negative numbers in the log are ``RZI_ERR_*`` codes from
-``include/rzi/err.h``.
+Failed calls print an ``RZI_ERR_*`` name from ``include/rzi/err.h``.
 
 ``Join failed, retrying in 5 s`` repeats
    The network server did not accept the join. Check that DevEUI, JoinEUI and
    AppKey match the server byte for byte, that the region matches the gateway,
    and that the gateway is online. The placeholder zero keys never join.
 
-``Start failed`` right after boot
-   Credentials or region were rejected. Check the property lengths in
-   ``app.overlay`` and that the region is one of the names above.
+``Credentials failed``, ``Region failed`` or ``Start failed`` right after boot
+   Credentials, region, or stack startup was rejected. Check the property
+   lengths in ``app.overlay`` and that the region is one of the names above.
 
-``Uplink rejected: <code>``
-   The stack refused the uplink. ``-RZI_ERR_BUSY`` (the previous uplink is
-   still in progress) is expected and not logged; look up any other code in
-   ``include/rzi/err.h``.
+``Uplink rejected: RZI_ERR_*``
+   The stack refused the uplink. ``RZI_ERR_BUSY`` (the previous uplink is
+   still in progress) is expected and is not logged.
 
 No output at all
    The board was flashed with ``zephyr.hex`` instead of the merged image, the

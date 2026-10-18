@@ -10,7 +10,7 @@
 #include <rzi/lora/lora.h>
 #include <rzi/lorawan/lorawan.h>
 
-LOG_MODULE_REGISTER(rzi_rf_cert_sample, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(rzi_rf_certification, LOG_LEVEL_INF);
 
 #define READY_TIMEOUT    K_SECONDS(10)
 #define TX_TIMEOUT_MS    20000
@@ -173,20 +173,22 @@ static int start_radio(void)
 	rzi_lorawan_callback_handle_t handle;
 	int rc = rzi_lorawan_register_callbacks(&lorawan_callbacks, &handle);
 
-	if (rc == 0) {
-		rc = rzi_lorawan_start();
-	}
 	if (rc != 0) {
-		LOG_ERR("Modem start failed: %d", rc);
+		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lorawan_start();
+	if (rc != 0) {
+		LOG_ERR("LoRaWAN start failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	if (k_sem_take(&stack_ready, READY_TIMEOUT) != 0) {
-		LOG_ERR("Modem did not become ready");
+		LOG_ERR("LoRaWAN ready timed out");
 		return -RZI_ERR_TIMEOUT;
 	}
 	rc = rzi_lora_register_callbacks(&lora_callbacks);
 	if (rc != 0) {
-		LOG_ERR("Raw LoRa callbacks failed: %d", rc);
+		LOG_ERR("LoRa callback registration failed: %s", rzi_err_str(rc));
 	}
 	return rc;
 }
@@ -253,7 +255,7 @@ static int send_packet(uint32_t counter, uint8_t size)
 	k_sem_reset(&tx_done);
 	rc = rzi_lora_send(payload, size);
 	if (rc != 0) {
-		LOG_ERR("Packet %u rejected: %d", counter, rc);
+		LOG_ERR("Packet %u rejected: %s", counter, rzi_err_str(rc));
 		return rc;
 	}
 	if (!wait_for(&tx_done, TX_TIMEOUT_MS)) {
@@ -261,7 +263,7 @@ static int send_packet(uint32_t counter, uint8_t size)
 		return -RZI_ERR_TIMEOUT;
 	}
 	if (tx_error != 0) {
-		LOG_ERR("Packet %u failed: %d", counter, tx_error);
+		LOG_ERR("Packet %u failed: %s", counter, rzi_err_str(tx_error));
 	}
 	return tx_error;
 }
@@ -281,11 +283,13 @@ static int run_step(size_t index, uint32_t duration_ms, uint32_t *counter)
 	LOG_INF("Step %zu of %zu:", index + 1U, ARRAY_SIZE(steps));
 	log_step(index);
 	rc = configure(step, step->frequency_hz);
-	if (rc == 0) {
-		rc = rzi_lora_start(step->modulation);
-	}
 	if (rc != 0) {
-		LOG_ERR("Step %zu setup failed: %d", index + 1U, rc);
+		LOG_ERR("Step %zu setup failed: %s", index + 1U, rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lora_start(step->modulation);
+	if (rc != 0) {
+		LOG_ERR("Step %zu start failed: %s", index + 1U, rzi_err_str(rc));
 		return rc;
 	}
 	if (step->hop_channels != 0U) {

@@ -8,7 +8,7 @@
 #include <rzi/lora/lora.h>
 #include <rzi/lorawan/lorawan.h>
 
-LOG_MODULE_REGISTER(rzi_spectral_scan_sample, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(rzi_spectral_scan, LOG_LEVEL_INF);
 
 #define READY_TIMEOUT   K_SECONDS(10)
 #define RSSI_SETTLE_MS  110
@@ -42,20 +42,22 @@ static int start_radio(void)
 	rzi_lorawan_callback_handle_t handle;
 	int rc = rzi_lorawan_register_callbacks(&callbacks, &handle);
 
-	if (rc == 0) {
-		rc = rzi_lorawan_start();
-	}
 	if (rc != 0) {
-		LOG_ERR("Modem start failed: %d", rc);
+		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lorawan_start();
+	if (rc != 0) {
+		LOG_ERR("LoRaWAN start failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	if (k_sem_take(&stack_ready, READY_TIMEOUT) != 0) {
-		LOG_ERR("Modem did not become ready");
+		LOG_ERR("LoRaWAN ready timed out");
 		return -RZI_ERR_TIMEOUT;
 	}
 	rc = rzi_lora_start(RZI_LORA_MOD_LORA);
 	if (rc != 0) {
-		LOG_ERR("Raw LoRa start failed: %d", rc);
+		LOG_ERR("LoRa start failed: %s", rzi_err_str(rc));
 	}
 	return rc;
 }
@@ -66,13 +68,15 @@ static int measure(uint32_t frequency_hz, int16_t *rssi_dbm)
 	int64_t deadline;
 	int rc = rzi_lora_get_config(&config);
 
-	if (rc == 0) {
-		config.frequency_hz = frequency_hz;
-		rc = rzi_lora_set_config(&config);
+	if (rc != 0) {
+		return rc;
 	}
-	if (rc == 0) {
-		rc = rzi_lora_test_rssi();
+	config.frequency_hz = frequency_hz;
+	rc = rzi_lora_set_config(&config);
+	if (rc != 0) {
+		return rc;
 	}
+	rc = rzi_lora_test_rssi();
 	if (rc != 0) {
 		return rc;
 	}
@@ -110,7 +114,7 @@ static int scan_channel(uint32_t frequency_hz)
 		int rc = measure(frequency_hz, &rssi_dbm);
 
 		if (rc != 0) {
-			LOG_ERR("%u Hz: measurement failed: %d", frequency_hz, rc);
+			LOG_ERR("%u Hz: measurement failed: %s", frequency_hz, rzi_err_str(rc));
 			return rc;
 		}
 		min_dbm = MIN(min_dbm, rssi_dbm);

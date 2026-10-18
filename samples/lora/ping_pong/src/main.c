@@ -7,7 +7,7 @@
 #include <rzi/lora/lora.h>
 #include <rzi/lorawan/lorawan.h>
 
-LOG_MODULE_REGISTER(rzi_ping_pong_sample, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(rzi_ping_pong, LOG_LEVEL_INF);
 
 #define READY_TIMEOUT       K_SECONDS(10)
 #define TX_TIMEOUT_MS       2000
@@ -110,28 +110,35 @@ static int start_radio(void)
 	rzi_lorawan_callback_handle_t handle;
 	int rc = rzi_lorawan_register_callbacks(&lorawan_callbacks, &handle);
 
-	if (rc == 0) {
-		rc = rzi_lorawan_start();
-	}
 	if (rc != 0) {
-		LOG_ERR("Modem start failed: %d", rc);
+		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lorawan_start();
+	if (rc != 0) {
+		LOG_ERR("LoRaWAN start failed: %s", rzi_err_str(rc));
 		return rc;
 	}
 	if (k_sem_take(&stack_ready, READY_TIMEOUT) != 0) {
-		LOG_ERR("Modem did not become ready");
+		LOG_ERR("LoRaWAN ready timed out");
 		return -RZI_ERR_TIMEOUT;
 	}
 	rc = rzi_lora_register_callbacks(&lora_callbacks);
-	if (rc == 0) {
-		rc = configure_radio();
-	}
-	if (rc == 0) {
-		rc = rzi_lora_start(RZI_LORA_MOD_LORA);
-	}
 	if (rc != 0) {
-		LOG_ERR("Raw LoRa start failed: %d", rc);
+		LOG_ERR("LoRa callback registration failed: %s", rzi_err_str(rc));
+		return rc;
 	}
-	return rc;
+	rc = configure_radio();
+	if (rc != 0) {
+		LOG_ERR("LoRa config failed: %s", rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lora_start(RZI_LORA_MOD_LORA);
+	if (rc != 0) {
+		LOG_ERR("LoRa start failed: %s", rzi_err_str(rc));
+		return rc;
+	}
+	return 0;
 }
 
 static int send_frame(const char *header, uint8_t counter)
@@ -144,11 +151,13 @@ static int send_frame(const char *header, uint8_t counter)
 	frame[FRAME_COUNTER_INDEX] = counter;
 	k_sem_reset(&tx_done);
 	rc = rzi_lora_receive(0);
-	if (rc == 0) {
-		rc = rzi_lora_send(frame, sizeof(frame));
-	}
 	if (rc != 0) {
-		LOG_WRN("%s %u rejected: %d", header, counter, rc);
+		LOG_WRN("%s %u rejected: %s", header, counter, rzi_err_str(rc));
+		return rc;
+	}
+	rc = rzi_lora_send(frame, sizeof(frame));
+	if (rc != 0) {
+		LOG_WRN("%s %u rejected: %s", header, counter, rzi_err_str(rc));
 		return rc;
 	}
 	if (!wait_for(&tx_done, TX_TIMEOUT_MS)) {
@@ -165,7 +174,7 @@ static int start_receive(void)
 	k_sem_reset(&rx_done);
 	rc = rzi_lora_receive(RX_CONTINUOUS);
 	if (rc != 0) {
-		LOG_WRN("Receive rejected: %d", rc);
+		LOG_WRN("Receive rejected: %s", rzi_err_str(rc));
 	}
 	return rc;
 }
