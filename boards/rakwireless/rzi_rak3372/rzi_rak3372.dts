@@ -5,8 +5,9 @@
  * Radio is the STM32WLE5 on-chip SUBGHZ (st,stm32wl-subghz-radio), not an
  * SPI SX1262 shield. USP support is the RAK3372 west patch in
  * zephyr/patches/usp_zephyr. Single-slot flash: no FUOTA.
- * Console is usart1 (PB6/PB7). The RUI3-compatible AT port is usart2
- * (PA2/PA3).
+ * RUI3 default serial is lpuart1 (PA2/PA3, 115200). That is the console
+ * and the AT port. UART1 remains usart1 (PB6/PB7). USART2 is left
+ * disabled because it uses the same pins as LPUART1.
  */
 
 /dts-v1/;
@@ -19,8 +20,8 @@
 	compatible = "rakwireless,rzi-rak3372-stm32wl";
 
 	chosen {
-		zephyr,console = &usart1;
-		zephyr,shell-uart = &usart1;
+		zephyr,console = &lpuart1;
+		zephyr,shell-uart = &lpuart1;
 		zephyr,system-timer = &lptim1;
 		zephyr,lorawan-transceiver = &lora;
 	};
@@ -42,7 +43,7 @@
 	aliases {
 		led0 = &green_led;
 		lora0 = &lora;
-		rzi-at-uart = &usart2;
+		rzi-at-uart = &lpuart1;
 		watchdog0 = &iwdg;
 	};
 };
@@ -55,7 +56,7 @@
 	status = "okay";
 };
 
-&usart2 {
+&lpuart1 {
 	status = "okay";
 };
 

@@ -74,6 +74,13 @@
 	current-speed = <115200>;
 };
 
+/* RUI3 default serial: LPUART1 on PA2/PA3. Do not enable USART2 with this. */
+&lpuart1 {
+	pinctrl-0 = <&lpuart1_tx_pa2 &lpuart1_rx_pa3>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+};
+
 &i2c2 {
 	pinctrl-0 = <&i2c2_scl_pa12 &i2c2_sda_pa11>;
 	pinctrl-names = "default";

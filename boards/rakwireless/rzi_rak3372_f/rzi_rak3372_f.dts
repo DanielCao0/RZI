@@ -6,8 +6,9 @@
  * image-1 is the on-module SPI NOR, so LoRaWAN FUOTA installs by
  * overwrite. USP support is the STM32WL west patch in
  * zephyr/patches/usp_zephyr.
- * Console is usart1 (PB6/PB7) on the WisBlock header. The RUI3 AT port
- * and the RAK19007 USB-UART are usart2 (PA2/PA3).
+ * RUI3 default serial is lpuart1 (PA2/PA3, 115200). That is the console,
+ * the AT port, and the RAK19007 USB-UART. UART1 remains usart1 (PB6/PB7).
+ * USART2 is left disabled because it uses the same pins as LPUART1.
  */
 
 /dts-v1/;
@@ -20,8 +21,8 @@
 	compatible = "rakwireless,rzi-rak3372-f-stm32wl";
 
 	chosen {
-		zephyr,console = &usart1;
-		zephyr,shell-uart = &usart1;
+		zephyr,console = &lpuart1;
+		zephyr,shell-uart = &lpuart1;
 		zephyr,system-timer = &lptim1;
 		zephyr,lorawan-transceiver = &lora;
 	};
@@ -44,7 +45,7 @@
 	aliases {
 		led0 = &led1;
 		lora0 = &lora;
-		rzi-at-uart = &usart2;
+		rzi-at-uart = &lpuart1;
 		watchdog0 = &iwdg;
 		spi-flash0 = &ext_flash;
 	};
@@ -58,7 +59,7 @@
 	status = "okay";
 };
 
-&usart2 {
+&lpuart1 {
 	status = "okay";
 };
 
