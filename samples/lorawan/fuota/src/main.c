@@ -28,24 +28,24 @@ static volatile bool joined;
 static const char *tx_status_str(enum rzi_lorawan_tx_status status)
 {
 	switch (status) {
-	case RZI_LORAWAN_TX_SENT:
-		return "sent";
-	case RZI_LORAWAN_TX_ACKED:
-		return "acked";
-	case RZI_LORAWAN_TX_NOT_SENT:
-		return "not sent";
+	case RZI_LORAWAN_EVENT_TXDONE_SENT:
+		return "TXDONE_SENT";
+	case RZI_LORAWAN_EVENT_TXDONE_CONFIRMED:
+		return "TXDONE_CONFIRMED";
+	case RZI_LORAWAN_EVENT_TXDONE_NOT_SENT:
+		return "TXDONE_NOT_SENT";
 	default:
-		return "unknown";
+		return "TXDONE_UNKNOWN";
 	}
 }
 
 static void log_uplink_done(const struct rzi_lorawan_tx_result *tx)
 {
 	if (tx->error != 0) {
-		LOG_WRN("Uplink %s: %s", tx_status_str(tx->status), rzi_err_str(tx->error));
+		LOG_WRN("%s: %s", tx_status_str(tx->status), rzi_err_str(tx->error));
 		return;
 	}
-	LOG_INF("Uplink %s", tx_status_str(tx->status));
+	LOG_INF("%s", tx_status_str(tx->status));
 }
 
 static const char *fuota_state_str(enum rzi_fuota_state state)
@@ -88,10 +88,10 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		joined = false;
 		k_sem_give(&join_done);
 		break;
-	case RZI_LORAWAN_EVENT_TX_DONE:
+	case RZI_LORAWAN_EVENT_TXDONE:
 		log_uplink_done(&event->tx);
 		break;
-	case RZI_LORAWAN_EVENT_DOWNLINK:
+	case RZI_LORAWAN_EVENT_DOWNDATA:
 		LOG_INF("Downlink: port %u, %u bytes, RSSI %d dBm, SNR %d/4 dB",
 			event->downlink.port, (unsigned int)event->downlink.size,
 			event->downlink.rssi_dbm, event->downlink.snr_quarter_db);

@@ -80,7 +80,7 @@ static int fake_send(uint8_t port, const uint8_t *data, size_t size,
 {
 	const struct rzi_lorawan_backend_event event = {
 		.type = RZI_LORAWAN_BACKEND_TX_DONE,
-		.tx_status = RZI_LORAWAN_TX_ACKED,
+		.tx_status = RZI_LORAWAN_EVENT_TXDONE_CONFIRMED,
 	};
 
 	received_port = port;

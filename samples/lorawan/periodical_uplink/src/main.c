@@ -1,7 +1,6 @@
 /* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <errno.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -19,6 +18,7 @@ LOG_MODULE_REGISTER(rzi_periodical_uplink, LOG_LEVEL_INF);
 
 #define USER_NODE          DT_PATH(zephyr_user)
 #define LORAWAN_REGION     RZI_LORAWAN_REGION_EU_868
+/* RZI_LORAWAN_CLASS_A, RZI_LORAWAN_CLASS_B, or RZI_LORAWAN_CLASS_C. */
 #define LORAWAN_CLASS      RZI_LORAWAN_CLASS_A
 #define LORAWAN_ADR        true
 #define LORAWAN_DATA_RATE  RZI_LORAWAN_DR_5
@@ -29,29 +29,6 @@ LOG_MODULE_REGISTER(rzi_periodical_uplink, LOG_LEVEL_INF);
 static K_SEM_DEFINE(stack_ready, 0, 1);
 static K_SEM_DEFINE(join_done, 0, 1);
 static volatile bool joined;
-
-static const char *tx_status_str(enum rzi_lorawan_tx_status status)
-{
-	switch (status) {
-	case RZI_LORAWAN_TX_SENT:
-		return "sent";
-	case RZI_LORAWAN_TX_ACKED:
-		return "acked";
-	case RZI_LORAWAN_TX_NOT_SENT:
-		return "not sent";
-	default:
-		return "unknown";
-	}
-}
-
-static void log_uplink_done(const struct rzi_lorawan_tx_result *tx)
-{
-	if (tx->error != 0) {
-		LOG_WRN("Uplink %s: %s", tx_status_str(tx->status), rzi_err_str(tx->error));
-		return;
-	}
-	LOG_INF("Uplink %s", tx_status_str(tx->status));
-}
 
 static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 {
@@ -68,10 +45,8 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		}
 		break;
 	case RZI_LORAWAN_EVENT_JOINED:
-		/* Class, ADR, and a fixed data rate apply only after join.
-		 * USP rejects set_class() until the modem is joined.
-		 * set_data_rate() pins one rate and turns ADR off, so this
-		 * sample uses one of them.
+		/* The modem accepts a class or data-rate change only after join.
+		 * A fixed data rate disables ADR.
 		 */
 		rc = rzi_lorawan_set_class(LORAWAN_CLASS);
 		if (rc != 0) {
@@ -79,12 +54,14 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		}
 		if (LORAWAN_ADR) {
 			rc = rzi_lorawan_set_adr(true);
+			if (rc != 0) {
+				LOG_ERR("ADR failed: %s", rzi_err_str(rc));
+			}
 		} else {
 			rc = rzi_lorawan_set_data_rate(LORAWAN_DATA_RATE);
-		}
-		if (rc != 0) {
-			LOG_ERR("%s failed: %s", LORAWAN_ADR ? "ADR" : "Data rate",
-				rzi_err_str(rc));
+			if (rc != 0) {
+				LOG_ERR("Data rate failed: %s", rzi_err_str(rc));
+			}
 		}
 		joined = true;
 		k_sem_give(&join_done);
@@ -93,16 +70,65 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		joined = false;
 		k_sem_give(&join_done);
 		break;
-	case RZI_LORAWAN_EVENT_TX_DONE:
-		log_uplink_done(&event->tx);
+	case RZI_LORAWAN_EVENT_TXDONE:
+		if (event->tx.error != 0) {
+			LOG_WRN("TXDONE: %s", rzi_err_str(event->tx.error));
+		} else {
+			LOG_INF("TXDONE");
+		}
 		break;
-	case RZI_LORAWAN_EVENT_DOWNLINK:
-		LOG_INF("Downlink: port %u, %u bytes, RSSI %d dBm, SNR %d/4 dB",
+	case RZI_LORAWAN_EVENT_DOWNDATA:
+		LOG_INF("DOWNDATA: port %u, %u bytes, RSSI %d dBm, SNR %d/4 dB",
 			event->downlink.port, (unsigned int)event->downlink.size,
 			event->downlink.rssi_dbm, event->downlink.snr_quarter_db);
 		break;
 	case RZI_LORAWAN_EVENT_ERROR:
 		LOG_ERR("Error: %s", rzi_err_str(event->error));
+		break;
+	case RZI_LORAWAN_EVENT_LINK_CHECK:
+		LOG_INF("LINK_CHECK: margin %u dB, %u gateways, RSSI %d dBm, SNR %d/4 dB",
+			event->link_check.demod_margin, event->link_check.gateway_count,
+			event->link_check.rssi_dbm, event->link_check.snr_quarter_db);
+		break;
+	case RZI_LORAWAN_EVENT_LORAWAN_MAC_TIME:
+		if (event->error != 0) {
+			LOG_WRN("LORAWAN_MAC_TIME: %s", rzi_err_str(event->error));
+		} else {
+			LOG_INF("LORAWAN_MAC_TIME");
+		}
+		break;
+	case RZI_LORAWAN_EVENT_CLASS_B:
+		switch (event->class_b) {
+		case RZI_LORAWAN_CLASS_B_IDLE:
+			LOG_INF("CLASS_B: IDLE");
+			break;
+		case RZI_LORAWAN_CLASS_B_ACQUIRING_BEACON:
+			LOG_INF("CLASS_B: ACQUIRING_BEACON");
+			break;
+		case RZI_LORAWAN_CLASS_B_ACQUIRING_PING_SLOT:
+			LOG_INF("CLASS_B: ACQUIRING_PING_SLOT");
+			break;
+		case RZI_LORAWAN_CLASS_B_SWITCHING:
+			LOG_INF("CLASS_B: SWITCHING");
+			break;
+		case RZI_LORAWAN_CLASS_B_ACTIVE:
+			LOG_INF("CLASS_B: ACTIVE");
+			break;
+		default:
+			break;
+		}
+		break;
+	case RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE:
+		LOG_INF("REGIONAL_DUTY_CYCLE: %s", event->duty_cycle_limited ? "limited" : "clear");
+		break;
+	case RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD:
+		if ((event->no_downlink & RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END) !=
+		    0U) {
+			LOG_WRN("NO_DOWNLINK_THRESHOLD: ADR backoff ended");
+		}
+		if ((event->no_downlink & RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD) != 0U) {
+			LOG_WRN("NO_DOWNLINK_THRESHOLD: user threshold reached");
+		}
 		break;
 	default:
 		break;
@@ -133,6 +159,33 @@ static int request_join(void)
 	return 0;
 }
 
+static int configure_credentials(void)
+{
+	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
+	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
+	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
+	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
+	int rc;
+
+	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
+	if (rc != 0) {
+		return rc;
+	}
+	return rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
+}
+
 /* Highest byte first, so a server reads the counter as a normal integer. */
 static void encode_uplink_counter(uint32_t counter, uint8_t payload[4])
 {
@@ -144,10 +197,6 @@ static void encode_uplink_counter(uint32_t counter, uint8_t payload[4])
 
 int main(void)
 {
-	static const uint8_t dev_eui[] = DT_PROP(USER_NODE, user_lorawan_device_eui);
-	static const uint8_t join_eui[] = DT_PROP(USER_NODE, user_lorawan_join_eui);
-	static const uint8_t app_key[] = DT_PROP(USER_NODE, user_lorawan_app_key);
-	static const uint8_t gen_app_key[] = DT_PROP(USER_NODE, user_lorawan_gen_app_key);
 	uint32_t uplink_counter = 0;
 	uint8_t payload[sizeof(uplink_counter)];
 	int rc;
@@ -163,27 +212,7 @@ int main(void)
 		LOG_ERR("Callback registration failed: %s", rzi_err_str(rc));
 		return rc;
 	}
-	rc = rzi_lorawan_set_dev_eui(dev_eui, sizeof(dev_eui));
-	if (rc != 0) {
-		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
-		return rc;
-	}
-	rc = rzi_lorawan_set_app_eui(join_eui, sizeof(join_eui));
-	if (rc != 0) {
-		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
-		return rc;
-	}
-	rc = rzi_lorawan_set_app_key(app_key, sizeof(app_key));
-	if (rc != 0) {
-		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
-		return rc;
-	}
-	rc = rzi_lorawan_set_gen_app_key(gen_app_key, sizeof(gen_app_key));
-	if (rc != 0) {
-		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
-		return rc;
-	}
-	rc = rzi_lorawan_set_activation(RZI_LORAWAN_ACTIVATION_OTAA);
+	rc = configure_credentials();
 	if (rc != 0) {
 		LOG_ERR("Credentials failed: %s", rzi_err_str(rc));
 		return rc;

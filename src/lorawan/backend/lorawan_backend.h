@@ -43,7 +43,7 @@ enum rzi_lorawan_backend_event_type {
 	RZI_LORAWAN_BACKEND_CLASS_B,
 	/** Regional duty cycle started or stopped delaying uplinks. */
 	RZI_LORAWAN_BACKEND_DUTY_CYCLE,
-	/** Uplinks went unanswered; carries RZI_LORAWAN_NO_DOWNLINK_* reasons. */
+	/** Uplinks went unanswered; carries RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_* reasons. */
 	RZI_LORAWAN_BACKEND_NO_DOWNLINK,
 };
 
@@ -118,7 +118,7 @@ struct rzi_lorawan_backend_event {
 		enum rzi_lorawan_class_b_state class_b;
 		/** True while the duty cycle delays uplinks, for DUTY_CYCLE. */
 		bool duty_cycle_limited;
-		/** RZI_LORAWAN_NO_DOWNLINK_* reasons for NO_DOWNLINK. */
+		/** RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_* reasons for NO_DOWNLINK_THRESHOLD. */
 		uint8_t no_downlink;
 	};
 };

@@ -69,12 +69,12 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		atomic_inc(&stats->join_failed);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_TX_DONE:
+	case RZI_LORAWAN_EVENT_TXDONE:
 		atomic_set(&stats->last_tx_error, event->tx.error);
 		atomic_inc(&stats->uplink);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_DOWNLINK:
+	case RZI_LORAWAN_EVENT_DOWNDATA:
 		zassert_equal(event->downlink.rssi_dbm, -42);
 		zassert_equal(event->downlink.snr_quarter_db, 12);
 		zassert_equal(event->downlink.flags, RZI_LORAWAN_DOWNLINK_FPENDING);
@@ -99,7 +99,7 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		atomic_inc(&stats->link_checks);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_DEVICE_TIME:
+	case RZI_LORAWAN_EVENT_LORAWAN_MAC_TIME:
 		atomic_set(&stats->last_device_time_error, event->error);
 		atomic_inc(&stats->times);
 		k_sem_give(&callback_sem);
@@ -113,11 +113,11 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		atomic_inc(&stats->class_b);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_DUTY_CYCLE:
+	case RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE:
 		atomic_set(&stats->duty_cycle, event->duty_cycle_limited ? 1 : 0);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_NO_DOWNLINK:
+	case RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD:
 		atomic_set(&stats->no_downlink, event->no_downlink);
 		k_sem_give(&callback_sem);
 		break;
@@ -233,7 +233,7 @@ ZTEST(rzi_lorawan_service, test_lifecycle_and_multiple_subscribers)
 		const struct rzi_lorawan_backend_event tx_error = {
 			.type = RZI_LORAWAN_BACKEND_TX_DONE,
 			.error = -RZI_ERR_IO,
-			.tx_status = RZI_LORAWAN_TX_ACKED,
+			.tx_status = RZI_LORAWAN_EVENT_TXDONE_CONFIRMED,
 		};
 		const struct rzi_lorawan_backend_event error = {
 			.type = RZI_LORAWAN_BACKEND_ERROR,
@@ -596,7 +596,7 @@ ZTEST(rzi_lorawan_service, test_usp_status_events)
 	};
 	const struct rzi_lorawan_backend_event no_downlink = {
 		.type = RZI_LORAWAN_BACKEND_NO_DOWNLINK,
-		.no_downlink = RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD,
+		.no_downlink = RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD,
 	};
 	const struct rzi_lorawan_backend_event dropped = {
 		.type = RZI_LORAWAN_BACKEND_ERROR,
@@ -610,7 +610,8 @@ ZTEST(rzi_lorawan_service, test_usp_status_events)
 	fake_sink(&dropped);
 	wait_for_count(&stats->errors, 1);
 	zassert_equal(atomic_get(&stats->duty_cycle), 1);
-	zassert_equal(atomic_get(&stats->no_downlink), RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD);
+	zassert_equal(atomic_get(&stats->no_downlink),
+		      RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD);
 	zassert_equal(atomic_get(&stats->last_error), -RZI_ERR_OVERFLOW);
 }
 

@@ -102,7 +102,7 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		out->error = event->error != 0 ? event->error : -RZI_ERR_TIMEOUT;
 		return true;
 	case RZI_LORAWAN_BACKEND_TX_DONE:
-		out->type = RZI_LORAWAN_EVENT_TX_DONE;
+		out->type = RZI_LORAWAN_EVENT_TXDONE;
 		out->tx.status = event->tx_status;
 		out->tx.error = event->error;
 		return true;
@@ -110,7 +110,7 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		last_rssi_dbm = event->downlink.rssi_dbm;
 		last_snr_quarter_db = event->downlink.snr_quarter_db;
 		last_downlink_valid = true;
-		out->type = RZI_LORAWAN_EVENT_DOWNLINK;
+		out->type = RZI_LORAWAN_EVENT_DOWNDATA;
 		out->downlink.port = event->downlink.port;
 		out->downlink.size = event->downlink.size;
 		out->downlink.rssi_dbm = event->downlink.rssi_dbm;
@@ -135,7 +135,7 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		out->link_check = event->link_check;
 		return true;
 	case RZI_LORAWAN_BACKEND_DEVICE_TIME:
-		out->type = RZI_LORAWAN_EVENT_DEVICE_TIME;
+		out->type = RZI_LORAWAN_EVENT_LORAWAN_MAC_TIME;
 		out->error = event->error;
 		return true;
 	case RZI_LORAWAN_BACKEND_CLASS_B:
@@ -143,11 +143,11 @@ static bool event_from_backend(const struct rzi_lorawan_backend_event *event,
 		out->class_b = event->class_b;
 		return true;
 	case RZI_LORAWAN_BACKEND_DUTY_CYCLE:
-		out->type = RZI_LORAWAN_EVENT_DUTY_CYCLE;
+		out->type = RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE;
 		out->duty_cycle_limited = event->duty_cycle_limited;
 		return true;
 	case RZI_LORAWAN_BACKEND_NO_DOWNLINK:
-		out->type = RZI_LORAWAN_EVENT_NO_DOWNLINK;
+		out->type = RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD;
 		out->no_downlink = event->no_downlink;
 		return true;
 	case RZI_LORAWAN_BACKEND_FUOTA:

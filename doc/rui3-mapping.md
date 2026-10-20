@@ -163,7 +163,7 @@ int rzi_lorawan_get_network_time(struct rzi_lorawan_network_time *time);
 
 `request_link_check(ONCE)` or `EVERY_UPLINK` triggers a request immediately.
 Completion is `on_event()` with `RZI_LORAWAN_EVENT_LINK_CHECK` or
-`RZI_LORAWAN_EVENT_DEVICE_TIME`.
+`RZI_LORAWAN_EVENT_LORAWAN_MAC_TIME`.
 `get_network_time` uses the GPS epoch.
 
 ## `include/rzi/lorawan/multicast.h`

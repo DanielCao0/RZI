@@ -49,19 +49,19 @@ replace them before a radio test:
 
 The region is ``LORAWAN_REGION`` in ``src/main.c``. The checked-in value is
 ``RZI_LORAWAN_REGION_EU_868``. The device class is ``LORAWAN_CLASS`` in the
-same file, checked in as ``RZI_LORAWAN_CLASS_A``. The uplink interval, port
-and retry delay are
-``UPLINK_INTERVAL_MS``, ``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same
-file.
+same file. Set it to ``RZI_LORAWAN_CLASS_A``, ``RZI_LORAWAN_CLASS_B``, or
+``RZI_LORAWAN_CLASS_C``. The checked-in value is ``RZI_LORAWAN_CLASS_A``.
+The uplink interval, port and retry delay are ``UPLINK_INTERVAL_MS``,
+``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same file.
 
-``LORAWAN_CLASS``, ``LORAWAN_ADR`` and ``LORAWAN_DATA_RATE`` are applied in
-the ``JOINED`` callback. The modem rejects a class change until the device
-has joined. With ``LORAWAN_ADR`` true, ``rzi_lorawan_set_adr(true)`` lets the
-network choose the rate. Set it to false to call
-``rzi_lorawan_set_data_rate(LORAWAN_DATA_RATE)`` instead; that pins one rate
-and turns ADR off. EU868 accepts ``RZI_LORAWAN_DR_0`` through
-``RZI_LORAWAN_DR_5``. Either call returns ``RZI_ERR_NOT_JOINED`` before the
-device has joined.
+``LORAWAN_CLASS``, ``LORAWAN_ADR`` and ``LORAWAN_DATA_RATE`` are applied after
+join. The modem rejects those changes before the device has joined. Class A,
+B and C all use ``rzi_lorawan_set_class()``. With Class B, the modem requests
+network time and ping-slot information, then searches for a beacon.
+``CLASS_B: ACTIVE`` means the beacon is locked. With ``LORAWAN_ADR`` true,
+the network chooses the data rate. Set it to false to use
+``LORAWAN_DATA_RATE`` instead; that call disables ADR. EU868 accepts
+``RZI_LORAWAN_DR_0`` through ``RZI_LORAWAN_DR_5``.
 
 Building
 ********
@@ -106,9 +106,9 @@ baud. After reset the sample prints, with timestamps omitted:
    <inf> rzi_periodical_uplink: Joining
    <inf> rzi_periodical_uplink: Joined
    <inf> rzi_periodical_uplink: Uplink 0 on port 101
-   <inf> rzi_periodical_uplink: Uplink sent
+   <inf> rzi_periodical_uplink: TXDONE
    <inf> rzi_periodical_uplink: Uplink 1 on port 101
-   <inf> rzi_periodical_uplink: Uplink sent
+   <inf> rzi_periodical_uplink: TXDONE
 
 The pair of lines repeats every 60 seconds; the network server shows payloads
 ``00000000``, ``00000001`` and so on. When the network server queues
@@ -116,7 +116,7 @@ a downlink, the next uplink is followed by a line such as:
 
 .. code-block:: console
 
-   <inf> rzi_periodical_uplink: Downlink: port 2, 3 bytes, RSSI -45 dBm, SNR 38/4 dB
+   <inf> rzi_periodical_uplink: DOWNDATA: port 2, 3 bytes, RSSI -45 dBm, SNR 38/4 dB
 
 MCUboot prints its own lines before the Zephyr banner. LoRa Basics Modem
 traces stay off unless ``CONFIG_USP_LOG_LEVEL_INF=y`` is set.
@@ -136,8 +136,9 @@ Failed calls print an ``RZI_ERR_*`` name from ``include/rzi/err.h``.
    lengths in ``app.overlay`` and ``LORAWAN_REGION`` in ``src/main.c``.
 
 ``Class failed`` while handling the join
-   The modem rejected the class change. Class A is already the default.
-   Class B or C is accepted only after the device has joined.
+   The modem rejected the class change. It is accepted only after the device
+   has joined. For Class B, ``CLASS_B: ACTIVE`` means the beacon is locked.
+   A gateway that does not send beacons never prints that line.
 
 ``Uplink rejected: RZI_ERR_*``
    The stack refused the uplink. ``RZI_ERR_BUSY`` (the previous uplink is

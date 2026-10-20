@@ -57,8 +57,8 @@ device is missing. An adapter or service that has not been started returns
 `RZI_ERR_NOT_READY`.
 
 Each public function documents the subset it actually returns. Asynchronous
-events use the same catalog: `JOIN_FAILED`, `ERROR`, and `DEVICE_TIME` carry
-`0` or a negative `RZI_ERR_*` in `rzi_lorawan_event.error`; `TX_DONE` stores
+events use the same catalog: `JOIN_FAILED`, `ERROR`, and `LORAWAN_MAC_TIME` carry
+`0` or a negative `RZI_ERR_*` in `rzi_lorawan_event.error`; `TXDONE` stores
 that value in `rzi_lorawan_tx_result.error`.
 
 ## Backend mapping

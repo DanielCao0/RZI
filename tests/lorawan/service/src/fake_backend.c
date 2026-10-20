@@ -162,8 +162,8 @@ static int start_tx(enum rzi_lorawan_message_type type)
 		return -RZI_ERR_BUSY;
 	}
 	tx_pending = true;
-	held_status =
-		type == RZI_LORAWAN_MSG_CONFIRMED ? RZI_LORAWAN_TX_ACKED : RZI_LORAWAN_TX_SENT;
+	held_status = type == RZI_LORAWAN_MSG_CONFIRMED ? RZI_LORAWAN_EVENT_TXDONE_CONFIRMED
+							: RZI_LORAWAN_EVENT_TXDONE_SENT;
 	if (!fake_tx_hold) {
 		fake_complete_tx();
 	}

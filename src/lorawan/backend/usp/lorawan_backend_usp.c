@@ -291,13 +291,13 @@ static void handle_event(const smtc_modem_event_t *source, int error)
 		event.type = RZI_LORAWAN_BACKEND_TX_DONE;
 		switch (source->event_data.txdone.status) {
 		case SMTC_MODEM_EVENT_TXDONE_CONFIRMED:
-			event.tx_status = RZI_LORAWAN_TX_ACKED;
+			event.tx_status = RZI_LORAWAN_EVENT_TXDONE_CONFIRMED;
 			break;
 		case SMTC_MODEM_EVENT_TXDONE_SENT:
-			event.tx_status = RZI_LORAWAN_TX_SENT;
+			event.tx_status = RZI_LORAWAN_EVENT_TXDONE_SENT;
 			break;
 		default:
-			event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
+			event.tx_status = RZI_LORAWAN_EVENT_TXDONE_NOT_SENT;
 			event.error = -RZI_ERR_IO;
 			break;
 		}
@@ -315,11 +315,11 @@ static void handle_event(const smtc_modem_event_t *source, int error)
 		event.type = RZI_LORAWAN_BACKEND_NO_DOWNLINK;
 		if ((source->event_data.no_downlink.status &
 		     SMTC_MODEM_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END) != 0U) {
-			event.no_downlink |= RZI_LORAWAN_NO_DOWNLINK_ADR_BACKOFF_END;
+			event.no_downlink |= RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END;
 		}
 		if ((source->event_data.no_downlink.status &
 		     SMTC_MODEM_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD) != 0U) {
-			event.no_downlink |= RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD;
+			event.no_downlink |= RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD;
 		}
 		rzi_lorawan_usp_publish(&event);
 		break;

@@ -173,21 +173,21 @@ rate cannot carry the frame. The backend copies the payload before the
 function returns. Only one outstanding uplink is allowed. A second request
 returns `-RZI_ERR_BUSY`. Unjoined devices return `-RZI_ERR_NOT_JOINED`.
 
-`RZI_LORAWAN_EVENT_TX_DONE` carries a `rzi_lorawan_tx_result` that is valid
+`RZI_LORAWAN_EVENT_TXDONE` carries a `rzi_lorawan_tx_result` that is valid
 only for the duration of `on_event()`:
 
-- `RZI_LORAWAN_TX_ACKED`: a confirmed uplink received an acknowledgement;
-- `RZI_LORAWAN_TX_SENT`: the frame was sent without an acknowledgement;
-- `RZI_LORAWAN_TX_NOT_SENT`: the request was never sent; `error` holds the
+- `RZI_LORAWAN_EVENT_TXDONE_CONFIRMED`: a confirmed uplink received an acknowledgement;
+- `RZI_LORAWAN_EVENT_TXDONE_SENT`: the frame was sent without an acknowledgement;
+- `RZI_LORAWAN_EVENT_TXDONE_NOT_SENT`: the request was never sent; `error` holds the
   negative `RZI_ERR_*` from the backend.
 
-Metadata and payload pointers in `RZI_LORAWAN_EVENT_DOWNLINK` are valid only
+Metadata and payload pointers in `RZI_LORAWAN_EVENT_DOWNDATA` are valid only
 until `on_event()` returns. Subscribers that need the data later must copy it.
 
 `rzi_lorawan_send_empty()` sends an uplink without application payload,
 optionally with an FPort, for example to flush pending MAC answers or open
 class A receive windows. It follows the same joined and one-outstanding-uplink
-rules and completes with `RZI_LORAWAN_EVENT_TX_DONE`. `rzi_lorawan_is_busy()`
+rules and completes with `RZI_LORAWAN_EVENT_TXDONE`. `rzi_lorawan_is_busy()`
 reports the stack's own view of whether an uplink is still in progress.
 
 `enum rzi_lorawan_data_rate` names the 4-bit MAC index (0-15). The core does
@@ -196,7 +196,7 @@ uplink data rates the backend reports for the active region (USP:
 `smtc_modem_get_enabled_datarates()`). Multicast data rates are checked
 against 0-15 and validated by the stack.
 
-`RZI_LORAWAN_EVENT_DOWNLINK` carries the reception metadata LoRa Basics Modem
+`RZI_LORAWAN_EVENT_DOWNDATA` carries the reception metadata LoRa Basics Modem
 reports: `window` (`RX1`, `RX2`, `RXC`, `RXB`, or `UNKNOWN`), `data_rate`,
 `frequency_hz`, and `flags`:
 
@@ -208,11 +208,11 @@ reports: `window` (`RX1`, `RX2`, `RXC`, `RXB`, or `UNKNOWN`), `data_rate`,
 
 Two stack status events report conditions LoRa Basics Modem detects on its own:
 
-- `RZI_LORAWAN_EVENT_DUTY_CYCLE`: `duty_cycle_limited` is true while regional
+- `RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE`: `duty_cycle_limited` is true while regional
   duty-cycle limits block transmission, false when they lift;
-- `RZI_LORAWAN_EVENT_NO_DOWNLINK`: `no_downlink` holds
-  `RZI_LORAWAN_NO_DOWNLINK_ADR_BACKOFF_END` and/or
-  `RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD` after too many uplinks without a
+- `RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD`: `no_downlink` holds
+  `RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END` and/or
+  `RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD` after too many uplinks without a
   downlink (see `rzi_lorawan_set_no_downlink_threshold()`).
 
 ## 5a. Link control
@@ -239,7 +239,7 @@ without the control returns `-RZI_ERR_NOT_SUPPORTED`.
   present when `CONFIG_LORA_BASICS_MODEM_CSMA` is enabled;
 - `rzi_lorawan_get_lost_connection_count()`: uplinks since the last downlink;
 - `rzi_lorawan_set_no_downlink_threshold()`: uplink count that raises
-  `RZI_LORAWAN_EVENT_NO_DOWNLINK`;
+  `RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD`;
 - `rzi_lorawan_set_crystal_error()`: crystal error in ppm used to widen
   receive windows.
 

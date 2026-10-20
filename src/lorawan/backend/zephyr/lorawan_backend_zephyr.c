@@ -344,12 +344,12 @@ static void send_work_handler(struct k_work *work)
 	k_mutex_unlock(&lock);
 
 	if (rc != 0) {
-		event.tx_status = RZI_LORAWAN_TX_NOT_SENT;
+		event.tx_status = RZI_LORAWAN_EVENT_TXDONE_NOT_SENT;
 		event.error = rzi_lorawan_zephyr_err(rc);
 	} else if (type == RZI_LORAWAN_MSG_CONFIRMED) {
-		event.tx_status = RZI_LORAWAN_TX_ACKED;
+		event.tx_status = RZI_LORAWAN_EVENT_TXDONE_CONFIRMED;
 	} else {
-		event.tx_status = RZI_LORAWAN_TX_SENT;
+		event.tx_status = RZI_LORAWAN_EVENT_TXDONE_SENT;
 	}
 	publish(&event);
 }

@@ -343,20 +343,20 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 	case RZI_LORAWAN_EVENT_JOIN_FAILED:
 		at_event("JOIN_FAILED_RX_TIMEOUT");
 		break;
-	case RZI_LORAWAN_EVENT_TX_DONE:
+	case RZI_LORAWAN_EVENT_TXDONE:
 		if (!atomic_get(&context->tx_confirmed)) {
 			at_event("TX_DONE");
-		} else if (event->tx.status == RZI_LORAWAN_TX_ACKED) {
+		} else if (event->tx.status == RZI_LORAWAN_EVENT_TXDONE_CONFIRMED) {
 			atomic_set(&context->confirmation_status, 1);
 			at_event("SEND_CONFIRMED_OK");
-		} else if (event->tx.status == RZI_LORAWAN_TX_NOT_SENT) {
+		} else if (event->tx.status == RZI_LORAWAN_EVENT_TXDONE_NOT_SENT) {
 			atomic_clear(&context->confirmation_status);
 			at_event("SEND_CONFIRMED_FAILED");
 		} else {
 			at_event("TX_DONE");
 		}
 		break;
-	case RZI_LORAWAN_EVENT_DOWNLINK: {
+	case RZI_LORAWAN_EVENT_DOWNDATA: {
 		char hex[RZI_LORAWAN_MAX_PAYLOAD * 2U + 1U];
 
 		k_mutex_lock(&context->state_lock, K_FOREVER);

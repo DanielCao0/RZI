@@ -55,13 +55,13 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		atomic_set(&stats->join_status, event->error);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_TX_DONE:
-		zassert_equal(event->tx.status, RZI_LORAWAN_TX_SENT);
+	case RZI_LORAWAN_EVENT_TXDONE:
+		zassert_equal(event->tx.status, RZI_LORAWAN_EVENT_TXDONE_SENT);
 		zassert_ok(event->tx.error);
 		atomic_inc(&stats->uplink);
 		k_sem_give(&callback_sem);
 		break;
-	case RZI_LORAWAN_EVENT_DOWNLINK:
+	case RZI_LORAWAN_EVENT_DOWNDATA:
 		if (event->downlink.port == 3 && event->downlink.size == 2 &&
 		    event->downlink.data[0] == 0xab && event->downlink.data[1] == 0xcd) {
 			atomic_set(&stats->payload_valid, 1);

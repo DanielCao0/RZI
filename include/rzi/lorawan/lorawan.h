@@ -232,12 +232,12 @@ enum rzi_lorawan_state {
 
 /** Result of a completed uplink request. */
 enum rzi_lorawan_tx_status {
-	/** Unconfirmed uplink was transmitted. */
-	RZI_LORAWAN_TX_SENT,
-	/** Confirmed uplink was acknowledged. */
-	RZI_LORAWAN_TX_ACKED,
-	/** Uplink did not complete successfully. */
-	RZI_LORAWAN_TX_NOT_SENT,
+	/** SMTC_MODEM_EVENT_TXDONE_SENT. Unconfirmed uplink was transmitted. */
+	RZI_LORAWAN_EVENT_TXDONE_SENT,
+	/** SMTC_MODEM_EVENT_TXDONE_CONFIRMED. Confirmed uplink was acknowledged. */
+	RZI_LORAWAN_EVENT_TXDONE_CONFIRMED,
+	/** SMTC_MODEM_EVENT_TXDONE_NOT_SENT. Uplink did not complete successfully. */
+	RZI_LORAWAN_EVENT_TXDONE_NOT_SENT,
 };
 
 /** Detailed result delivered when an asynchronous uplink completes. */
@@ -293,10 +293,10 @@ struct rzi_lorawan_downlink {
 	const uint8_t *data;
 };
 
-/** RZI_LORAWAN_EVENT_NO_DOWNLINK reasons. */
-#define RZI_LORAWAN_NO_DOWNLINK_ADR_BACKOFF_END (1U << 0)
+/** RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD reasons. */
+#define RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END (1U << 0)
 /** The threshold set by rzi_lorawan_set_no_downlink_threshold() was reached. */
-#define RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD  (1U << 1)
+#define RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD  (1U << 1)
 
 /**
  * @brief Events delivered to rzi_lorawan_callbacks.on_event.
@@ -311,9 +311,9 @@ enum rzi_lorawan_event_type {
 	/** Network activation failed. Active member is error. */
 	RZI_LORAWAN_EVENT_JOIN_FAILED,
 	/** An accepted uplink completed. Active member is tx. */
-	RZI_LORAWAN_EVENT_TX_DONE,
+	RZI_LORAWAN_EVENT_TXDONE,
 	/** An application downlink was received. Active member is downlink. */
-	RZI_LORAWAN_EVENT_DOWNLINK,
+	RZI_LORAWAN_EVENT_DOWNDATA,
 	/** An asynchronous error. Active member is error. */
 	RZI_LORAWAN_EVENT_ERROR,
 	/** Service state transition. Active member is state. */
@@ -321,19 +321,25 @@ enum rzi_lorawan_event_type {
 	/** LinkCheckAns received. Active member is link_check. */
 	RZI_LORAWAN_EVENT_LINK_CHECK,
 	/** DeviceTimeAns completed. Active member is error. */
-	RZI_LORAWAN_EVENT_DEVICE_TIME,
-	/** Class B acquisition state changed. Active member is class_b. */
+	RZI_LORAWAN_EVENT_LORAWAN_MAC_TIME,
+	/**
+	 * Class B state changed. Active member is class_b.
+	 * USP SMTC_MODEM_EVENT_CLASS_B_READY is delivered as
+	 * RZI_LORAWAN_CLASS_B_ACTIVE, and SMTC_MODEM_EVENT_CLASS_B_NOT_READY as
+	 * RZI_LORAWAN_CLASS_B_IDLE. set_class() also reports IDLE for Class A
+	 * and Class C, and ACQUIRING_BEACON when Class B is selected.
+	 */
 	RZI_LORAWAN_EVENT_CLASS_B,
 	/**
 	 * Regional duty cycle started or stopped delaying uplinks. Active member
 	 * is duty_cycle_limited.
 	 */
-	RZI_LORAWAN_EVENT_DUTY_CYCLE,
+	RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE,
 	/**
 	 * Uplinks went unanswered for too long. Active member is no_downlink,
-	 * a bitwise OR of RZI_LORAWAN_NO_DOWNLINK_* reasons.
+	 * a bitwise OR of RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_* reasons.
 	 */
-	RZI_LORAWAN_EVENT_NO_DOWNLINK,
+	RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD,
 };
 
 /**
@@ -346,13 +352,13 @@ struct rzi_lorawan_event {
 	/** Selects the active union member. */
 	enum rzi_lorawan_event_type type;
 	union {
-		/** Negative RZI_ERR_* for JOIN_FAILED, ERROR, and DEVICE_TIME. */
+		/** Negative RZI_ERR_* for JOIN_FAILED, ERROR, and LORAWAN_MAC_TIME. */
 		int error;
-		/** Uplink result for RZI_LORAWAN_EVENT_TX_DONE. */
+		/** Uplink result for RZI_LORAWAN_EVENT_TXDONE. */
 		struct rzi_lorawan_tx_result tx;
 		/** State for RZI_LORAWAN_EVENT_STATE_CHANGED. */
 		enum rzi_lorawan_state state;
-		/** Downlink metadata for RZI_LORAWAN_EVENT_DOWNLINK. */
+		/** Downlink metadata for RZI_LORAWAN_EVENT_DOWNDATA. */
 		struct rzi_lorawan_downlink downlink;
 		/** Link-check result for RZI_LORAWAN_EVENT_LINK_CHECK. */
 		struct rzi_lorawan_link_check_result link_check;
@@ -360,7 +366,7 @@ struct rzi_lorawan_event {
 		enum rzi_lorawan_class_b_state class_b;
 		/** True while the regional duty cycle delays uplinks. */
 		bool duty_cycle_limited;
-		/** RZI_LORAWAN_NO_DOWNLINK_* reasons. */
+		/** RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_* reasons. */
 		uint8_t no_downlink;
 	};
 };
@@ -911,7 +917,7 @@ __must_check int rzi_lorawan_leave(void);
  * @param type Confirmed or unconfirmed message type.
  * A return value of zero means the payload was copied and accepted, not that
  * it has been transmitted. Completion is reported through on_event() as
- * RZI_LORAWAN_EVENT_TX_DONE. Only one outstanding uplink is currently supported.
+ * RZI_LORAWAN_EVENT_TXDONE. Only one outstanding uplink is currently supported.
  *
  * @retval 0 Request accepted.
  * @retval -RZI_ERR_INVALID The port, payload pointer, or message type is invalid.
@@ -992,7 +998,7 @@ __must_check int rzi_lorawan_get_device_time_enabled(bool *enabled);
 /**
  * @brief Enable or disable DeviceTimeReq on subsequent uplinks.
  *
- * Completion is reported through on_event() as RZI_LORAWAN_EVENT_DEVICE_TIME.
+ * Completion is reported through on_event() as RZI_LORAWAN_EVENT_LORAWAN_MAC_TIME.
  *
  * @param enabled True to request network time.
  *
@@ -1769,7 +1775,7 @@ __must_check int rzi_lorawan_set_join_data_rates(const uint8_t *distribution);
  * @retval -RZI_ERR_NOT_SUPPORTED The backend does not track duty cycle.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @note Thread context only. RZI_LORAWAN_EVENT_DUTY_CYCLE reports changes.
+ * @note Thread context only. RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE reports changes.
  * @since 0.4
  */
 __must_check int rzi_lorawan_get_duty_cycle_status(int32_t *time_ms);
@@ -1855,7 +1861,8 @@ __must_check int rzi_lorawan_get_lost_connection_count(uint16_t *count);
 
 /**
  * @brief Read the number of unanswered uplinks that raises
- *        RZI_LORAWAN_EVENT_NO_DOWNLINK with RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD.
+ *        RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD with
+ * RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD.
  *
  * @param[out] uplinks Stored threshold; zero means disabled.
  *
@@ -1872,7 +1879,8 @@ __must_check int rzi_lorawan_get_no_downlink_threshold(uint16_t *uplinks);
 
 /**
  * @brief Set the number of unanswered uplinks that raises
- *        RZI_LORAWAN_EVENT_NO_DOWNLINK with RZI_LORAWAN_NO_DOWNLINK_USER_THRESHOLD.
+ *        RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD with
+ * RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_USER_THRESHOLD.
  *
  * @param uplinks Threshold; zero disables the event.
  *
@@ -1921,7 +1929,7 @@ __must_check int rzi_lorawan_set_crystal_error(uint32_t ppm);
  * @brief Request an uplink without application payload.
  *
  * Use it to flush MAC answers or open receive windows. Completion is reported
- * as RZI_LORAWAN_EVENT_TX_DONE, like rzi_lorawan_send().
+ * as RZI_LORAWAN_EVENT_TXDONE, like rzi_lorawan_send().
  *
  * @param with_port Include FPort; false sends a frame with no FPort.
  * @param port FPort, 1 through 223, used when with_port is true.
