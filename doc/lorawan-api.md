@@ -176,8 +176,8 @@ returns `-RZI_ERR_BUSY`. Unjoined devices return `-RZI_ERR_NOT_JOINED`.
 `RZI_LORAWAN_EVENT_TXDONE` carries a `rzi_lorawan_tx_result` that is valid
 only for the duration of `on_event()`:
 
-- `RZI_LORAWAN_EVENT_TXDONE_CONFIRMED`: a confirmed uplink received an acknowledgement;
-- `RZI_LORAWAN_EVENT_TXDONE_SENT`: the frame was sent without an acknowledgement;
+- `RZI_LORAWAN_EVENT_TXDONE_CONFIRMED`: a confirmed uplink received an acknowledgment;
+- `RZI_LORAWAN_EVENT_TXDONE_SENT`: the frame was sent without an acknowledgment;
 - `RZI_LORAWAN_EVENT_TXDONE_NOT_SENT`: the request was never sent; `error` holds the
   negative `RZI_ERR_*` from the backend.
 
