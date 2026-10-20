@@ -39,3 +39,8 @@ manifest:
       revision: 540bba008477a8969e554b8d10dbf90ff6160c8e # v1.2.1
       path: modules/lib/usp
       submodules: true
+
+    - name: lora-basics-modem
+      path: modules/lib/lora-basics-modem
+      url: https://github.com/zephyrproject-rtos/lora-basics-modem
+      revision: a8ddc544043e72807cf7db532478e1dda734ae7c # v4.9.0
