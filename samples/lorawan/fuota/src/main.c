@@ -13,7 +13,7 @@ static __maybe_unused void ignore_result(int result)
 	ARG_UNUSED(result);
 }
 
-LOG_MODULE_REGISTER(rzi_fuota, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(rzi_fuota_sample, LOG_LEVEL_INF);
 
 #define USER_NODE       DT_PATH(zephyr_user)
 #define LORAWAN_REGION  RZI_LORAWAN_REGION_EU_868

@@ -61,19 +61,19 @@ On the console UART at 115200 baud, with timestamps omitted:
 
 .. code-block:: console
 
-   <inf> rzi_fuota: RZI LoRaWAN FUOTA sample
-   <inf> rzi_fuota: Joining
-   <inf> rzi_fuota: Joined
-   <inf> rzi_fuota: Uplink sent
+   <inf> rzi_fuota_sample: RZI LoRaWAN FUOTA sample
+   <inf> rzi_fuota_sample: Joining
+   <inf> rzi_fuota_sample: Joined
+   <inf> rzi_fuota_sample: Uplink sent
 
 When ChirpStack starts a deployment, the multicast and fragmentation setup
 arrives as downlinks, then:
 
 .. code-block:: console
 
-   <inf> rzi_fuota: FUOTA transfer started
-   <inf> rzi_fuota: FUOTA transferring
-   <inf> rzi_fuota: FUOTA finished
+   <inf> rzi_fuota_sample: FUOTA transfer started
+   <inf> rzi_fuota_sample: FUOTA transferring
+   <inf> rzi_fuota_sample: FUOTA finished
 
 The state line uses the ``enum rzi_fuota_state`` name: ``idle``, ``ready``,
 ``transferring``, ``complete``, ``failed`` or ``applying``.
