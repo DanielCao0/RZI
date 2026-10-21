@@ -59,6 +59,13 @@ if(CONFIG_RZI)
     )
   endif()
 
+  if(CONFIG_RZI_LLEXT_EXPORTS)
+    add_subdirectory(
+      ${ZEPHYR_CURRENT_MODULE_DIR}/src/llext_exports
+      ${CMAKE_CURRENT_BINARY_DIR}/rzi-llext_exports
+    )
+  endif()
+
   if(CONFIG_RZI_POWER)
     add_subdirectory(
       ${ZEPHYR_CURRENT_MODULE_DIR}/src/power
