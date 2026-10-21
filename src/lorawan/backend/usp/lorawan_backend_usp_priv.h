@@ -30,7 +30,6 @@ void rzi_lorawan_usp_publish_class_b(enum rzi_lorawan_class_b_state state);
 enum rzi_lorawan_class_b_state rzi_lorawan_usp_class_b_state(void);
 
 int usp_get_class(enum rzi_lorawan_class *device_class);
-int usp_query_tx_possible(size_t size);
 int usp_is_busy(bool *busy);
 
 extern const struct rzi_lorawan_network_ops usp_network_ops;

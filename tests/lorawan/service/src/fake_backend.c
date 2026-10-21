@@ -347,6 +347,11 @@ static int fake_set_lbt_scan_time(uint32_t value)
 	return 0;
 }
 
+static int fake_query_tx_possible(size_t size)
+{
+	return size <= 51U ? 0 : -RZI_ERR_TOO_LARGE;
+}
+
 static const struct rzi_lorawan_network_ops fake_network_ops = {
 	.get_adr = fake_get_adr,
 	.set_adr = fake_set_adr,
@@ -366,6 +371,7 @@ static const struct rzi_lorawan_network_ops fake_network_ops = {
 	.get_lbt_scan_time = fake_get_lbt_scan_time,
 	.set_lbt_scan_time = fake_set_lbt_scan_time,
 	.send_empty = fake_send_empty,
+	.query_tx_possible = fake_query_tx_possible,
 };
 
 static int fake_get_ping_slot(uint8_t *value)
@@ -454,11 +460,6 @@ static int fake_set_dev_nonce(uint16_t value)
 {
 	dev_nonce = value;
 	return 0;
-}
-
-static int fake_query_tx_possible(size_t size)
-{
-	return size <= 51U ? 0 : -RZI_ERR_TOO_LARGE;
 }
 
 static int fake_is_busy(bool *value)
@@ -653,15 +654,14 @@ static const struct rzi_lorawan_certification_ops fake_cert_ops = {
 
 const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.capabilities = FAKE_CAPABILITIES,
-	.start = fake_start,
-	.join = fake_join,
-	.leave = fake_leave,
-	.send = fake_send,
-	.set_class = fake_set_class,
-	.get_class = fake_get_class,
-	.is_joined = fake_is_joined,
-	.query_tx_possible = fake_query_tx_possible,
-	.is_busy = fake_is_busy,
+	.base.start = fake_start,
+	.base.join = fake_join,
+	.base.leave = fake_leave,
+	.base.send = fake_send,
+	.base.set_class = fake_set_class,
+	.base.get_class = fake_get_class,
+	.base.is_joined = fake_is_joined,
+	.base.is_busy = fake_is_busy,
 	.network = &fake_network_ops,
 	.class_b = &fake_class_b_ops,
 	.session = &fake_session_ops,

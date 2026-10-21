@@ -52,6 +52,8 @@ struct rzi_lorawan_network_ops {
 	int (*set_crystal_error)(uint32_t ppm);
 	/** Uplink without payload; completes through TX_DONE like send(). */
 	int (*send_empty)(bool with_port, uint8_t port, enum rzi_lorawan_message_type type);
+	/** Return whether the next uplink of this size can be sent, or NULL. */
+	int (*query_tx_possible)(size_t size);
 };
 
 #endif /* RZI_LORAWAN_NETWORK_OPS_H */

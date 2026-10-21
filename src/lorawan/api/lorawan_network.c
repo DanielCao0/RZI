@@ -390,13 +390,5 @@ int rzi_lorawan_set_crystal_error(uint32_t ppm)
 
 int rzi_lorawan_query_tx_possible(size_t size)
 {
-	int rc = rzi_lorawan_check_started();
-
-	if (rc != 0) {
-		return rc;
-	}
-	if (rzi_lorawan_backend.query_tx_possible == NULL) {
-		return -RZI_ERR_NOT_SUPPORTED;
-	}
-	return rzi_lorawan_backend.query_tx_possible(size);
+	CALL_NETWORK_OP(query_tx_possible, size);
 }

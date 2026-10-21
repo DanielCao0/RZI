@@ -110,13 +110,13 @@ static int fake_is_busy(bool *busy)
 
 const struct rzi_lorawan_backend_api rzi_lorawan_backend = {
 	.capabilities = RZI_LORAWAN_CAP_OTAA | RZI_LORAWAN_CAP_CLASS_A | RZI_LORAWAN_CAP_CHANNEL,
-	.start = fake_start,
-	.join = fake_join,
-	.leave = fake_leave,
-	.send = fake_send,
-	.set_class = fake_set_class,
-	.is_joined = fake_is_joined,
-	.is_busy = fake_is_busy,
+	.base.start = fake_start,
+	.base.join = fake_join,
+	.base.leave = fake_leave,
+	.base.send = fake_send,
+	.base.set_class = fake_set_class,
+	.base.is_joined = fake_is_joined,
+	.base.is_busy = fake_is_busy,
 };
 
 static void reset_output(void)

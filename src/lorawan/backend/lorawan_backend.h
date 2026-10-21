@@ -132,25 +132,19 @@ struct rzi_lorawan_backend_event {
 typedef void (*rzi_lorawan_event_sink_t)(const struct rzi_lorawan_backend_event *event);
 
 /**
- * @brief Operations supplied by exactly one selected LoRaWAN backend.
+ * @brief Required lifecycle, uplink, and state operations.
  *
  * Operation arguments must be consumed or copied before returning. A zero
  * return from join() or send() means accepted; completion is asynchronous
- * through the event sink. A NULL ops pointer means the whole group is
- * unsupported. A NULL member inside a table returns -RZI_ERR_NOT_SUPPORTED.
+ * through the event sink. Only get_class() may be NULL.
  *
  * The contract follows LoRa Basics Modem semantics; other backends emulate
  * them. In particular join() starts a sequence the backend keeps retrying,
  * publishing JOIN_FAILED per failed attempt, until JOINED or leave(). The
  * stack owns runtime state such as busy and the current data rate; the
  * service does not shadow it.
- *
- * Each optional table must be present exactly when its RZI_LORAWAN_CAP_* bit
- * is set; rzi_lorawan_init() asserts this.
  */
-struct rzi_lorawan_backend_api {
-	/** Bitwise OR of enum rzi_lorawan_capability values. */
-	uint32_t capabilities;
+struct rzi_lorawan_base_ops {
 	/** Start the backend and retain the event sink for its lifetime. */
 	int (*start)(enum rzi_lorawan_region region, bool join_backoff_bypass,
 		     rzi_lorawan_event_sink_t event_sink);
@@ -167,10 +161,23 @@ struct rzi_lorawan_backend_api {
 	int (*get_class)(enum rzi_lorawan_class *device_class);
 	/** Store the current network-session state in joined. */
 	int (*is_joined)(bool *joined);
-	/** Return whether the next uplink of this size can be sent, or NULL. */
-	int (*query_tx_possible)(size_t size);
 	/** Store whether the stack is still processing an uplink. */
 	int (*is_busy)(bool *busy);
+};
+
+/**
+ * @brief Operations supplied by exactly one selected LoRaWAN backend.
+ *
+ * A NULL optional ops pointer means the whole group is unsupported. A NULL
+ * member inside an optional table returns -RZI_ERR_NOT_SUPPORTED. Each
+ * optional table must be present exactly when its RZI_LORAWAN_CAP_* bit is
+ * set; rzi_lorawan_init() asserts this.
+ */
+struct rzi_lorawan_backend_api {
+	/** Bitwise OR of enum rzi_lorawan_capability values. */
+	uint32_t capabilities;
+	/** Base operations; get_class may be NULL. */
+	struct rzi_lorawan_base_ops base;
 	/** MAC-parameter table, or NULL. */
 	const struct rzi_lorawan_network_ops *network;
 	/** Class B table, or NULL. */

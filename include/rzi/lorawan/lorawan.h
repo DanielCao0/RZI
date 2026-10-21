@@ -185,9 +185,10 @@ struct rzi_lorawan_network_time {
 /**
  * @brief Backend capabilities returned by @ref rzi_lorawan_get_capabilities.
  *
- * Join-mode and class bits describe what start/join/set_class accept. The
- * remaining bits match optional ops tables on the backend contract: a bit
- * is set only when the corresponding pointer is non-NULL.
+ * Activation and class bits describe supported join and device-class modes;
+ * CLASS_B also requires the class_b ops table. CHANNEL means join applies
+ * the configured channel mask and has no separate ops table. The other bits
+ * match optional ops tables and are set only when the table is non-NULL.
  */
 enum rzi_lorawan_capability {
 	/** Backend accepts OTAA join. */
@@ -352,7 +353,9 @@ struct rzi_lorawan_event {
 	/** Selects the active union member. */
 	enum rzi_lorawan_event_type type;
 	union {
-		/** Negative RZI_ERR_* for JOIN_FAILED, ERROR, and LORAWAN_MAC_TIME. */
+		/** JOIN_FAILED and ERROR carry a negative RZI_ERR_*.
+		 * LORAWAN_MAC_TIME carries zero on success or a negative RZI_ERR_*.
+		 */
 		int error;
 		/** Uplink result for RZI_LORAWAN_EVENT_TXDONE. */
 		struct rzi_lorawan_tx_result tx;

@@ -43,7 +43,6 @@ void rzi_lorawan_zephyr_set_class(enum rzi_lorawan_class device_class);
 void rzi_lorawan_zephyr_publish(const struct rzi_lorawan_backend_event *event);
 
 int zephyr_get_class(enum rzi_lorawan_class *device_class);
-int zephyr_query_tx_possible(size_t size);
 int zephyr_is_busy(bool *busy);
 
 extern const struct rzi_lorawan_network_ops zephyr_network_ops;

@@ -254,10 +254,7 @@ static int session_joined(bool *joined)
 	if (rzi_lorawan_check_started() != 0) {
 		return 0;
 	}
-	if (rzi_lorawan_backend.is_joined == NULL) {
-		return -RZI_ERR_NOT_SUPPORTED;
-	}
-	return rzi_lorawan_backend.is_joined(joined);
+	return rzi_lorawan_backend.base.is_joined(joined);
 }
 
 static const struct rzi_lorawan_session_ops *session_ops(void)

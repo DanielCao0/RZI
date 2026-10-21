@@ -110,15 +110,7 @@ static int zephyr_get_enabled_data_rates(uint16_t *mask)
 	return 0;
 }
 
-const struct rzi_lorawan_network_ops zephyr_network_ops = {
-	.get_adr = zephyr_get_adr,
-	.set_adr = zephyr_set_adr,
-	.get_data_rate = zephyr_get_data_rate,
-	.set_data_rate = zephyr_set_data_rate,
-	.get_enabled_data_rates = zephyr_get_enabled_data_rates,
-};
-
-int zephyr_query_tx_possible(size_t size)
+static int zephyr_query_tx_possible(size_t size)
 {
 	uint8_t next_size = 0;
 	uint8_t max_size = 0;
@@ -131,6 +123,15 @@ int zephyr_query_tx_possible(size_t size)
 	rzi_lorawan_zephyr_unlock();
 	return size > next_size ? -RZI_ERR_TOO_LARGE : 0;
 }
+
+const struct rzi_lorawan_network_ops zephyr_network_ops = {
+	.get_adr = zephyr_get_adr,
+	.set_adr = zephyr_set_adr,
+	.get_data_rate = zephyr_get_data_rate,
+	.set_data_rate = zephyr_set_data_rate,
+	.get_enabled_data_rates = zephyr_get_enabled_data_rates,
+	.query_tx_possible = zephyr_query_tx_possible,
+};
 
 static int zephyr_map_mib(int rc)
 {

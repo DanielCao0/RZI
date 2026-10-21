@@ -445,6 +445,21 @@ static int usp_send_empty(bool with_port, uint8_t port, enum rzi_lorawan_message
 	return rzi_lorawan_usp_finish(rc);
 }
 
+static int usp_query_tx_possible(size_t size)
+{
+	uint8_t max_payload = 0;
+	int rc = rzi_lorawan_usp_enter();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_usp_result(smtc_modem_get_next_tx_max_payload(STACK_ID, &max_payload));
+	if (rc == 0 && size > max_payload) {
+		rc = -RZI_ERR_TOO_LARGE;
+	}
+	return rzi_lorawan_usp_finish(rc);
+}
+
 const struct rzi_lorawan_network_ops usp_network_ops = {
 	.get_adr = usp_get_adr,
 	.set_adr = usp_set_adr,
@@ -479,22 +494,8 @@ const struct rzi_lorawan_network_ops usp_network_ops = {
 	.get_crystal_error = usp_get_crystal_error,
 	.set_crystal_error = usp_set_crystal_error,
 	.send_empty = usp_send_empty,
+	.query_tx_possible = usp_query_tx_possible,
 };
-
-int usp_query_tx_possible(size_t size)
-{
-	uint8_t max_payload = 0;
-	int rc = rzi_lorawan_usp_enter();
-
-	if (rc != 0) {
-		return rc;
-	}
-	rc = rzi_usp_result(smtc_modem_get_next_tx_max_payload(STACK_ID, &max_payload));
-	if (rc == 0 && size > max_payload) {
-		rc = -RZI_ERR_TOO_LARGE;
-	}
-	return rzi_lorawan_usp_finish(rc);
-}
 
 int usp_is_busy(bool *busy)
 {

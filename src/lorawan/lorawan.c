@@ -181,7 +181,7 @@ static bool swallow_join_event(const struct rzi_lorawan_backend_event *event)
 		return true;
 	}
 	clear_join_sequence();
-	(void)rzi_lorawan_backend.leave();
+	(void)rzi_lorawan_backend.base.leave();
 	publish_state(RZI_LORAWAN_STATE_READY);
 	return false;
 }
@@ -417,7 +417,13 @@ static void check_backend_contract(void)
 	__ASSERT(capability_matches(RZI_LORAWAN_CAP_FUOTA, rzi_lorawan_backend.fuota),
 		 "fuota ops do not match RZI_LORAWAN_CAP_FUOTA");
 #endif
-	__ASSERT(rzi_lorawan_backend.is_busy != NULL, "backend must report busy");
+	__ASSERT(rzi_lorawan_backend.base.start != NULL, "backend must provide start");
+	__ASSERT(rzi_lorawan_backend.base.join != NULL, "backend must provide join");
+	__ASSERT(rzi_lorawan_backend.base.leave != NULL, "backend must provide leave");
+	__ASSERT(rzi_lorawan_backend.base.send != NULL, "backend must provide send");
+	__ASSERT(rzi_lorawan_backend.base.set_class != NULL, "backend must provide set_class");
+	__ASSERT(rzi_lorawan_backend.base.is_joined != NULL, "backend must report joined state");
+	__ASSERT(rzi_lorawan_backend.base.is_busy != NULL, "backend must report busy");
 }
 
 int rzi_lorawan_init(enum rzi_lorawan_region region)
@@ -443,7 +449,7 @@ int rzi_lorawan_init(enum rzi_lorawan_region region)
 	k_mutex_unlock(&config_lock);
 
 	publish_state(RZI_LORAWAN_STATE_STARTING);
-	rc = rzi_lorawan_backend.start(region, bypass, publish);
+	rc = rzi_lorawan_backend.base.start(region, bypass, publish);
 	if (rc != 0) {
 		atomic_clear(&started);
 		publish_state(RZI_LORAWAN_STATE_STOPPED);
@@ -517,7 +523,7 @@ static int begin_join(void)
 	atomic_set(&join_retries_remaining, attempts);
 	rzi_lorawan_credentials_set_join_active(true);
 	publish_state(RZI_LORAWAN_STATE_JOINING);
-	rc = rzi_lorawan_backend.join(&config);
+	rc = rzi_lorawan_backend.base.join(&config);
 	if (rc != 0) {
 		clear_join_sequence();
 		publish_state(RZI_LORAWAN_STATE_READY);
@@ -535,10 +541,10 @@ static int stop_join(void)
 	if (!was_active || check_context() != 0) {
 		return 0;
 	}
-	rc = rzi_lorawan_backend.is_joined(&joined);
+	rc = rzi_lorawan_backend.base.is_joined(&joined);
 	if (rc == 0 && !joined) {
 		/* Abort an attempt still waiting for Join-Accept. */
-		rc = rzi_lorawan_backend.leave();
+		rc = rzi_lorawan_backend.base.leave();
 		if (rc == -RZI_ERR_NOT_SUPPORTED) {
 			rc = 0;
 		}
@@ -584,7 +590,7 @@ int rzi_lorawan_leave(void)
 	int rc = check_context();
 
 	if (rc == 0) {
-		rc = rzi_lorawan_backend.leave();
+		rc = rzi_lorawan_backend.base.leave();
 		if (rc == 0) {
 			power_sync_class_c(false);
 			publish_state(RZI_LORAWAN_STATE_READY);
@@ -606,7 +612,7 @@ static int check_joined(void)
 	if (rc != 0) {
 		return rc;
 	}
-	rc = rzi_lorawan_backend.is_joined(&joined);
+	rc = rzi_lorawan_backend.base.is_joined(&joined);
 	if (rc != 0) {
 		return rc;
 	}
@@ -629,7 +635,7 @@ int rzi_lorawan_send(uint8_t port, const uint8_t *data, size_t size,
 		return rc;
 	}
 	rzi_lorawan_mac_commands_on_uplink();
-	return rzi_lorawan_backend.send(port, data, size, type);
+	return rzi_lorawan_backend.base.send(port, data, size, type);
 }
 
 int rzi_lorawan_send_empty(bool with_port, uint8_t port, enum rzi_lorawan_message_type type)
@@ -675,7 +681,7 @@ int rzi_lorawan_set_class(enum rzi_lorawan_class device_class)
 	if ((rzi_lorawan_backend.capabilities & class_caps[device_class]) == 0U) {
 		return -RZI_ERR_NOT_SUPPORTED;
 	}
-	rc = rzi_lorawan_backend.set_class(device_class);
+	rc = rzi_lorawan_backend.base.set_class(device_class);
 	if (rc == 0) {
 		rzi_lorawan_note_class(device_class);
 	}
@@ -690,7 +696,7 @@ int rzi_lorawan_is_joined(bool *joined)
 		return -RZI_ERR_INVALID;
 	}
 	rc = check_context();
-	return rc != 0 ? rc : rzi_lorawan_backend.is_joined(joined);
+	return rc != 0 ? rc : rzi_lorawan_backend.base.is_joined(joined);
 }
 
 uint32_t rzi_lorawan_get_capabilities(void)
@@ -724,8 +730,8 @@ int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class)
 	if (device_class == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-	if (rzi_lorawan_backend.get_class != NULL) {
-		rc = rzi_lorawan_backend.get_class(device_class);
+	if (rzi_lorawan_backend.base.get_class != NULL) {
+		rc = rzi_lorawan_backend.base.get_class(device_class);
 		if (rc == 0) {
 			rzi_lorawan_note_class(*device_class);
 			return 0;
@@ -802,5 +808,5 @@ int rzi_lorawan_is_busy(bool *busy)
 		*busy = false;
 		return 0;
 	}
-	return rzi_lorawan_backend.is_busy(busy);
+	return rzi_lorawan_backend.base.is_busy(busy);
 }
