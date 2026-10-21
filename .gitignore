@@ -5,6 +5,7 @@
 /build-*/
 /build/
 **/__pycache__/
+/.vscode/
 
 # External documentation checkout retained locally
 /doc/reqmgmt/
@@ -15,3 +16,6 @@
 /.checkpatch.conf
 /.gitlint
 /compliance.xml
+
+# OS residual files
+.DS_Store
