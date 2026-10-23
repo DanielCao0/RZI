@@ -22,8 +22,9 @@ extern "C" {
  *  @brief Sleep policy and blockers; Zephyr performs the transition.
  *
  *  The backend owns LoRaWAN RX1/RX2 timing. This service does not compute
- *  or delay receive windows. On nRF52840, RAM-retained sleep is System ON
- *  idle. On STM32WLE5, @ref RZI_POWER_POLICY_SUSPEND allows STOP0/1/2.
+ *  or delay receive windows. @ref rzi_power_enter selects the transition
+ *  from the current policy. Retention sleep is System ON on nRF and STOP
+ *  on STM32WLE5. Shutdown is System OFF on nRF and STANDBY on STM32WLE5.
  *
  *  @since 0.2
  *  @version 0.4.0
@@ -268,11 +269,44 @@ __must_check int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason);
 __must_check int rzi_power_sleep(int32_t timeout_ms);
 
 /**
+ * @brief Enter the low-power state for this board.
+ *
+ * The current policy selects the depth. Every board uses this call;
+ * the SoC backend owns the registers.
+ *
+ * `RUN` stays awake. `IDLE` and `SUSPEND` prepare RAM-retained sleep
+ * and then wait as @ref rzi_power_sleep does. Blockers do not fail
+ * that wait. `SHUTDOWN` is @ref rzi_power_shutdown and does not return
+ * on success.
+ *
+ * Before System OFF or STANDBY, the backend finishes SPI, UART, and
+ * QSPI transfers, disables those peripherals, disconnects their pins,
+ * and waits until the high-frequency clock has stopped. An external
+ * wake pin must already use level sense (`GPIO_INT_LEVEL_LOW` or
+ * `GPIO_INT_LEVEL_HIGH`). System OFF does not wake on an edge. Pins
+ * that do not already have level sense return to the reset state.
+ * A companion SX126x described by devicetree is put to sleep first.
+ *
+ * @param timeout_ms Maximum wait for a retention sleep. Ignored when
+ *                   the policy is shutdown.
+ *
+ * @retval 0 Retention wait finished.
+ * @retval -RZI_ERR_BUSY Policy is run, or shutdown is blocked.
+ * @retval -RZI_ERR_NOT_SUPPORTED Shutdown is unavailable, or the wake-source mask cannot
+ *                  wake this SoC from power-off.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ * @note Thread context only.
+ * @since 0.4
+ */
+__must_check int rzi_power_enter(int32_t timeout_ms);
+
+/**
  * @brief Enter board shutdown if the policy and blockers allow it.
  *
- * Does not return on success. nRF52840 uses System OFF; STM32WLE5 uses
- * the SoC power-off path (STANDBY/shutdown). A GPIO (or USB on 4631,
- * RTC/radio on 3372) wake source must be enabled by the application.
+ * Same path as @ref rzi_power_enter when the policy is shutdown.
+ * Does not return on success. nRF uses System OFF; STM32WLE5 uses
+ * STANDBY. A GPIO (or USB on 4631, RTC/radio on 3372) wake source
+ * must be enabled by the application before the call.
  *
  * @retval -RZI_ERR_BUSY A blocker is held or the policy is not shutdown.
  * @retval -RZI_ERR_NOT_SUPPORTED Shutdown is unavailable or the wake-source mask cannot

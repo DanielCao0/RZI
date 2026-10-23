@@ -113,6 +113,10 @@
 
 &gpio1 {
 	status = "okay";
+	/* DIO1 is P1.15. Edge events use the low-power sense path. A GPIOTE
+	 * IN channel is the high-accuracy mode and keeps the 32 MHz domain on.
+	 */
+	sense-edge-mask = <0x8000>;
 
 	rf_power: rf-power {
 		gpio-hog;
@@ -173,7 +177,7 @@
 		dio1-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
 		dio2-as-rf-switch;
 		dio3-as-tcxo-control;
-		tcxo-voltage = <SX126X_TCXO_SUPPLY_3_3V>;
+		tcxo-voltage = <SX126X_TCXO_SUPPLY_1_8V>;
 		tcxo-wakeup-time = <5>;
 		reg-mode = <SX126X_REG_MODE_DCDC>;
 		/* SX1262 PA table, one entry per dBm from -9 to 22. */

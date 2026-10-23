@@ -16,15 +16,13 @@
 #include <zephyr/pm/policy.h>
 #endif
 
-#ifdef CONFIG_POWEROFF
-#include <zephyr/sys/poweroff.h>
-#endif
-
 #ifdef CONFIG_HWINFO
 #include <zephyr/drivers/hwinfo.h>
 #endif
 
 #include <rzi/power/power.h>
+
+#include "backend/power_board.h"
 
 enum power_constraint {
 	POWER_CONSTRAINT_NONE = 0,
@@ -49,9 +47,11 @@ static bool wake_event_registered;
 
 static uint32_t default_wake_sources(void)
 {
-#if defined(CONFIG_SOC_SERIES_NRF52X)
+#if defined(CONFIG_SOC_SERIES_NRF52) || defined(CONFIG_SOC_SERIES_NRF52X)
 	return RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_RADIO |
 	       RZI_POWER_WAKE_USB;
+#elif defined(CONFIG_SOC_SERIES_NRF54L)
+	return RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_RADIO;
 #elif defined(CONFIG_SOC_SERIES_STM32WLX)
 	return RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_RADIO |
 	       RZI_POWER_WAKE_UART;
@@ -223,8 +223,10 @@ static void refresh_wake_event_locked(void)
 
 static bool shutdown_wake_supported_locked(void)
 {
-#if defined(CONFIG_SOC_SERIES_NRF52X)
+#if defined(CONFIG_SOC_SERIES_NRF52) || defined(CONFIG_SOC_SERIES_NRF52X)
 	return (wake_sources & (RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_USB)) != 0U;
+#elif defined(CONFIG_SOC_SERIES_NRF54L)
+	return (wake_sources & RZI_POWER_WAKE_GPIO) != 0U;
 #elif defined(CONFIG_SOC_SERIES_STM32WLX)
 	return (wake_sources &
 		(RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_RADIO)) != 0U;
@@ -526,13 +528,9 @@ int rzi_power_sleep(int32_t timeout_ms)
 	return 0;
 }
 
-int rzi_power_shutdown(void)
+static int enter_shutdown(void)
 {
 	int rc;
-
-	if (k_is_in_isr()) {
-		return -RZI_ERR_ISR;
-	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
 	rc = ensure_ready();
@@ -548,8 +546,47 @@ int rzi_power_shutdown(void)
 		return rc;
 	}
 
-#ifdef CONFIG_POWEROFF
-	sys_poweroff();
-#endif
-	return -RZI_ERR_NOT_SUPPORTED;
+	return power_board_enter_off();
+}
+
+int rzi_power_enter(int32_t timeout_ms)
+{
+	enum rzi_power_policy current;
+	int rc;
+
+	if (k_is_in_isr()) {
+		return -RZI_ERR_ISR;
+	}
+
+	k_mutex_lock(&power_lock, K_FOREVER);
+	rc = ensure_ready();
+	if (rc == 0) {
+		current = policy;
+	}
+	k_mutex_unlock(&power_lock);
+	if (rc != 0) {
+		return rc;
+	}
+
+	if (current == RZI_POWER_POLICY_RUN) {
+		return -RZI_ERR_BUSY;
+	}
+	if (current == RZI_POWER_POLICY_SHUTDOWN) {
+		return enter_shutdown();
+	}
+
+	rc = power_board_prepare_retention();
+	if (rc != 0) {
+		return rc;
+	}
+	return rzi_power_sleep(timeout_ms);
+}
+
+int rzi_power_shutdown(void)
+{
+	if (k_is_in_isr()) {
+		return -RZI_ERR_ISR;
+	}
+
+	return enter_shutdown();
 }

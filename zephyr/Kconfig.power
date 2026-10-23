@@ -7,11 +7,10 @@ config RZI_POWER
 	select POWEROFF if HAS_POWEROFF
 	imply HWINFO
 	help
-	  Product sleep policy and service blockers. Zephyr performs the
-	  actual idle, STOP, or power-off transition. STM32WLE5 selects
-	  CONFIG_PM so STOP0/1/2 from the SoC device tree are available.
-	  nRF52840 keeps CONFIG_PM off: System ON idle is arch WFE, and
-	  System OFF is rzi_power_shutdown().
+	  Product sleep policy and the board low-power entry. rzi_power_enter()
+	  follows the current policy. STM32WLE5 selects CONFIG_PM so STOP0/1/2
+	  from the SoC device tree are available. nRF52840 keeps CONFIG_PM off:
+	  System ON idle is arch WFE, and System OFF is rzi_power_shutdown().
 
 if RZI_POWER
 

@@ -1,0 +1,31 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * RAK19007 USB-UART is LPUART1 (PA2/PA3, 115200 8N1), matching RUI3.
+ * The board devicetree already selects that port as the console.
+ *
+ * A board overlay replaces app.overlay, so the shared credentials
+ * are included from there.
+ */
+#include "../app.overlay"
+
+/ {
+	chosen {
+		zephyr,console = &lpuart1;
+		zephyr,shell-uart = &lpuart1;
+		/* SysTick stops in STOP2. RTC keeps time there and wakes the CPU. */
+		zephyr,system-timer = &systick;
+		zephyr,system-timer-companion = &rtc;
+	};
+};
+
+&lptim1 {
+	status = "disabled";
+};
+
+&rtc {
+	wakeup-source;
+};

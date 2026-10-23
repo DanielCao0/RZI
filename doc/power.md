@@ -24,13 +24,17 @@ Only the backend (USP / LBM or Zephyr lorawan) knows LoRaWAN RX1/RX2
 timing. If RZI computed the windows itself, it would race the stack. The
 power service therefore **does not touch the radio schedule**.
 
-RZI also does not gate clocks, switch regulators, or write PWR registers.
-Those belong to Zephyr PM and the SoC drivers.
+Retention sleep is still the idle thread: STOP on 3372, WFE on 4631.
+`rzi_power_enter()` / `rzi_power_shutdown()` additionally run the SoC
+backend before `sys_poweroff()`. That backend finishes high-frequency
+peripherals and waits until the HF clock has stopped. It does not
+replace Zephyr PM and it does not schedule the radio.
 
-This component does one job: **product policy coordination**. Who must not
-sleep deeply right now, how deep the product wants to sleep, and the next
-time the device must be awake are collected by RZI. The actual power
-transition is left to the idle thread and `sys_poweroff()`.
+This component does one job: **product policy coordination**, plus the
+board steps Zephyr's power-off call does not perform. Who must not
+sleep deeply right now, how deep the product wants to sleep, and the
+next time the device must be awake are collected by RZI. RAM-retained
+sleep is still the idle thread.
 
 ## 2. Layers and ownership
 
@@ -59,7 +63,7 @@ SoC
 | Layer | Owns | Does not own |
 |---|---|---|
 | Application | Policy, TRANSPORT/APP, GPIO/USB wake pins, when to `sleep` / `shutdown` | Protocol windows, SoC registers |
-| RZI power | Policy, blocker counts, PM locks, wake deadline, advisory wake-source mask, reset cause | RX1/RX2, DIO1 setup, device runtime PM |
+| RZI power | Policy, blocker counts, PM locks, wake deadline, advisory wake-source mask, reset cause, SoC shutdown quiesce | RX1/RX2 timing, wake-pin selection |
 | Other RZI services | Their own blockers during an operation | Sleep depth |
 | LoRaWAN backend | Protocol timing, radio IRQ, Class A RX windows | Product policy |
 | Zephyr / SoC | Idle, STOP, System OFF, peripheral PM | Product semantics |

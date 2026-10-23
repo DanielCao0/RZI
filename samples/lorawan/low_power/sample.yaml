@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: RZI LoRaWAN low power
+  description: >
+    Join a LoRaWAN network, send an uplink every 5 seconds, and sleep
+    between uplinks
+tests:
+  sample.rzi.lorawan.low_power:
+    sysbuild: true
+    build_only: true
+    tags:
+      - rzi
+      - lorawan
+    platform_allow:
+      - rzi_rak4631/nrf52840
+      - rzi_rak3362/nrf54l15/cpuapp
+      - rzi_rak3372/stm32wle5xx
+      - rzi_rak3372_f/stm32wle5xx
+    integration_platforms:
+      - rzi_rak3372_f/stm32wle5xx

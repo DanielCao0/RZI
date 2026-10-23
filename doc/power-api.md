@@ -54,6 +54,7 @@ the policy is idle or suspend and every count is zero.
 | `rzi_power_set_wake_sources()` / `rzi_power_get_wake_sources()` | Advisory mask checked at shutdown |
 | `rzi_power_get_wake_reason()` | Snapshot from `rzi_power_init()` |
 | `rzi_power_sleep(timeout_ms)` | Suspend the caller; never shutdown |
+| `rzi_power_enter(timeout_ms)` | Board entry for the current policy |
 | `rzi_power_shutdown()` | RAM-lost power-off; does not return on success |
 
 Wake-source flags: `RZI_POWER_WAKE_TIMER`, `_GPIO`, `_UART`, `_USB`,
@@ -74,7 +75,15 @@ Periodic uplinks come from a timer or a LoRaWAN callback calling
 `rzi_lorawan_send()`. The main thread uses `k_sleep(K_FOREVER)`. Do not
 `rzi_power_sleep(fixed duration)` over an in-flight Class A session.
 
-`rzi_power_shutdown()` returns `-RZI_ERR_BUSY` / `-RZI_ERR_NOT_SUPPORTED` when the policy is not
+`rzi_power_enter()` is the board entry. `RUN` returns `-RZI_ERR_BUSY`.
+`IDLE` and `SUSPEND` prepare retention sleep and then wait.
+`SHUTDOWN` does not return: the SoC backend finishes SPI, UART, and
+QSPI activity, confirms the high-frequency clock has stopped, then
+calls `sys_poweroff()`. A companion SX126x in devicetree is put to
+sleep on that path. Wake pins must already use level sense.
+
+`rzi_power_shutdown()` is the shutdown-policy path of `rzi_power_enter()`.
+It returns `-RZI_ERR_BUSY` / `-RZI_ERR_NOT_SUPPORTED` when the policy is not
 shutdown, blockers remain, or the wake-source mask cannot return from
 power-off.
 
