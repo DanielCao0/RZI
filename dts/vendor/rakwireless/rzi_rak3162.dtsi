@@ -139,6 +139,10 @@
 
 &gpio0 {
 	status = "okay";
+	/* DIO1 is P0.01, on the low-power GPIOTE30 port. Edge events stay on
+	 * the sense path. A dedicated GPIOTE channel is the high-accuracy mode.
+	 */
+	sense-edge-mask = <0x02>;
 
 	rf_power: rf-power {
 		gpio-hog;

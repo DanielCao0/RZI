@@ -1,0 +1,20 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * A board overlay replaces app.overlay, so the shared credentials
+ * are included from there.
+ */
+#include "../app.overlay"
+
+/* Console UART only outputs logs; disable RX to avoid starting EasyDMA RX. */
+&uart20 {
+	disable-rx;
+};
+
+/* Automatically suspend spi22 between SX1262 SPI transactions. */
+&spi22 {
+	zephyr,pm-device-runtime-auto;
+};

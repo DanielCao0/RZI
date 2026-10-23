@@ -83,4 +83,21 @@ ZTEST(rzi_power_api, test_deadline_sleep_and_shutdown_refused)
 	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_IDLE));
 }
 
+ZTEST(rzi_power_api, test_enter_follows_policy)
+{
+	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_RUN));
+	zassert_equal(rzi_power_enter(1000), -RZI_ERR_BUSY);
+
+	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_IDLE));
+	zassert_ok(rzi_power_enter(1));
+
+	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_SHUTDOWN));
+	zassert_ok(rzi_power_block(RZI_POWER_BLOCK_APP));
+	zassert_equal(rzi_power_enter(0), -RZI_ERR_BUSY);
+	zassert_equal(rzi_power_shutdown(), -RZI_ERR_BUSY);
+	zassert_ok(rzi_power_unblock(RZI_POWER_BLOCK_APP));
+	zassert_equal(rzi_power_enter(0), -RZI_ERR_NOT_SUPPORTED);
+	zassert_ok(rzi_power_set_policy(RZI_POWER_POLICY_IDLE));
+}
+
 ZTEST_SUITE(rzi_power_api, NULL, NULL, NULL, NULL, NULL);
