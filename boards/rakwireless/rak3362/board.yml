@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+board:
+  name: rak3362
+  full_name: RAK3362
+  vendor: rakwireless
+  socs:
+  - name: nrf54l15

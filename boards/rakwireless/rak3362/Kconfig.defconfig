@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_RAK3362_NRF54L15_CPUAPP
+
+config HAS_BT_CTLR
+	default BT
+
+endif # BOARD_RAK3362_NRF54L15_CPUAPP

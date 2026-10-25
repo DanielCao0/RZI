@@ -107,9 +107,22 @@ ZTEST(rzi_lorawan_backend_zephyr, test_async_contract_over_blocking_api)
 	zassert_true((caps & RZI_LORAWAN_CAP_CLASS_C) != 0U);
 	zassert_true((caps & RZI_LORAWAN_CAP_CLASS_B) == 0U);
 
+	{
+		uint32_t remaining_s = 123;
+
+		zassert_equal(rzi_lorawan_get_join_backoff(&remaining_s), -RZI_ERR_NOT_READY);
+		zassert_equal(remaining_s, 123U);
+	}
 	zassert_ok(rzi_lorawan_init(RZI_LORAWAN_REGION_EU_868));
 	wait_for_callbacks(1);
 	zassert_equal(atomic_get(&stats.ready), 1);
+	{
+		uint32_t remaining_s = 123;
+
+		zassert_equal(rzi_lorawan_get_join_backoff(NULL), -RZI_ERR_INVALID);
+		zassert_equal(rzi_lorawan_get_join_backoff(&remaining_s), -RZI_ERR_NOT_SUPPORTED);
+		zassert_equal(remaining_s, 123U);
+	}
 
 	{
 		uint32_t dev_addr = 1U;

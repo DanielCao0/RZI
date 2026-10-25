@@ -1,6 +1,6 @@
 .. zephyr:code-sample:: rzi_lorawan_periodical_uplink
    :name: RZI LoRaWAN periodical uplink
-   :relevant-api: rzi_lorawan rzi_power
+   :relevant-api: rzi_lorawan
 
    Join a LoRaWAN network and send periodic uplinks through the RZI C API.
 
@@ -8,22 +8,82 @@ Overview
 ********
 
 This sample starts the RZI LoRaWAN service, joins with OTAA and sends an
-unconfirmed uplink on port 101 right after the join and then every 60
-seconds. The payload is a 4-byte big-endian counter that starts at 0 and
-increments with every accepted uplink, so gaps on the network server show lost
-frames. A failed join is retried after 5 seconds.
+unconfirmed uplink on port 101 right after joining and applying the class
+and data-rate settings. Each completed exchange (``TXDONE``) schedules the
+next uplink after 60 seconds. The payload is a 4-byte big-endian counter that
+starts at 0 on each boot and increments with every accepted uplink request.
+Acceptance and ``TXDONE`` do not guarantee delivery to the network server;
+these uplinks are unconfirmed. A rejected request or failed join is retried
+after 5 seconds. Regional backoff and duty-cycle limits still apply.
 
 It is the RZI counterpart of the usp_zephyr ``lbm/periodical_uplink`` sample,
 without the user-button uplink on port 102.
 
-The application blocks on semaphores that the event callback gives, and waits
-between uplinks with ``rzi_power_sleep()``, so the CPU sleeps whenever the
-stack is idle. It does not include or call the USP/LBM API directly.
+``main()`` stores credentials through RZI, registers the callback, and starts
+the LoRaWAN service. It then returns; RZI and Zephyr continue running the
+modem, event dispatcher, and delayed work. No application thread blocks
+waiting for a radio event. The sample uses only the RZI public API.
+
+LBM lifecycle
+=============
+
+The event sequence follows the LBM lifecycle:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Phase
+     - Application action
+   * - ``main()``
+     - Store DevEUI, JoinEUI, keys, and OTAA activation; initialize the service.
+   * - ``READY``
+     - Schedule the first join request after backend setup completes.
+   * - ``JOINED``
+     - Apply Class and ADR or fixed data rate, then schedule the first uplink.
+   * - ``TXDONE``
+     - Log the result and schedule the next uplink after 60 seconds.
+   * - ``JOIN_FAILED``
+     - Schedule a new join request after 5 seconds.
+
+In the USP backend, RZI applies the stored credentials and region while
+handling LBM's ``RESET`` event, before publishing ``READY``. Thus the RZI
+credential setters in ``main()`` do not call an uninitialized LBM instance.
+LBM's ``smtc_modem_set_class()`` and ``smtc_modem_adr_set_profile()`` reject
+calls without a joined session. Class and ADR/data-rate settings therefore
+live in the ``JOINED`` case, including for subsequent join events. A failed
+setting is logged and prevents the first uplink from being scheduled.
+Callbacks must not sleep or wait for another modem event.
+
+The reference sources in this workspace are
+``modules/lib/usp/examples/main_examples/periodical_uplink_example/main_periodical_uplink.c``
+and ``modules/lib/usp/protocols/lbm_lib/smtc_modem_core/smtc_modem.c``.
+The LBM example uses its alarm API for periodic requests. This RZI sample
+uses Zephyr delayed work and starts the interval at ``TXDONE``, avoiding an
+application request while the previous exchange is still pending.
+
+After a failed join, the sample queries
+``rzi_lorawan_get_join_backoff(&backoff_s)``. When a restriction remains, it
+prints ``Join backoff remaining: N s``. This value is a snapshot of the
+remaining join-backoff restriction, not the time until the next transmission.
+It excludes LBM's random delay, other radio scheduling, and the application
+retry delay. An unsupported query is skipped; other query failures are
+logged. A zero value does not mean the next request transmits immediately.
+
+RZI requests one join attempt (``attempts = 0`` means no additional retries).
+``JOIN_FAILED`` is the end of that RZI join sequence; the service stops LBM's
+queued retry before delivering the event. The sample then schedules a new
+request. The 5-second delay is an application retry delay, not a promise
+that a Join-Request is transmitted every 5 seconds. Logs therefore report
+``retry scheduled`` without predicting the radio transmission time. LBM controls radio
+scheduling and regional backoff. Rejected uplink requests keep their counter
+and retry after the same application delay.
 
 Requirements
 ************
 
-* ``rzi_rak4631``, ``rzi_rak3372`` or ``rzi_rak3362`` with its LoRa antenna connected
+* A supported board with its LoRa antenna connected:
+  ``rak4631/nrf52840/rzi``, ``rak3172/stm32wle5xx/rzi``, or
+  ``rak3362/nrf54l15/cpuapp``
 * A LoRaWAN gateway and network server in range
 * An OTAA device registered on the network server
 
@@ -54,8 +114,18 @@ same file. Set it to ``RZI_LORAWAN_CLASS_A``, ``RZI_LORAWAN_CLASS_B``, or
 The uplink interval, port and retry delay are ``UPLINK_INTERVAL_MS``,
 ``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same file.
 
+``LOG_DUTY_CYCLE_WAIT`` enables additional wait-time logging only when
+``LORAWAN_REGION`` is EU868. Set it to ``0`` to disable this diagnostic.
+When a regional duty-cycle limitation begins, the sample queries the current
+status and logs a negative status value as a positive remaining wait in
+milliseconds. This is a snapshot of the duty-cycle restriction, not a
+guaranteed transmission countdown. An accepted uplink remains scheduled by
+LBM; the diagnostic does not submit another request. Other regions retain
+the ``limited`` / ``clear`` event logs.
+
 ``LORAWAN_CLASS``, ``LORAWAN_ADR`` and ``LORAWAN_DATA_RATE`` are applied after
-join. The modem rejects those changes before the device has joined. Class A,
+join, in the ``JOINED`` callback. The modem rejects those changes before
+the device has joined. Class A,
 B and C all use ``rzi_lorawan_set_class()``. With Class B, the modem requests
 network time and ping-slot information, then searches for a beacon.
 ``CLASS_B: ACTIVE`` means the beacon is locked. With ``LORAWAN_ADR`` true,
@@ -70,12 +140,20 @@ From the workspace root:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lorawan/periodical_uplink
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lorawan/periodical_uplink
 
-For RAK3372 use ``-b rzi_rak3372/stm32wle5xx``.
+For RAK3172, build and flash with J-Link:
+
+.. code-block:: console
+
+   west build --sysbuild -b rak3172/stm32wle5xx/rzi \
+      -d build/uplink-rak3172-rzi rzi/samples/lorawan/periodical_uplink
+   west flash -d build/uplink-rak3172-rzi -r jlink
+
+RAK3172 uses LPUART1 on PA2/PA3 at 115200 baud for its console.
 
 Flash ``build/merged_<board>.hex``, for example
-``build/merged_rzi_rak4631_nrf52840.hex``. It contains MCUboot and the signed
+``build/merged_rak4631_nrf52840_rzi.hex``. It contains MCUboot and the signed
 application. ``zephyr.hex`` alone has no bootloader. See ``doc/boot.md``.
 
 Low-power variant
@@ -87,7 +165,7 @@ use this variant to measure current consumption:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lorawan/periodical_uplink \
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lorawan/periodical_uplink \
       -- -DEXTRA_CONF_FILE=prj_lowpower.conf
 
 The firmware behaves the same but prints nothing. Check joins and uplinks on
@@ -103,15 +181,15 @@ baud. After reset the sample prints, with timestamps omitted:
 
    *** Booting Zephyr OS build ... ***
    <inf> rzi_periodical_uplink: RZI LoRaWAN periodical uplink (60 s) sample
-   <inf> rzi_periodical_uplink: Joining
+   <inf> rzi_periodical_uplink: Join request accepted; waiting for Join-Accept
    <inf> rzi_periodical_uplink: Joined
-   <inf> rzi_periodical_uplink: Uplink 0 on port 101
+   <inf> rzi_periodical_uplink: Uplink 0 accepted on port 101
    <inf> rzi_periodical_uplink: TXDONE
-   <inf> rzi_periodical_uplink: Uplink 1 on port 101
+   <inf> rzi_periodical_uplink: Uplink 1 accepted on port 101
    <inf> rzi_periodical_uplink: TXDONE
 
-The pair of lines repeats every 60 seconds; the network server shows payloads
-``00000000``, ``00000001`` and so on. When the network server queues
+The next request is scheduled 60 seconds after ``TXDONE``; the server shows
+payloads ``00000000``, ``00000001`` and so on. When the network server queues
 a downlink, the next uplink is followed by a line such as:
 
 .. code-block:: console
@@ -126,23 +204,26 @@ Troubleshooting
 
 Failed calls print an ``RZI_ERR_*`` name from ``include/rzi/err.h``.
 
-``Join failed, retrying in 5 s`` repeats
+``Join attempt failed; retry scheduled`` repeats
    The network server did not accept the join. Check that DevEUI, JoinEUI and
    AppKey match the server byte for byte, that the region matches the gateway,
    and that the gateway is online. The placeholder zero keys never join.
 
-``Credentials failed`` or ``LoRaWAN init failed`` right after boot
-   Credentials or stack initialization was rejected. Check the property
-   lengths in ``app.overlay`` and ``LORAWAN_REGION`` in ``src/main.c``.
+Configuration or initialization fails right after boot
+   Each failed call logs the setting it could not apply, such as
+   ``Device EUI configuration failed`` or ``AppKey configuration failed``.
+   Check property lengths in ``app.overlay`` and ``LORAWAN_REGION`` in
+   ``src/main.c`` for ``LoRaWAN init failed``.
 
-``Class failed`` while handling the join
+``Class configuration failed`` after joining
    The modem rejected the class change. It is accepted only after the device
    has joined. For Class B, ``CLASS_B: ACTIVE`` means the beacon is locked.
    A gateway that does not send beacons never prints that line.
 
-``Uplink rejected: RZI_ERR_*``
-   The stack refused the uplink. ``RZI_ERR_BUSY`` (the previous uplink is
-   still in progress) is expected and is not logged.
+``Uplink request rejected: RZI_ERR_*; retry scheduled``
+   The stack refused the request. The same counter is retried after 5 seconds.
+   A successful request is followed by ``TXDONE`` before the next interval
+   starts. A ``TXDONE`` error is logged; the next request uses the next counter.
 
 No output at all
    The board was flashed with ``zephyr.hex`` instead of the merged image, the

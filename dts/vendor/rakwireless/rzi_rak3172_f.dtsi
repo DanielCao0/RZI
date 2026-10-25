@@ -8,7 +8,7 @@
  *
  * The NOR is not brought out to the pads:
  *   PB9 CS, PB10 SCK, PC1 MOSI, PC2 MISO, PC0 WP#/SIO2, PC3 HOLD#/SIO3.
- * rzi_rak3372_f maps image-1 onto this device for overwrite FUOTA.
+ * rak3372_f maps image-1 onto this device for overwrite FUOTA.
  * PB12 is the frequency strap. Leave it unused.
  */
 

@@ -847,6 +847,32 @@ __must_check int rzi_lorawan_get_join_interval(uint8_t *interval_s);
 __must_check int rzi_lorawan_get_join_attempts(uint8_t *attempts);
 
 /**
+ * @brief Read the remaining join backoff in seconds.
+ *
+ * This is a snapshot of the stack's join-backoff restriction, with one-second
+ * resolution. Zero means no remaining join backoff, the restriction is
+ * bypassed, or the device is already joined. It does not mean that a join is
+ * scheduled or that the radio can transmit immediately. Random delay,
+ * regional duty cycle, radio arbitration, and application retry delays are
+ * not included. This is not a countdown to the next Join-Request.
+ *
+ * @param[out] remaining_s Remaining join backoff in seconds, written on success only.
+ *
+ * @retval 0 Snapshot stored.
+ * @retval -RZI_ERR_INVALID remaining_s is NULL.
+ * @retval -RZI_ERR_NOT_READY The service or backend is not ready.
+ * @retval -RZI_ERR_NOT_SUPPORTED The backend cannot report join backoff.
+ * @retval -RZI_ERR_BUSY The modem is in test mode.
+ * @retval -RZI_ERR_IO The backend query failed.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ *
+ * @note Thread context only. May be called before, during, or after joining
+ *       once RZI_LORAWAN_EVENT_READY has been received.
+ * @since 0.4
+ */
+__must_check int rzi_lorawan_get_join_backoff(uint32_t *remaining_s);
+
+/**
  * @brief Start or stop a join sequence using the stored credentials.
  *
  * `start`, `auto_join`, `interval`, and `attempts` follow the RUI3

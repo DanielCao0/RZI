@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+board:
+  extend: rak4631
+  variants:
+    - name: rzi
+      qualifier: nrf52840

@@ -47,14 +47,14 @@ CONFIG_LORAWAN=n
 `CONFIG_LORA=n` or Kconfig will turn USP options off.
 
 Hardware and the USP SX1262 compatibility layer (`semtech,sx1262-new`)
-live on product board `rzi_rak4631`. Samples no longer carry their own
+live on product board `rak4631/nrf52840/rzi`. Samples no longer carry their own
 overlay. Boot is in [boot.md](./boot.md).
 
 From the west workspace root:
 
 ```bash
 west build -p always --sysbuild \
-  -b rzi_rak4631/nrf52840 \
+  -b rak4631/nrf52840/rzi \
   -d build/rzi-fuota-usp \
   rzi/samples/lorawan/fuota
 ```
@@ -67,7 +67,7 @@ Inside the container, same as the product app:
 ```bash
 cd app
 ./scripts/container.sh build -p always --sysbuild \
-  -b rzi_rak4631/nrf52840 \
+  -b rak4631/nrf52840/rzi \
   -d /workdir/build/rzi-fuota-usp \
   /workdir/rzi/samples/lorawan/fuota
 ```
@@ -110,7 +110,7 @@ runtime makes `rzi_lorawan_init()` fail.
 
 Board requirements:
 
-- Product board `rzi_rak4631` defaults to USP `semtech,sx1262-new`
+- Product board `rak4631/nrf52840/rzi` defaults to USP `semtech,sx1262-new`
 - The Zephyr backend needs an overlay that sets `&lora` back to official
   `semtech,sx1262` and restores properties that compatible requires
 - USB console and `zephyr,user` keys stay in the application overlay
@@ -125,7 +125,7 @@ CONFIG_LORAWAN_REGION_EU868=y
 
 ```bash
 west build -p always --sysbuild \
-  -b rzi_rak4631/nrf52840 \
+  -b rak4631/nrf52840/rzi \
   -d build/rzi-fuota-zephyr \
   rzi/samples/lorawan/fuota \
   -- \
@@ -246,7 +246,7 @@ them. It also stops the build when the `usp/0003` patch
 - Adding only `CONFIG_RZI_LORAWAN_BACKEND_ZEPHYR=y` to a USP `prj.conf`
   while leaving `CONFIG_LORA=n`: the choice conflicts or the setting is
   dropped.
-- Enabling the Zephyr backend on `rzi_rak4631` without changing the
+- Enabling the Zephyr backend on `rak4631/nrf52840/rzi` without changing the
   `&lora` compatible: the USP driver and loramac-node fight over the same
   SX1262.
 - Sharing one `-d` for both backends without `-p always`: CMake cache

@@ -27,6 +27,9 @@ RZI is a Zephyr module and does not invent a second formatting style:
 - `scripts/check-compliance.sh` runs Zephyr's `check_compliance.py` on a
   commit range. CI uses that script. Every commit needs a `Signed-off-by`
   line. Pull requests also run the Developer Certificate of Origin check.
+- `.githooks/commit-msg` runs the same gitlint rules on the message before
+  the commit is created. Body lines are at most 75 characters.
+  `Signed-off-by`, `Co-authored-by`, and lines that contain a URL are exempt.
 - Public headers use Zephyr-style Doxygen. Do not invent a private tag set.
 - USP, LBM, loramac-node, or board symbols must not leak into the public ABI.
 
@@ -359,9 +362,10 @@ not mix clang-format and logic changes in the same "while we are here"
 commit unless the surface area is tiny.
 
 The subject uses a `type:` or `type(scope):` prefix. The body is required.
-Each commit ends with `Signed-off-by: Name <email>`. `git commit -s` adds
-that line from the configured committer. The DCO check rejects a commit
-that lacks it.
+Wrap body lines at 75 characters. `.githooks/commit-msg` rejects a longer
+line. Each commit ends with `Signed-off-by: Name <email>`. `git commit -s`
+adds that line from the configured committer. The DCO check rejects a
+commit that lacks it.
 
 ## 10. Review checklist
 

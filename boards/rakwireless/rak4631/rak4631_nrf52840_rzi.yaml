@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+identifier: rak4631/nrf52840/rzi
+name: RAK4631 RZI variant
+type: mcu
+arch: arm
+flash: 1024
+ram: 256
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - adc
+  - ble
+  - counter
+  - gpio
+  - i2c
+  - pwm
+  - usb_device
+  - watchdog
+  - lora
+vendor: rakwireless

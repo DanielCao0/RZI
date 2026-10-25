@@ -135,6 +135,7 @@ int rzi_lorawan_get_adr_ack(uint8_t *limit, uint8_t *delay);
 int rzi_lorawan_set_adr_ack(uint8_t limit, uint8_t delay);
 int rzi_lorawan_set_join_data_rates(const uint8_t *distribution);
 int rzi_lorawan_get_duty_cycle_status(int32_t *remaining_ms);
+int rzi_lorawan_get_join_backoff(uint32_t *remaining_s);
 int rzi_lorawan_get_csma(bool *enabled);
 int rzi_lorawan_set_csma(bool enabled);
 int rzi_lorawan_get_csma_params(struct rzi_lorawan_csma_params *params);

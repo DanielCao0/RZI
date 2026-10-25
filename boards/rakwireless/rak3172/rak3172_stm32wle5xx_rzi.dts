@@ -1,0 +1,74 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include <../boards/rakwireless/rak3172/rak3172.dts>
+
+/* 256 KiB internal flash: one application slot and separate NVM areas. */
+&flash0 {
+	/delete-node/ partitions;
+};
+
+#include "rak3172-rzi-partitions.dtsi"
+
+/ {
+	chosen {
+		zephyr,console = &lpuart1;
+		zephyr,shell-uart = &lpuart1;
+		zephyr,lorawan-transceiver = &lora;
+	};
+
+	aliases {
+		led0 = &green_led;
+		rzi-at-uart = &lpuart1;
+	};
+};
+
+/* RUI3 default UART2 pads. USART2 and LPUART1 cannot own PA2/PA3 together. */
+&usart2 {
+	status = "disabled";
+};
+
+&lpuart1 {
+	pinctrl-0 = <&lpuart1_tx_pa2 &lpuart1_rx_pa3>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "okay";
+};
+
+/* Leave unused module-pad buses available to the application. */
+&i2c2 {
+	status = "disabled";
+};
+
+&spi1 {
+	status = "disabled";
+};
+
+/* Preserve the validated board's peripheral enablement. */
+&rtc {
+	status = "disabled";
+};
+
+&aes {
+	status = "disabled";
+};
+
+&iwdg {
+	status = "disabled";
+};
+
+/* Preserve the oscillator and RF settings from the validated RZI board. */
+&clk_hse {
+	/delete-property/ hse-tcxo;
+};
+
+&lora {
+	/delete-property/ antenna-enable-gpios;
+	/delete-property/ dio2-tx-enable;
+	/delete-property/ dio3-tcxo-voltage;
+	/delete-property/ tcxo-power-startup-delay-ms;
+	tx-enable-gpios = <&gpioc 13 GPIO_ACTIVE_HIGH>;
+	rx-enable-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;
+	power-amplifier-output = "rfo-hp";
+	rfo-hp-max-power = <22>;
+};

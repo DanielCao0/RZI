@@ -33,6 +33,7 @@ struct rzi_lorawan_network_ops {
 	int (*set_adr_ack)(uint8_t limit, uint8_t delay);
 	int (*set_join_data_rates)(const uint8_t *distribution);
 	int (*get_duty_cycle_status)(int32_t *time_ms);
+	int (*get_join_backoff)(uint32_t *remaining_s);
 	int (*get_public_network)(bool *enabled);
 	int (*set_public_network)(bool enabled);
 	int (*get_lbt)(bool *enabled);

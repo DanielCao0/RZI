@@ -1,4 +1,5 @@
 CompileFlags:
+  CompilationDatabase: build/rzi-periodical-uplink-3372/periodical_uplink
   Add:
     - --target=arm-none-eabi
   Remove:

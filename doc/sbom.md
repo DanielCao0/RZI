@@ -74,7 +74,7 @@ Every image must be built with `CONFIG_BUILD_OUTPUT_META=y`. With sysbuild,
 pass it to MCUboot too:
 
 ```sh
-west build -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/at -d build/at -- \
+west build -b rak4631/nrf52840/rzi --sysbuild rzi/samples/at -d build/at -- \
     -DCONFIG_BUILD_OUTPUT_META=y -Dmcuboot_CONFIG_BUILD_OUTPUT_META=y
 python3 rzi/scripts/generate-firmware-sbom.py build/at
 ```

@@ -29,6 +29,8 @@
 
 rzi_lorawan_event_sink_t fake_sink;
 int fake_set_class_error;
+uint32_t fake_join_backoff_s;
+int fake_join_backoff_error;
 /* Join attempts that fail before one succeeds; negative fails forever. */
 int fake_join_failures;
 int fake_join_attempts;
@@ -352,7 +354,17 @@ static int fake_query_tx_possible(size_t size)
 	return size <= 51U ? 0 : -RZI_ERR_TOO_LARGE;
 }
 
+static int fake_get_join_backoff(uint32_t *remaining_s)
+{
+	if (fake_join_backoff_error != 0) {
+		return fake_join_backoff_error;
+	}
+	*remaining_s = fake_join_backoff_s;
+	return 0;
+}
+
 static const struct rzi_lorawan_network_ops fake_network_ops = {
+	.get_join_backoff = fake_get_join_backoff,
 	.get_adr = fake_get_adr,
 	.set_adr = fake_set_adr,
 	.get_data_rate = fake_get_data_rate,

@@ -207,29 +207,78 @@ region, product behavior, and the uplink schedule.
 Product images build with sysbuild and flash the merged image. See
 [`doc/boot.md`](doc/boot.md).
 
+## Supported boards
+
+Choose the full target from this table for the `-b` argument to `west build`.
+All targets are discovered automatically when RZI is present as a Zephyr
+module; no extra `BOARD_ROOT` setting is required.
+
+| Board | Build target | Console / AT connection | Firmware updates |
+|---|---|---|---|
+| [RAK4631](boards/rakwireless/rak4631/) | `rak4631/nrf52840/rzi` | USB CDC ACM for AT; the FUOTA and customer examples also select USB CDC for the console | Two internal slots; FUOTA supported |
+| [RAK3172 / RAK3372](boards/rakwireless/rak3172/) | `rak3172/stm32wle5xx/rzi` | LPUART1, TX PA2 / RX PA3, through a USB-UART adapter or carrier | Single application slot; update over SWD |
+| [RAK3372-F, using the RAK3172-F module](boards/rakwireless/rak3372_f/) | `rak3372_f/stm32wle5xx` | LPUART1, TX PA2 / RX PA3, through a USB-UART adapter or carrier | External MX25L400 holds the second slot; FUOTA supported |
+| [RAK3362](boards/rakwireless/rak3362/) | `rak3362/nrf54l15/cpuapp` | UART20 through the base board's USB-UART converter | Two internal slots; FUOTA is not enabled in the current samples |
+
+Physical UART connections use **115200 baud, 8N1**. For RAK4631, samples
+without a USB-console overlay use UART1 on TX P0.16 / RX P0.15 for logs.
+
+RAK4631 and standard RAK3172 extend upstream Zephyr boards. Keep the final
+`/rzi` in their targets: it selects the RZI radio configuration, partitions,
+and boot defaults. RAK3362 and RAK3372-F are independent board definitions
+maintained in this repository. The standard RAK3172 target is for the
+crystal-based STM32WLE5CC module; RAK3172-T needs a separate TCXO hardware
+configuration, and the F module uses the dedicated `rak3372_f` target.
+
+### Build and connect
+
+After workspace setup and patch application, run these commands from the
+workspace root. Each builds the same AT sample for a different board:
+
+```sh
+west build --sysbuild -b rak4631/nrf52840/rzi -d build/at-4631 rzi/samples/at
+west build --sysbuild -b rak3172/stm32wle5xx/rzi -d build/at-3172 rzi/samples/at
+west build --sysbuild -b rak3372_f/stm32wle5xx -d build/at-3372-f rzi/samples/at
+west build --sysbuild -b rak3362/nrf54l15/cpuapp -d build/at-3362 rzi/samples/at
+```
+
+For an uplink application, replace `rzi/samples/at` with
+`rzi/samples/lorawan/periodical_uplink` and use a separate build directory.
+Set the sample's OTAA credentials in `app.overlay` or its selected board
+overlay before joining a network. The AT sample instead accepts provisioning
+through its [AT commands](samples/at/README.rst).
+
+For initial installation, flash the **merged MCUboot + application HEX**
+from the selected build directory over SWD. For example, the RAK4631 AT
+image is `build/at-4631/merged_rak4631_nrf52840_rzi.hex`. The merged filename
+contains the target with `/` replaced by `_`. After flashing, open the
+connection shown in the table and send `AT` followed by a line ending.
+See [boot and partition details](doc/boot.md) and the
+[AT sample guide](samples/at/README.rst) for flashing and terminal setup.
+
 ## Samples
 
 Build from the workspace root of any of the layouts above:
 
 ```sh
-west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lorawan/periodical_uplink
+west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lorawan/periodical_uplink
 ```
 
-For RAK3372, use `-b rzi_rak3372/stm32wle5xx`. Sysbuild combines MCUboot and
+For RAK3372, use `-b rak3172/stm32wle5xx/rzi`. Sysbuild combines MCUboot and
 the signed application into `build/merged_<board>.hex`, for example
-`build/merged_rzi_rak4631_nrf52840.hex`. Flash that file for the first
+`build/merged_rak4631_nrf52840_rzi.hex`. Flash that file for the first
 install, not `zephyr.hex`; see [`doc/boot.md`](doc/boot.md).
 
 | Sample | Purpose |
 |---|---|
 | [`samples/lorawan/periodical_uplink`](samples/lorawan/periodical_uplink/README.rst) | OTAA join and periodic uplink, with a low-power variant |
-| [`samples/lorawan/fuota`](samples/lorawan/fuota/README.rst) | ChirpStack-compatible FUOTA (`rzi_rak4631`, `rzi_rak3372_f`) |
-| [`samples/at`](samples/at/README.rst) | RUI3-compatible AT modem (LoRaWAN, P2P, radio tests) over USB CDC (`rzi_rak4631`) or uart20 (`rzi_rak3362`) |
+| [`samples/lorawan/fuota`](samples/lorawan/fuota/README.rst) | ChirpStack-compatible FUOTA (`rak4631/nrf52840/rzi`, `rak3372_f`) |
+| [`samples/at`](samples/at/README.rst) | RUI3-compatible AT modem (LoRaWAN, P2P, radio tests) over USB CDC (`rak4631/nrf52840/rzi`) or uart20 (`rak3362`) |
 | [`samples/lora/tx_cw`](samples/lora/tx_cw/README.rst) | Continuous-wave carrier for RF measurements |
 
 See [`samples/README.md`](samples/README.md) for board support and where to
-start. The LoRaWAN overlays ship zero-valued credentials; replace them before
-a radio test.
+start. Configure the selected sample's LoRaWAN credentials before a radio
+test.
 
 ## Layout
 
@@ -277,11 +326,14 @@ See [`doc/sbom.md`](doc/sbom.md) and, for vulnerability handling,
 ## Development
 
 Contributions must follow [`doc/coding-standards.md`](doc/coding-standards.md)
-and the Zephyr coding style. Enable the repository hook once per clone:
+and the Zephyr coding style. Enable the repository hooks once per clone:
 
 ```sh
 git config core.hooksPath .githooks
 ```
+
+`pre-commit` checks staged C style. `commit-msg` checks the message with
+Zephyr gitlint, including the 75-character body line limit.
 
 Check style before pushing:
 

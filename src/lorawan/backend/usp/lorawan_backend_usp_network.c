@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <smtc_modem_hal.h>
+
 #include "lorawan_backend_usp_priv.h"
 #include "lorawan_backend_usp_lbm.h"
 
@@ -197,6 +199,36 @@ static int usp_set_join_data_rates(const uint8_t *distribution)
 	}
 	if (rc == 0) {
 		rc = rzi_usp_result(smtc_modem_adr_set_join_distribution(STACK_ID, distribution));
+	}
+	return rzi_lorawan_usp_finish(rc);
+}
+
+static int usp_get_join_backoff(uint32_t *remaining_s)
+{
+	smtc_modem_status_mask_t status = 0;
+	bool bypass = false;
+	bool certification = false;
+	int32_t remaining = 0;
+	int rc = rzi_lorawan_usp_enter();
+
+	if (rc != 0) {
+		return rc;
+	}
+	rc = rzi_usp_result(smtc_modem_get_status(STACK_ID, &status));
+	if (rc == 0) {
+		rc = rzi_usp_result(
+			smtc_modem_get_join_duty_cycle_backoff_bypass(STACK_ID, &bypass));
+	}
+	if (rc == 0) {
+		rc = rzi_usp_result(smtc_modem_get_certification_mode(STACK_ID, &certification));
+	}
+	if (rc == 0) {
+		if ((status & SMTC_MODEM_STATUS_JOINED) == 0U && !bypass && !certification) {
+			/* LBM stores an absolute deadline on its own wrapping seconds clock. */
+			remaining = (int32_t)(lorawan_api_next_join_time_second_get(STACK_ID) -
+					      smtc_modem_hal_get_time_in_s());
+		}
+		*remaining_s = remaining > 0 ? (uint32_t)remaining : 0U;
 	}
 	return rzi_lorawan_usp_finish(rc);
 }
@@ -474,6 +506,7 @@ const struct rzi_lorawan_network_ops usp_network_ops = {
 	.set_adr_ack = usp_set_adr_ack,
 	.set_join_data_rates = usp_set_join_data_rates,
 	.get_duty_cycle_status = usp_get_duty_cycle_status,
+	.get_join_backoff = usp_get_join_backoff,
 	.get_public_network = usp_get_public_network,
 	.set_public_network = usp_set_public_network,
 	.get_lbt = usp_get_lbt,

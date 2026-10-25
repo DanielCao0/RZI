@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_RAK4631_NRF52840_RZI
+
+config RZI_MCUBOOT_DUAL_SLOT
+	default y if RZI_MCUBOOT
+
+endif

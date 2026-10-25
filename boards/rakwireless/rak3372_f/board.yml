@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+board:
+  name: rak3372_f
+  full_name: RAK3372-F
+  vendor: rakwireless
+  socs:
+  - name: stm32wle5xx

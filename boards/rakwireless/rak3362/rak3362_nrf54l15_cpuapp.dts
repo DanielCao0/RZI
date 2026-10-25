@@ -1,0 +1,33 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Product board for the RAK3362 WisBlock Core (RAK3162 module). The SoC has
+ * no USB device controller: the base board USB-C port reaches uart20 through
+ * a USB-UART converter, so uart20 carries the console and the AT port.
+ */
+
+/dts-v1/;
+#include <rakwireless/rzi_rak3162.dtsi>
+#include "rak3362-partitions.dtsi"
+
+/ {
+	model = "RAK3362 (nRF54L15 + SX1262)";
+	compatible = "rakwireless,rak3362-nrf54l15";
+
+	chosen {
+		zephyr,console = &uart20;
+		zephyr,shell-uart = &uart20;
+		zephyr,uart-mcumgr = &uart20;
+		zephyr,lorawan-transceiver = &lora;
+	};
+
+	aliases {
+		lora0 = &lora;
+		watchdog0 = &wdt31;
+		rzi-at-uart = &uart20;
+	};
+};
+
+&uart20 {
+	status = "okay";
+};

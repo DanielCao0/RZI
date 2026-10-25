@@ -18,6 +18,7 @@
 /* smtc_modem_core/lorawan_api/lorawan_api.h */
 uint32_t lorawan_api_devaddr_get(uint8_t stack_id);
 uint8_t lorawan_api_next_dr_get(uint8_t stack_id);
+uint32_t lorawan_api_next_join_time_second_get(uint8_t stack_id);
 void lorawan_api_set_no_rx_packet_threshold(uint16_t no_rx_packet_reset_threshold,
 					    uint8_t stack_id);
 uint16_t lorawan_api_get_no_rx_packet_threshold(uint8_t stack_id);

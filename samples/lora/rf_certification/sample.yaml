@@ -13,13 +13,13 @@ common:
     - rzi
     - lora
   platform_allow:
-    - rzi_rak4631/nrf52840
-    - rzi_rak3372/stm32wle5xx
-    - rzi_rak3362/nrf54l15/cpuapp
+    - rak4631/nrf52840/rzi
+    - rak3172/stm32wle5xx/rzi
+    - rak3362/nrf54l15/cpuapp
   integration_platforms:
-    - rzi_rak4631/nrf52840
-    - rzi_rak3372/stm32wle5xx
-    - rzi_rak3362/nrf54l15/cpuapp
+    - rak4631/nrf52840/rzi
+    - rak3172/stm32wle5xx/rzi
+    - rak3362/nrf54l15/cpuapp
 tests:
   sample.rzi.lora.rf_certification.etsi:
     extra_configs:

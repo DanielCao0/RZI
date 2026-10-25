@@ -23,6 +23,8 @@ rzi_check_lbm_prototype(lorawan_api/lorawan_api.h
 rzi_check_lbm_prototype(lorawan_api/lorawan_api.h
   "^uint8_t lorawan_api_next_dr_get\\( uint8_t stack_id \\);")
 rzi_check_lbm_prototype(lorawan_api/lorawan_api.h
+  "^uint32_t lorawan_api_next_join_time_second_get\\( uint8_t stack_id \\);")
+rzi_check_lbm_prototype(lorawan_api/lorawan_api.h
   "^void lorawan_api_set_no_rx_packet_threshold\\( uint16_t no_rx_packet_reset_threshold, uint8_t stack_id \\);")
 rzi_check_lbm_prototype(lorawan_api/lorawan_api.h
   "^uint16_t lorawan_api_get_no_rx_packet_threshold\\( uint8_t stack_id \\);")

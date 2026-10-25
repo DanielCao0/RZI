@@ -236,7 +236,7 @@ jobs:
 
       - name: Build a reference image with build metadata
         run: |
-          west build -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/at -d build-sbom \
+          west build -b rak4631/nrf52840/rzi --sysbuild rzi/samples/at -d build-sbom \
             -- -DCONFIG_BUILD_OUTPUT_META=y -Dmcuboot_CONFIG_BUILD_OUTPUT_META=y
 
       - name: Firmware SBOM (SPDX 3)
@@ -252,7 +252,7 @@ jobs:
       - name: Upload the firmware SBOM
         uses: actions/upload-artifact@v6
         with:
-          name: firmware-sbom-at-rzi_rak4631
+          name: firmware-sbom-at-rak4631_nrf52840_rzi
           path: build-sbom/spdx/
 
   headers:

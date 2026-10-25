@@ -19,6 +19,8 @@ K_SEM_DEFINE(callback_sem, 0, 8);
 
 extern rzi_lorawan_event_sink_t fake_sink;
 extern int fake_set_class_error;
+extern uint32_t fake_join_backoff_s;
+extern int fake_join_backoff_error;
 extern int fake_join_failures;
 extern int fake_join_attempts;
 extern int fake_leave_calls;
@@ -539,6 +541,29 @@ ZTEST(rzi_lorawan_service, test_usp_busy_and_empty_uplink)
 		      -RZI_ERR_INVALID);
 	zassert_ok(rzi_lorawan_send_empty(true, 20, RZI_LORAWAN_MSG_CONFIRMED));
 	wait_for_count(&stats->uplink, 2);
+}
+
+ZTEST(rzi_lorawan_service, test_usp_join_backoff_query_contract)
+{
+	uint32_t remaining_s = UINT32_MAX;
+
+	ensure_ready_and_left();
+	zassert_equal(rzi_lorawan_get_join_backoff(NULL), -RZI_ERR_INVALID);
+
+	/* Querying before join is valid; zero and nonzero values pass through. */
+	fake_join_backoff_s = 123;
+	zassert_ok(rzi_lorawan_get_join_backoff(&remaining_s));
+	zassert_equal(remaining_s, 123U);
+	fake_join_backoff_s = 0;
+	zassert_ok(rzi_lorawan_get_join_backoff(&remaining_s));
+	zassert_equal(remaining_s, 0U);
+
+	/* A failed query must not turn an unavailable value into a zero delay. */
+	remaining_s = 456;
+	fake_join_backoff_error = -RZI_ERR_IO;
+	zassert_equal(rzi_lorawan_get_join_backoff(&remaining_s), -RZI_ERR_IO);
+	zassert_equal(remaining_s, 456U);
+	fake_join_backoff_error = 0;
 }
 
 ZTEST(rzi_lorawan_service, test_usp_link_controls)

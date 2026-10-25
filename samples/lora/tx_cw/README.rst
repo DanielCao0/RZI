@@ -19,7 +19,7 @@ therefore starts the LoRaWAN service to bring up the modem, but never joins.
 Requirements
 ************
 
-* ``rzi_rak4631``, ``rzi_rak3372`` or ``rzi_rak3362``
+* ``rak4631/nrf52840/rzi``, ``rak3172/stm32wle5xx/rzi`` or ``rak3362``
 * An antenna, or a cable and attenuator to the measuring instrument
 
 A CW carrier occupies the channel continuously. Transmit only into a
@@ -50,7 +50,7 @@ Set them on the command line, for example 915 MHz at 20 dBm until reset:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lora/tx_cw \
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lora/tx_cw \
       -- -DCONFIG_APP_TX_CW_FREQUENCY_HZ=915000000 -DCONFIG_APP_TX_CW_POWER_DBM=20 \
       -DCONFIG_APP_TX_CW_DURATION_S=0
 
@@ -65,9 +65,9 @@ From the workspace root:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lora/tx_cw
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lora/tx_cw
 
-For RAK3372 use ``-b rzi_rak3372/stm32wle5xx``. Flash
+For RAK3372 use ``-b rak3172/stm32wle5xx/rzi``. Flash
 ``build/merged_<board>.hex``. See ``doc/boot.md``.
 
 Expected output

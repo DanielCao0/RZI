@@ -146,29 +146,31 @@ must never control the same radio instance at runtime.
 
 ### Zephyr, upstream BSP, and MCUBoot own
 
-- SoC descriptions (RZI keeps its own RAK module descriptions; see below);
+- SoC descriptions and upstream RAK module descriptions, where available;
 - GPIO, SPI, flash, UART, entropy, timer, and PM drivers;
 - settings, NVS, and the flash map;
 - MCUBoot **source** (west module): verify, select a slot, jump to the app;
 - upstream protocol APIs when they are available and stable.
 
-RZI exports a product `board_root` (`rzi_rak4631`, `rzi_rak3372`,
-`rzi_rak3372_f`, `rzi_rak3362`). Partition
-tables live next to each board DTS. It does not fork SoC bindings. Customers
-target RZI product boards, not the upstream board names. The boot contract is
+RZI exports a `board_root` with the upstream board extensions
+`rak4631/nrf52840/rzi` and `rak3172/stm32wle5xx/rzi`, plus the independent
+`rak3372_f` and `rak3362` boards. Partition tables live next to each
+variant or board DTS. It does not fork SoC bindings. Customers select the
+RZI variants when using upstream RAK4631 or RAK3172. The boot contract is
 `CONFIG_RZI_MCUBOOT`, sysbuild, and a merged image; see
 [boot.md](./boot.md).
 
-Each product board is a module devicetree plus a carrier. RZI also exports a
-`dts_root` with the module descriptions, so a customer carrier board can
-reuse the radio, clock, and pad setup that RZI validates:
+The RAK4631 and standard RAK3172 variants include upstream board DTS files
+and override the RZI radio, console, and partition settings. RZI exports a
+`dts_root` for modules without a matching upstream description. The module
+descriptions used by the supported targets are:
 
 | Module | Include | Used by |
 |---|---|---|
-| RAK4630 (nRF52840 + SX1262) | `<rakwireless/rzi_rak4630.dtsi>` | `rzi_rak4631` |
-| RAK3172 (STM32WLE5CC) | `<rakwireless/rzi_rak3172.dtsi>` | `rzi_rak3372` |
-| RAK3172-F (STM32WLE5JC + MX25L400) | `<rakwireless/rzi_rak3172_f.dtsi>` | `rzi_rak3372_f` |
-| RAK3162 (nRF54L15 + SX1262) | `<rakwireless/rzi_rak3162.dtsi>` | `rzi_rak3362` |
+| RAK4630 (nRF52840 + SX1262) | `<rakwireless/rak4630.dtsi>` | `rak4631/nrf52840/rzi` |
+| RAK3172 (STM32WLE5CC) | `<arm/rakwireless/rak3172.dtsi>` | `rak3172/stm32wle5xx/rzi` |
+| RAK3172-F (STM32WLE5JC + MX25L400) | `<rakwireless/rzi_rak3172_f.dtsi>` | `rak3372_f` |
+| RAK3162 (nRF54L15 + SX1262) | `<rakwireless/rzi_rak3162.dtsi>` | `rak3362` |
 
 The module file owns what is fixed inside the module: SoC, regulators or
 clock tree, the LoRa radio node, and the pinmux of the module pads. It
@@ -177,8 +179,8 @@ Devices wired inside the module, such as the RAK3172-F SPI NOR, are enabled
 in the module file. The carrier board DTS enables the pad peripherals it
 wires with `status = "okay"`, and adds LEDs, the console, USB, carrier
 flash, NFC pin use, and the partition map.
-The `rzi_` prefix keeps these files distinct from the upstream
-`rakwireless/rak4630.dtsi` on the same include path.
+The remaining RZI-owned module descriptions use the `rzi_` prefix. The
+RAK4630 and standard RAK3172 descriptions come from Zephyr.
 
 ### The application owns
 

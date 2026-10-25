@@ -317,6 +317,14 @@ int rzi_lorawan_set_join_data_rates(const uint8_t *distribution)
 	CALL_NETWORK_OP(set_join_data_rates, distribution);
 }
 
+int rzi_lorawan_get_join_backoff(uint32_t *remaining_s)
+{
+	if (remaining_s == NULL) {
+		return -RZI_ERR_INVALID;
+	}
+	CALL_NETWORK_OP(get_join_backoff, remaining_s);
+}
+
 int rzi_lorawan_get_duty_cycle_status(int32_t *time_ms)
 {
 	if (time_ms == NULL) {

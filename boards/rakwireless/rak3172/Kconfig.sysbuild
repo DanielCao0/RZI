@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+choice MCUBOOT_MODE
+	default MCUBOOT_MODE_SINGLE_APP if BOARD_RAK3172_STM32WLE5XX_RZI
+endchoice

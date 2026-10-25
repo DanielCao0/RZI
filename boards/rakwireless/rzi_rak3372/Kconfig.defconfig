@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
-# SPDX-License-Identifier: Apache-2.0
-
-if BOARD_RZI_RAK3372
-
-# 256 KiB single-slot map: CONFIG_RZI_MCUBOOT_DUAL_SLOT stays n, so
-# CONFIG_RZI_LORAWAN_FUOTA cannot be selected.
-
-endif # BOARD_RZI_RAK3372

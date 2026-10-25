@@ -10,7 +10,7 @@ Usage:
 BUILD_DIR is a plain or sysbuild build directory. Every image must be built
 with CONFIG_BUILD_OUTPUT_META=y. For sysbuild, pass it to each image:
 
-  west build -b rzi_rak4631/nrf52840 --sysbuild samples/at -d build/at -- \\
+  west build -b rak4631/nrf52840/rzi --sysbuild samples/at -d build/at -- \\
       -DCONFIG_BUILD_OUTPUT_META=y -Dmcuboot_CONFIG_BUILD_OUTPUT_META=y
 
 Output: OUT_DIR/<image>/{app,zephyr,build,modules-deps}.jsonld from west

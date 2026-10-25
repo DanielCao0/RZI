@@ -14,8 +14,8 @@ tests:
       - lorawan
       - fuota
     platform_allow:
-      - rzi_rak4631/nrf52840
-      - rzi_rak3372_f/stm32wle5xx
+      - rak4631/nrf52840/rzi
+      - rak3372_f/stm32wle5xx
     integration_platforms:
-      - rzi_rak4631/nrf52840
-      - rzi_rak3372_f/stm32wle5xx
+      - rak4631/nrf52840/rzi
+      - rak3372_f/stm32wle5xx

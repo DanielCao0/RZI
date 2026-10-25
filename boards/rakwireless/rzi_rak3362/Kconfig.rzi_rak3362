@@ -1,5 +1,0 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
-# SPDX-License-Identifier: Apache-2.0
-
-config BOARD_RZI_RAK3362
-	select SOC_NRF54L15_CPUAPP if BOARD_RZI_RAK3362_NRF54L15_CPUAPP

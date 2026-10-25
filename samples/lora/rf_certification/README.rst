@@ -65,7 +65,7 @@ Differences from the USP example
 Requirements
 ************
 
-* ``rzi_rak4631``, ``rzi_rak3372`` or ``rzi_rak3362``
+* ``rak4631/nrf52840/rzi``, ``rak3172/stm32wle5xx/rzi`` or ``rak3362``
 * A conducted setup (cable and attenuator) or an antenna in a shielded
   room, connected to the measuring instrument
 
@@ -98,14 +98,14 @@ For example, the FCC sequence with 2 minutes per step:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lora/rf_certification \
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lora/rf_certification \
       -- -DCONFIG_APP_RF_CERT_REGION_FCC=y -DCONFIG_APP_RF_CERT_STEP_S=120
 
 Or ETSI step 2 (SF12 on 863.1 MHz) until reset:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lora/rf_certification \
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lora/rf_certification \
       -- -DCONFIG_APP_RF_CERT_ONLY_STEP=2
 
 A packet that is still in flight finishes before the next step starts, so
@@ -121,9 +121,9 @@ From the workspace root:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/lora/rf_certification
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/lora/rf_certification
 
-For RAK3372 use ``-b rzi_rak3372/stm32wle5xx``. Flash
+For RAK3372 use ``-b rak3172/stm32wle5xx/rzi``. Flash
 ``build/merged_<board>.hex``. See ``doc/boot.md``.
 
 Expected output

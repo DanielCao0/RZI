@@ -10,8 +10,9 @@ See also: [fuota.md](./fuota.md).
 
 ## Contract (every product board)
 
-1. Target an RZI product board. Do not use upstream `rak4631` / `rak3172`
-   as the customer entry.
+1. Target an RZI board or variant. For upstream RAK4631 and RAK3172,
+   select `rak4631/nrf52840/rzi` or `rak3172/stm32wle5xx/rzi` so the
+   RZI radio and partition configuration is included.
 2. Enable `CONFIG_RZI_MCUBOOT=y`. Official samples and the product app
    already do.
 3. Build with **sysbuild**. Configuration fails without it, so an
@@ -29,10 +30,10 @@ Adding a board only adds that board's DTS and flash notes.
 
 | Board | Full name | west target | Status |
 |---|---|---|---|
-| `rzi_rak4631` | RZI RAK4631 | `rzi_rak4631/nrf52840` | MCUBoot and LoRaWAN samples wired |
-| `rzi_rak3372` | RZI RAK3372 | `rzi_rak3372/stm32wle5xx` | Single-slot MCUBoot; on-chip SUBGHZ (USP patch); no FUOTA |
-| `rzi_rak3372_f` | RZI RAK3372-F | `rzi_rak3372_f/stm32wle5xx` | Overwrite-only MCUBoot; image-1 on the on-module MX25L400; FUOTA |
-| `rzi_rak3362` | RZI RAK3362 | `rzi_rak3362/nrf54l15/cpuapp` | Overwrite-only MCUBoot; SX1262 on SPI22; console and AT on uart20 |
+| `rak4631/nrf52840/rzi` | RZI RAK4631 | `rak4631/nrf52840/rzi` | MCUBoot and LoRaWAN samples wired |
+| `rak3172/stm32wle5xx/rzi` | RZI RAK3372 | `rak3172/stm32wle5xx/rzi` | Single-slot MCUBoot; on-chip SUBGHZ (USP patch); no FUOTA |
+| `rak3372_f` | RAK3372-F | `rak3372_f/stm32wle5xx` | Overwrite-only MCUBoot; image-1 on the on-module MX25L400; FUOTA |
+| `rak3362` | RAK3362 | `rak3362/nrf54l15/cpuapp` | Overwrite-only MCUBoot; SX1262 on SPI22; console and AT on uart20 |
 
 nRF52840 (RAK4631) partitions are shared by native Zephyr and
 ArduinoCore-zephyr:
@@ -108,7 +109,7 @@ For a device that has ever run the legacy layout:
    context as incompatible with the new layout.
 2. Erase the STM32 internal flash.
 3. Build with sysbuild and flash
-   `merged_rzi_rak3372_f_stm32wle5xx.hex`.
+   `merged_rak3372_f_stm32wle5xx.hex`.
 4. Power-cycle the board so the STM32 and MX25L400 both start from a known
    hardware state.
 5. Re-provision application settings and rejoin the LoRaWAN network.
@@ -140,12 +141,12 @@ your own signing key (this repository does not yet wire CI signing).
 
 ```bash
 west build -p always --sysbuild \
-  -b rzi_rak4631/nrf52840 \
+  -b rak4631/nrf52840/rzi \
   -d build/rzi-periodical-uplink \
   rzi/samples/lorawan/periodical_uplink
 ```
 
-Artifact: `build/rzi-periodical-uplink/merged_rzi_rak4631_nrf52840.hex` (boot + signed
+Artifact: `build/rzi-periodical-uplink/merged_rak4631_nrf52840_rzi.hex` (boot + signed
 application).
 
 Product app (in `app/`):
@@ -158,30 +159,30 @@ Product app (in `app/`):
 Default flash is `build/app/merged.hex`.
 
 Keys go in the application overlay (`app.overlay` or
-`boards/rzi_rak4631_nrf52840.overlay`). Do not edit board DTS. Radio,
-partitions, and USP SX1262 compatibility are already on `rzi_rak4631`.
+`boards/rak4631_nrf52840_rzi.overlay`). Do not edit board DTS. Radio,
+partitions, and USP SX1262 compatibility are already on `rak4631/nrf52840/rzi`.
 
 ## RZI RAK3372 (single slot)
 
 ```bash
 west build -p always --sysbuild \
-  -b rzi_rak3372/stm32wle5xx \
+  -b rak3172/stm32wle5xx/rzi \
   -d build/rzi-periodical-uplink-3372 \
   rzi/samples/lorawan/periodical_uplink
 ```
 
-The artifact is `build/rzi-periodical-uplink-3372/merged_rzi_rak3372_stm32wle5xx.hex`.
+The artifact is `build/rzi-periodical-uplink-3372/merged_rak3172_stm32wle5xx_rzi.hex`.
 There is no slot1, so FUOTA is not available.
 
-## RZI RAK3372-F (external secondary slot)
+## RAK3372-F (external secondary slot)
 
 ```bash
 west build -p always --sysbuild \
-  -b rzi_rak3372_f/stm32wle5xx \
+  -b rak3372_f/stm32wle5xx \
   -d build/rzi-fuota-3372f \
   rzi/samples/lorawan/fuota
 ```
 
-The artifact is `build/rzi-fuota-3372f/merged_rzi_rak3372_f_stm32wle5xx.hex`.
+The artifact is `build/rzi-fuota-3372f/merged_rak3372_f_stm32wle5xx.hex`.
 FUOTA writes the signed image to `image-1` on the MX25L400. MCUboot copies
 it over `image-0` on the next boot.

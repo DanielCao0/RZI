@@ -23,7 +23,7 @@ west workspace and install the Zephyr SDK for the jobs that need them.
 | Compliance | `scripts/check-compliance.sh` (Zephyr `check_compliance.py`), `scripts/check-style.sh --no-checkpatch` (clang-format, `@file` / `@brief`), no backend symbols in `include/rzi/`, ASCII-only source, `reuse lint`, version strings in sync (`version.h`, `Doxyfile`, `module.yml` CPE / PURL) |
 | DCO | `Signed-off-by` on every pull-request commit (`.github/workflows/dco.yml`) |
 | Twister (native_sim) | `west twister -T rzi/tests --integration` on the host |
-| Samples (product boards) | `west twister -T rzi/samples --integration` for `rzi_rak4631`, `rzi_rak3372` and `rzi_rak3362` with the Zephyr SDK; then `samples/at` on RAK4631 with build metadata, an SPDX 3 firmware SBOM, `spdx3-validate`, and `check-sbom.py --strict` |
+| Samples (product boards) | `west twister -T rzi/samples --integration` for `rak4631/nrf52840/rzi`, `rak3172/stm32wle5xx/rzi` and `rak3362` with the Zephyr SDK; then `samples/at` on RAK4631 with build metadata, an SPDX 3 firmware SBOM, `spdx3-validate`, and `check-sbom.py --strict` |
 | Public headers | every `include/rzi/**.h` compiles standalone as C11 and as C++17 |
 | Documentation | `scripts/generate-doxygen.sh` with zero warnings |
 | SBOM | `scripts/generate-sbom.sh`, `spdx3-validate`, CycloneDX 1.6 schema, and `check-sbom.py --strict` on the module SBOM |
@@ -114,6 +114,9 @@ Prerequisites match the runner: a Python environment with
 ```bash
 # clang-format, @file / @brief, and checkpatch
 scripts/check-style.sh
+
+# Zephyr gitlint on one message. .githooks/commit-msg runs this.
+scripts/check-commit-msg.sh .git/COMMIT_EDITMSG
 
 # Zephyr check_compliance.py. ZEPHYR_BASE may be omitted when this repo
 # sits in a west workspace.

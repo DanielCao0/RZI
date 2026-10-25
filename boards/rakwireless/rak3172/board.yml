@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+board:
+  extend: rak3172
+  variants:
+    - name: rzi
+      qualifier: stm32wle5xx

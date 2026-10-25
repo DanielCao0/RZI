@@ -101,6 +101,28 @@ Rules:
 completion produces one public event; it does not also produce a duplicate
 `STATE_CHANGED` event.
 
+### Join-backoff status
+
+After `READY`, applications may query
+`rzi_lorawan_get_join_backoff(uint32_t *remaining_s)` before, during, or after
+joining. USP/LBM reports the remaining join-backoff restriction in seconds,
+using LBM's seconds clock. An expired deadline, a joined session, or an
+active bypass/certification mode returns zero. Query failures leave the
+output unchanged. Backends without this operation return
+`-RZI_ERR_NOT_SUPPORTED`; the Zephyr backend currently has no implementation.
+
+The value is a snapshot, not a scheduled transmit time. It excludes random
+join delay, regional channel duty cycle, radio arbitration, and application
+retry delay. Zero does not imply an active join request or immediate radio
+availability. Use wording such as `Join backoff remaining: N s`, rather than
+`Retrying in N s`. Do not use the value to bypass the stack's scheduling.
+
+The USP adapter uses the internal LBM
+`lorawan_api_next_join_time_second_get()` getter under the modem lock.
+Its prototype is checked at configure time in `lbm_checks.cmake`, so an
+upstream signature change fails the build. Applications include only the
+public RZI header and do not depend on LBM types or headers.
+
 ## 4. Activation
 
 Credentials and the join mode are stored with `rzi_lorawan_set_*` /

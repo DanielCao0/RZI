@@ -51,7 +51,7 @@ RZI does not hardcode any flash address. The storage area is board-defined
 through devicetree, following the standard Zephyr convention:
 
 * a partition labeled ``storage_partition`` in the RZI product-board
-  partition table (``rzi_rak4631`` places 32 KiB at the end of internal flash), or
+  partition table (``rak4631/nrf52840/rzi`` places 32 KiB at the end of internal flash), or
 * a ``zephyr,settings-partition`` chosen node pointing at any partition,
   including one on external SPI flash.
 
@@ -65,7 +65,7 @@ the precise compatibility limits compared with RUI3.
 Requirements
 ************
 
-* An RZI RAK4631 (``rzi_rak4631``) with its LoRa antenna connected
+* An RZI RAK4631 (``rak4631/nrf52840/rzi``) with its LoRa antenna connected
 * For LoRaWAN mode: a gateway, a network server and valid OTAA identifiers
   and keys
 * For P2P mode: a second board running this sample or ``samples/lora/ping_pong``
@@ -78,17 +78,17 @@ AT UART selection
 
 The sample selects its exclusive AT UART adapter with the ``rzi-at-uart``
 devicetree alias. It does not reuse ``zephyr,console`` because console and AT
-adapter ownership are separate concerns. ``rzi_rak4631`` points the alias to
-USB CDC ACM. ``rzi_rak3362`` has no USB controller and points it to ``uart20``,
+adapter ownership are separate concerns. ``rak4631/nrf52840/rzi`` points the alias to
+USB CDC ACM. ``rak3362`` has no USB controller and points it to ``uart20``,
 which the base board USB-C port reaches through a USB-UART converter.
-``rzi_rak3372`` points it to ``lpuart1`` (PA2/PA3), matching the RUI3 AT
+``rak3172/stm32wle5xx/rzi`` points it to ``lpuart1`` (PA2/PA3), matching the RUI3 AT
 port on RAK3172. Other samples use that same LPUART as ``zephyr,console``.
 UART1 remains ``usart1`` (PB6/PB7):
 
 .. code-block:: devicetree
 
    aliases {
-       rzi-at-uart = &cdc_acm_uart0;
+       rzi-at-uart = &board_cdc_acm_uart;
    };
 
 An application can point the same alias to a ready physical UART instead.
@@ -102,11 +102,11 @@ From the workspace root:
 
 .. code-block:: console
 
-   west build -p always -b rzi_rak4631/nrf52840 --sysbuild rzi/samples/at
+   west build -p always -b rak4631/nrf52840/rzi --sysbuild rzi/samples/at
 
-Flash ``build/merged_rzi_rak4631_nrf52840.hex``. See ``doc/boot.md``.
+Flash ``build/merged_rak4631_nrf52840_rzi.hex``. See ``doc/boot.md``.
 
-For RAK3362, use ``-b rzi_rak3362/nrf54l15/cpuapp``.
+For RAK3362, use ``-b rak3362/nrf54l15/cpuapp``.
 
 MCUboot logging and the boot banner are off (``sysbuild/mcuboot.conf``), so
 on RAK3362, where MCUboot shares uart20 with the AT port, a host sees no boot
@@ -115,9 +115,9 @@ value as ``AT+VER``:
 
 .. code-block:: text
 
-   +EVT:BOOT:RZI_0.2.0_rzi_rak3362
+   +EVT:BOOT:RZI_0.2.0_rak3362
 
-For RAK3372, use ``-b rzi_rak3372/stm32wle5xx``. The AT port is lpuart1
+For RAK3372, use ``-b rak3172/stm32wle5xx/rzi``. The AT port is lpuart1
 (PA2/PA3). This sample turns the console off.
 
 Example session
