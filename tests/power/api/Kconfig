@@ -7,7 +7,3 @@ config TEST_PROVIDE_PM_HOOKS
 	bool
 	default y
 	select HAS_PM
-
-config TEST_HWINFO_MOCK
-	bool "Mock reset-cause hardware"
-	depends on HWINFO && !HWINFO_NATIVE

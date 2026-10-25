@@ -47,7 +47,7 @@ specific state, force STOP2, or promise RAM retention for arbitrary boards.
 |---|---|
 | Application / board | `CONFIG_PM`, device tree, wake peripherals, native state constraints |
 | Zephyr | State selection, idle entry/resume, device PM |
-| RZI power | Runtime PM-lock switch, named service references, PM deadline, reset-cause access |
+| RZI power | Runtime PM-lock switch, named service references |
 | LoRaWAN backend | TX/RX1/RX2 timing, radio IRQs, stack timers |
 
 `CONFIG_RZI_POWER` enables the helpers without selecting `CONFIG_PM`.
@@ -90,11 +90,12 @@ neither adds a state nor enables an unsupported hardware mode.
 Each successful `rzi_power_lock_get()` takes one native all-state PM lock.
 Each matching `rzi_power_lock_put()` releases one. RZI tracks counts by
 owner so a mismatched release fails instead of unlocking somebody else's
-reference. Any outstanding PM lock also prevents explicit shutdown.
+reference.
 Storage aborts before a write/delete when its reference cannot be acquired.
 Class C state and reference ownership are updated under the same config
 mutex, including releases on leave.
-Without `CONFIG_PM`, these references protect shutdown only.
+Without `CONFIG_PM`, only reference counts are tracked; these references
+do not restrict ordinary CPU idle or device runtime PM.
 
 With `CONFIG_RZI_POWER_AUTO_SERVICE_LOCK=y`:
 
@@ -108,24 +109,17 @@ Class A join/send does not hold a PM lock for the entire exchange. The
 backend schedules TX and receive windows so the CPU may sleep between
 radio events. RZI does not calculate or delay RX1/RX2.
 
-## Deadlines and thread waits
+## Thread waits
 
-`rzi_power_set_wake_deadline()` registers an absolute uptime with
-`pm_policy_event_register()` or updates the existing event. After the work
-is handled, its owner must clear the deadline with `-1` or move it forward.
-An expired event continues to constrain system PM until then.
-Deadline reads/writes return `-RZI_ERR_NOT_SUPPORTED` without `CONFIG_PM`.
+`rzi_power_sleep(int64_t timeout_ms)` is a thin `k_sleep()` wrapper. A
+negative value waits forever, and `k_wakeup()` may end the wait early.
+Native timeout-range limits apply, without an additional 32-bit millisecond
+cap. System sleep follows when the scheduler has no runnable work and the
+native PM policy permits it.
 
-The event does not schedule application work. Use a kernel timer or delayed
-work to run an action at a given time. Periodic uplinks already scheduled
-by delayed work do not need a second deadline.
-
-`rzi_power_sleep(int64_t timeout_ms)` is a thin `k_sleep()` wrapper. Its
-relative timeout is independent of the PM event deadline; a negative value
-waits forever, and `k_wakeup()` may end the wait early. It neither reads nor
-clears the PM deadline. Native timeout-range limits apply, without an
-additional 32-bit millisecond cap. System sleep follows when the scheduler
-has no runnable work and the native PM policy permits it.
+Use a kernel timer or delayed work to run an action at a given time.
+Periodic uplinks already scheduled by delayed work need no additional
+application sleep or RZI PM event.
 
 ## Current periodic-uplink boards
 
@@ -140,24 +134,6 @@ has no runnable work and the native PM policy permits it.
 A new ESP or nRF target uses its native PM driver and device tree. It does
 not need a new RZI mode or a platform-name switch in the state-selection
 code. Physical current and radio timing still require board testing.
-
-## Shutdown and wake information
-
-`rzi_power_shutdown()` is an explicit action using `sys_poweroff()`,
-independent of the runtime PM switch. It checks PM locks and shutdown
-support, retaining the power mutex through the non-returning call.
-
-Wake-source configuration belongs to the board and native drivers. RZI
-has no advisory source mask or SoC-name-based wake capability check. Before
-power-off, the caller must configure actual wake hardware and ensure the
-system is safe to power off, as required by `sys_poweroff()`.
-
-`rzi_power_get_reset_cause()` returns the native hwinfo bitmask intact.
-`RZI_POWER_RESET_*` names map one-to-one to the native flags, so simultaneous
-causes are preserved. Reads never clear those flags;
-`rzi_power_clear_reset_cause()` is the explicit clearing operation. Driver
-errors are reported as RZI errors. This information describes resets, not
-the interrupt source of individual STOP wakeups.
 
 All persistent coordinator state is statically initialized; the power APIs
 require no explicit initialization.

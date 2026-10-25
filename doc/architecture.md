@@ -478,13 +478,12 @@ RZI uses Zephyr's native `enum pm_state`, device tree, PM policy and locks.
 It defines no separate sleep modes. Applications enable `CONFIG_PM` when
 supported. The runtime API / AT switch owns one native all-state lock;
 service PM locks own paired native lock references. Device runtime PM and
-ordinary CPU idle remain independent of this switch. A wake deadline is a
-native PM event, not an RX-window calculator.
+ordinary CPU idle remain independent of this switch. Kernel timeouts and
+the LoRaWAN backend provide scheduling; RZI adds no separate PM event.
 
 The periodic-uplink board configs enable `CONFIG_PM` on STM32WLE5, where
 Zephyr may select STOP0/1/2. Current nRF52840 and nRF54L15 configurations
-use ordinary CPU idle without system PM. Shutdown is explicit through
-`rzi_power_shutdown()` and independent of the runtime PM switch.
+use ordinary CPU idle without system PM.
 
 The backend remains responsible for protocol timing. RZI does not calculate or
 delay LoRaWAN RX windows in application code. That matches Semtech USP

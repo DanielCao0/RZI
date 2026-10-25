@@ -10,7 +10,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <zephyr/drivers/hwinfo.h>
 #include <zephyr/toolchain.h>
 
 #include <rzi/err.h>
@@ -32,7 +31,7 @@ extern "C" {
  *  @{
  */
 
-/** Service or application reason that locks system PM and forbids shutdown. */
+/** Service or application reason that locks system PM. */
 enum rzi_power_lock {
 	/** Application holds a system PM lock. Ordinary CPU idle is still allowed. */
 	RZI_POWER_LOCK_APP = 0,
@@ -47,25 +46,6 @@ enum rzi_power_lock {
 	/** Number of lock identities (not a valid lock). */
 	RZI_POWER_LOCK_COUNT,
 };
-
-/** Reset cause flags map one-to-one to Zephyr hwinfo; multiple bits may be set. */
-#define RZI_POWER_RESET_PIN            RESET_PIN
-#define RZI_POWER_RESET_SOFTWARE       RESET_SOFTWARE
-#define RZI_POWER_RESET_BROWNOUT       RESET_BROWNOUT
-#define RZI_POWER_RESET_POR            RESET_POR
-#define RZI_POWER_RESET_WATCHDOG       RESET_WATCHDOG
-#define RZI_POWER_RESET_DEBUG          RESET_DEBUG
-#define RZI_POWER_RESET_SECURITY       RESET_SECURITY
-#define RZI_POWER_RESET_LOW_POWER_WAKE RESET_LOW_POWER_WAKE
-#define RZI_POWER_RESET_CPU_LOCKUP     RESET_CPU_LOCKUP
-#define RZI_POWER_RESET_PARITY         RESET_PARITY
-#define RZI_POWER_RESET_PLL            RESET_PLL
-#define RZI_POWER_RESET_CLOCK          RESET_CLOCK
-#define RZI_POWER_RESET_HARDWARE       RESET_HARDWARE
-#define RZI_POWER_RESET_USER           RESET_USER
-#define RZI_POWER_RESET_TEMPERATURE    RESET_TEMPERATURE
-#define RZI_POWER_RESET_BOOTLOADER     RESET_BOOTLOADER
-#define RZI_POWER_RESET_FLASH          RESET_FLASH
 
 /**
  * @brief Allow system PM or hold one native all-state PM lock.
@@ -103,9 +83,9 @@ __must_check int rzi_power_get_pm_enabled(bool *enabled);
 /**
  * @brief Acquire one PM lock reference.
  *
- * Each reference takes a native all-state PM lock and prevents shutdown.
+ * Each reference takes a native all-state PM lock.
  * The same lock may be taken more than once; every take needs a matching
- * release. Without CONFIG_PM, references only protect shutdown. Ordinary
+ * release. Without CONFIG_PM, only reference counts are tracked. Ordinary
  * CPU idle is unaffected. This is a power-state constraint, not a mutex;
  * acquiring a reference does not wait for other owners to release theirs.
  *
@@ -147,76 +127,10 @@ __must_check int rzi_power_lock_put(enum rzi_power_lock lock);
 __must_check int rzi_power_get_lock_mask(uint32_t *lock_mask);
 
 /**
- * @brief Record the next time the product must be awake.
- *
- * Pass a negative value to clear the deadline. When Zephyr PM is enabled
- * the deadline is registered as a policy event so STOP is not entered
- * across it. This is not a LoRaWAN RX-window calculator.
- *
- * The event remains registered after expiry: the owner must clear or
- * advance it after handling the scheduled work. Until then it continues
- * to constrain system PM. This call does not schedule work or adjust an
- * @ref rzi_power_sleep wait. Use a kernel timer or delayed
- * work to execute an action at a given time.
- *
- * @param uptime_ms Absolute @c k_uptime_get() deadline, or negative to clear.
- *
- * @retval 0 Deadline stored.
- * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_PM is disabled.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @note Thread context only.
- * @since 0.2
- */
-__must_check int rzi_power_set_wake_deadline(int64_t uptime_ms);
-
-/**
- * @brief Copy the configured wake deadline.
- *
- * @param[out] uptime_ms Absolute deadline, or a negative value when none.
- *
- * @retval 0 Value copied.
- * @retval -RZI_ERR_INVALID @p uptime_ms is NULL.
- * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_PM is disabled.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @note Thread context only.
- * @since 0.2
- */
-__must_check int rzi_power_get_wake_deadline(int64_t *uptime_ms);
-
-/**
- * @brief Read the native reset-cause bitmask without clearing it.
- *
- * This is reset information, not the IRQ source of individual STOP wakeups.
- * Multiple RZI_POWER_RESET_* flags may be returned together.
- *
- * @param[out] cause Destination for the reset-cause flags.
- *
- * @retval 0 Flags copied.
- * @retval -RZI_ERR_INVALID @p cause is NULL.
- * @retval -RZI_ERR_NOT_SUPPORTED HWINFO or reset-cause retrieval is unavailable.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @retval negative Native driver error mapped to an RZI error.
- * @note Thread context only.
- */
-__must_check int rzi_power_get_reset_cause(uint32_t *cause);
-
-/**
- * @brief Explicitly clear the native reset-cause flags.
- *
- * @retval 0 Flags cleared.
- * @retval -RZI_ERR_NOT_SUPPORTED HWINFO or reset-cause clearing is unavailable.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @retval negative Native driver error mapped to an RZI error.
- * @note Thread context only.
- */
-__must_check int rzi_power_clear_reset_cause(void);
-
-/**
  * @brief Block the calling thread through Zephyr k_sleep().
  *
  * System sleep follows the native policy when no runnable work remains.
- * The PM event deadline is independent of this wait. k_wakeup() may end
- * the wait early. No deadline is consumed or reset by this call.
+ * k_wakeup() may end the wait early.
  *
  * @param timeout_ms Relative duration in milliseconds; negative waits forever.
  *                   The native kernel timeout range applies.
@@ -226,22 +140,6 @@ __must_check int rzi_power_clear_reset_cause(void);
  * @note Thread context only.
  */
 __must_check int rzi_power_sleep(int64_t timeout_ms);
-
-/**
- * @brief Explicitly enter board shutdown when no lock is held.
- *
- * Independent of the runtime PM switch. Does not return on success.
- * Uses the native sys_poweroff() implementation. The application and
- * board drivers must configure actual wake sources and ensure the rest
- * of the system is safe to power off; this API does not infer wake support.
- *
- * @retval -RZI_ERR_BUSY A lock is held.
- * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_POWEROFF is disabled.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @note Thread context only.
- * @since 0.2
- */
-__must_check int rzi_power_shutdown(void);
 
 /** @} */
 

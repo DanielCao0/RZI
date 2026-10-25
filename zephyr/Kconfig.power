@@ -3,11 +3,9 @@
 
 config RZI_POWER
 	bool "RZI power helpers"
-	select POWEROFF if HAS_POWEROFF
-	imply HWINFO
 	help
 	  Service PM locks, a runtime switch for native Zephyr PM locks,
-	  wake deadlines, and explicit power-off. Enable CONFIG_PM in the
+	  and thread waits. Enable CONFIG_PM in the
 	  application to use system PM; Zephyr's policy and the SoC device
 	  tree select the actual state. Ordinary CPU idle works without PM.
 

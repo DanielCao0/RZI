@@ -4,6 +4,7 @@
 config RZI_AT
 	bool "RUI3-compatible AT command framework"
 	select REBOOT
+	imply HWINFO
 	help
 	  Enable the I/O-independent AT parser, command registry,
 	  response formatter and execution thread. Command packages and

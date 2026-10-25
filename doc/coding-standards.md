@@ -212,7 +212,7 @@ include/rzi/power/power.h      -> RZI_POWER_POWER_H
   for example `usp_init()` and `usp_send()`.
 - Booleans use predicates: `is_initialized`, `has_event`, `enabled`.
 - Name collections and bit masks explicitly: `lock_counts` for an array
-  of counts and `reset_cause_mask` for a set of reset-cause bits.
+  of counts and `lock_mask` for a set of PM lock identities.
 - Include units in time values: `_ms`, `_us`, or `_ticks`. Distinguish an
   absolute deadline (`deadline_ticks`) from a relative duration
   (`time_to_deadline_ms`).
@@ -232,7 +232,7 @@ Choose helper verbs according to their behavior:
   `select_channel()`. Keep selection separate from applying
   the result when they are separate operations.
 - `update_<noun>()` synchronizes or changes existing state, for example
-  `update_wake_event_locked()`.
+  `update_class_c_power_locked()`.
 - `acquire_<noun>()` and `release_<noun>()` name paired resource or
   constraint operations.
 - `init_<noun>()` initializes state. The noun may be omitted when the file
@@ -247,7 +247,6 @@ function acquires a lock internally. For example:
 ```c
 /* Helpers ending in _locked require the caller to hold power_lock. */
 static uint32_t get_lock_mask_locked(void);
-static void update_wake_event_locked(void);
 ```
 
 These helper verbs and lock suffixes are RZI conventions; Zephyr's general

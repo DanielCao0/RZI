@@ -24,11 +24,7 @@ cannot disable it with a PM lock. Device runtime PM is independent.
 | `rzi_power_get_pm_enabled()` | Read that runtime switch; false without `CONFIG_PM` |
 | `rzi_power_lock_get()` / `rzi_power_lock_put()` | Take/release one named native all-state PM-lock reference |
 | `rzi_power_get_lock_mask()` | Bitmask of owners with outstanding references |
-| `rzi_power_set_wake_deadline()` / `rzi_power_get_wake_deadline()` | Absolute uptime registered as a native PM event |
-| `rzi_power_get_reset_cause()` | Read all native reset-cause bits without clearing |
-| `rzi_power_clear_reset_cause()` | Explicitly clear native reset-cause flags |
 | `rzi_power_sleep(timeout_ms)` | Block the calling thread through `k_sleep()` |
-| `rzi_power_shutdown()` | Explicit power-off; does not return on success |
 
 All APIs are for thread context. Error-returning APIs use negative
 `RZI_ERR_*` values. State is statically initialized; repeated init calls
@@ -42,7 +38,7 @@ that reference. Repeated writes are idempotent. The initial switch permits
 PM when `CONFIG_PM` is enabled; no separate RZI default-mode option exists.
 
 The getter reports the switch, not effective state availability. PM locks,
-other native locks, device readiness, event deadlines and residency times
+other native locks, device readiness, kernel timeouts and residency times
 still apply. A caller needing state-specific restrictions uses native
 `pm_policy_state_lock_get(state, substate)` / `put()` directly.
 
@@ -65,36 +61,16 @@ locks. Acquiring a reference does not wait for other owners to release theirs.
 | `UPDATE` | Application during a dedicated update session |
 
 Each successful take acquires one native all-state PM-lock reference and
-prevents shutdown. Every take needs a matching release. Releasing a missing
+requires a matching release. Releasing a missing
 reference returns `-RZI_ERR_INVALID`; a full owner count returns
-`-RZI_ERR_NO_RESOURCE`. Without `CONFIG_PM`, counts protect shutdown only.
+`-RZI_ERR_NO_RESOURCE`. Without `CONFIG_PM`, only reference counts are tracked.
 `CONFIG_RZI_POWER_AUTO_SERVICE_LOCK=y` enables automatic service ownership;
 Class A join/send does not take a PM lock for the whole radio exchange.
 
-## Deadlines, sleep and shutdown
-
-The wake deadline is absolute uptime in milliseconds. Its owner must clear
-it with `rzi_power_set_wake_deadline(-1)` or advance it after handling the
-work. An expired native PM event remains registered and continues to
-constrain system PM. Use a kernel timer or delayed work to schedule actions.
-Deadline reads/writes return `-RZI_ERR_NOT_SUPPORTED` without `CONFIG_PM`.
+## Thread sleep
 
 `rzi_power_sleep(int64_t timeout_ms)` waits for its relative timeout through
-`k_sleep()`, or forever when negative. Its wait is independent of the PM
-deadline, including an already expired deadline. It does not consume the
-PM event or add a 32-bit millisecond limit. The native kernel timeout range
-applies, and `k_wakeup()` may end the wait early. Periodic delayed work does
-not need an additional application sleep or deadline.
-
-`rzi_power_shutdown()` is independent of the runtime PM switch. It returns
-`-RZI_ERR_BUSY` while PM locks remain, or `-RZI_ERR_NOT_SUPPORTED` when
-`CONFIG_POWEROFF` is disabled. Otherwise it calls `sys_poweroff()` without
-returning. The application and board drivers must configure real wake
-sources and ensure the system is safe to power off. RZI does not infer
-hardware wake support from an advisory mask.
-
-Reset-cause flags use `RZI_POWER_RESET_*` aliases of native hwinfo flags.
-`rzi_power_get_reset_cause()` preserves all simultaneously set bits and
-never clears them. Clearing is explicit through
-`rzi_power_clear_reset_cause()`. Unsupported operations and driver failures
-are returned as RZI errors; these flags do not describe each STOP wakeup.
+`k_sleep()`, or forever when negative. The native kernel timeout range
+applies, and `k_wakeup()` may end the wait early. Use a kernel timer or
+delayed work to schedule actions. Periodic delayed work does not need an
+additional application sleep or RZI PM event.

@@ -31,8 +31,6 @@ ZTEST(rzi_power_api, test_arguments_and_locks)
 
 	zassert_equal(rzi_power_get_pm_enabled(NULL), -RZI_ERR_INVALID);
 	zassert_equal(rzi_power_get_lock_mask(NULL), -RZI_ERR_INVALID);
-	zassert_equal(rzi_power_get_wake_deadline(NULL), -RZI_ERR_INVALID);
-	zassert_equal(rzi_power_get_reset_cause(NULL), -RZI_ERR_INVALID);
 	zassert_equal(rzi_power_lock_get(RZI_POWER_LOCK_COUNT), -RZI_ERR_INVALID);
 	zassert_equal(rzi_power_lock_put(RZI_POWER_LOCK_APP), -RZI_ERR_INVALID);
 
@@ -65,25 +63,12 @@ ZTEST(rzi_power_api, test_nested_locks_and_overflow)
 	zassert_equal(lock_mask, 0U);
 }
 
-ZTEST(rzi_power_api, test_sleep_is_independent_of_pm_deadline)
+ZTEST(rzi_power_api, test_sleep_waits_for_timeout)
 {
-	int64_t deadline_ms;
-
-	if (IS_ENABLED(CONFIG_PM)) {
-		zassert_ok(rzi_power_set_wake_deadline(0));
-	} else {
-		zassert_equal(rzi_power_set_wake_deadline(0), -RZI_ERR_NOT_SUPPORTED);
-		zassert_equal(rzi_power_get_wake_deadline(&deadline_ms), -RZI_ERR_NOT_SUPPORTED);
-	}
 	int64_t start_ms = k_uptime_get();
 
 	zassert_ok(rzi_power_sleep(20));
 	zassert_true(k_uptime_get() - start_ms >= 20);
-	if (IS_ENABLED(CONFIG_PM)) {
-		zassert_ok(rzi_power_get_wake_deadline(&deadline_ms));
-		zassert_equal(deadline_ms, 0);
-		zassert_ok(rzi_power_set_wake_deadline(-1));
-	}
 }
 
 static K_THREAD_STACK_DEFINE(sleep_stack, 2048);
@@ -105,9 +90,6 @@ ZTEST(rzi_power_api, test_long_and_forever_waits_can_be_woken)
 {
 	const int64_t durations_ms[] = {(int64_t)INT32_MAX + 1000, -1};
 
-	if (IS_ENABLED(CONFIG_PM)) {
-		zassert_ok(rzi_power_set_wake_deadline(0));
-	}
 	for (size_t i = 0; i < ARRAY_SIZE(durations_ms); ++i) {
 		requested_sleep_ms = durations_ms[i];
 		k_sem_reset(&sleep_done);
@@ -125,55 +107,7 @@ ZTEST(rzi_power_api, test_long_and_forever_waits_can_be_woken)
 		zassert_ok(k_thread_join(&sleep_thread, K_SECONDS(1)));
 		zassert_ok(sleep_result);
 	}
-	if (IS_ENABLED(CONFIG_PM)) {
-		zassert_ok(rzi_power_set_wake_deadline(-1));
-	}
 }
-
-ZTEST(rzi_power_api, test_reset_cause_read_and_explicit_clear)
-{
-	uint32_t cause;
-#ifdef CONFIG_HWINFO
-	uint32_t native_cause;
-
-	zassert_ok(hwinfo_get_reset_cause(&native_cause));
-	zassert_ok(rzi_power_get_reset_cause(&cause));
-	zassert_equal(cause, native_cause);
-	zassert_ok(hwinfo_get_reset_cause(&cause));
-	zassert_equal(cause, native_cause);
-	zassert_ok(rzi_power_clear_reset_cause());
-	zassert_ok(rzi_power_get_reset_cause(&cause));
-	zassert_equal(cause, 0U);
-#else
-	zassert_equal(rzi_power_get_reset_cause(&cause), -RZI_ERR_NOT_SUPPORTED);
-	zassert_equal(rzi_power_clear_reset_cause(), -RZI_ERR_NOT_SUPPORTED);
-#endif
-}
-
-#ifdef CONFIG_TEST_HWINFO_MOCK
-extern uint32_t mock_reset_flags;
-extern int mock_reset_error;
-
-ZTEST(rzi_power_api, test_reset_flags_preserved_and_errors_propagated)
-{
-	uint32_t cause;
-	bool enabled;
-
-	mock_reset_flags = RESET_PIN | RESET_WATCHDOG | RESET_CLOCK;
-	zassert_ok(rzi_power_get_reset_cause(&cause));
-	zassert_equal(cause,
-		      RZI_POWER_RESET_PIN | RZI_POWER_RESET_WATCHDOG | RZI_POWER_RESET_CLOCK);
-	zassert_equal(mock_reset_flags, cause);
-	zassert_ok(rzi_power_get_pm_enabled(&enabled));
-	zassert_equal(mock_reset_flags, cause);
-	mock_reset_error = -ENOSYS;
-	zassert_equal(rzi_power_get_reset_cause(&cause), -RZI_ERR_NOT_SUPPORTED);
-	zassert_equal(rzi_power_clear_reset_cause(), -RZI_ERR_NOT_SUPPORTED);
-	mock_reset_error = 0;
-	zassert_ok(rzi_power_clear_reset_cause());
-	zassert_equal(mock_reset_flags, 0U);
-}
-#endif
 
 ZTEST(rzi_power_api, test_runtime_pm_switch)
 {
@@ -194,16 +128,6 @@ ZTEST(rzi_power_api, test_runtime_pm_switch)
 		zassert_ok(rzi_power_get_pm_enabled(&enabled));
 		zassert_false(enabled);
 	}
-}
-
-ZTEST(rzi_power_api, test_shutdown_refused)
-{
-	/* native_sim has no power-off implementation. */
-	BUILD_ASSERT(!IS_ENABLED(CONFIG_POWEROFF));
-	zassert_ok(rzi_power_lock_get(RZI_POWER_LOCK_APP));
-	zassert_equal(rzi_power_shutdown(), -RZI_ERR_BUSY);
-	zassert_ok(rzi_power_lock_put(RZI_POWER_LOCK_APP));
-	zassert_equal(rzi_power_shutdown(), -RZI_ERR_NOT_SUPPORTED);
 }
 
 #ifdef CONFIG_PM
@@ -259,29 +183,6 @@ ZTEST(rzi_power_api, test_native_pm_locks_are_independent)
 	zassert_false(pm_policy_state_lock_is_active(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES));
 	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
 	zassert_false(pm_policy_state_lock_is_active(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES));
-}
-
-ZTEST(rzi_power_api, test_pm_deadline_update_expiry_and_clear)
-{
-	int64_t deadline_ms = k_uptime_get() + 1000;
-	int64_t first_ticks;
-
-	zassert_ok(rzi_power_set_wake_deadline(-1));
-	zassert_equal(pm_policy_next_event_ticks(), -1);
-	zassert_ok(rzi_power_set_wake_deadline(deadline_ms));
-	first_ticks = pm_policy_next_event_ticks();
-	zassert_true(first_ticks > 0);
-	zassert_ok(rzi_power_set_wake_deadline(deadline_ms + 1000));
-	zassert_true(pm_policy_next_event_ticks() > first_ticks);
-
-	zassert_ok(rzi_power_set_wake_deadline(k_uptime_get()));
-	zassert_equal(pm_policy_next_event_ticks(), 0);
-	zassert_ok(rzi_power_get_wake_deadline(&deadline_ms));
-	zassert_equal(pm_policy_next_event_ticks(), 0);
-	zassert_ok(rzi_power_set_wake_deadline(k_uptime_get() + 1000));
-	zassert_true(pm_policy_next_event_ticks() > 0);
-	zassert_ok(rzi_power_set_wake_deadline(-1));
-	zassert_equal(pm_policy_next_event_ticks(), -1);
 }
 #endif
 
