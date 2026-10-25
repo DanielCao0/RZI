@@ -12,12 +12,13 @@
 
 ZTEST(rzi_system_init, test_init_prepares_compiled_services)
 {
-	enum rzi_power_policy policy = RZI_POWER_POLICY_SHUTDOWN;
+	bool enabled;
 	uint8_t value = 0U;
 
 	zassert_ok(rzi_init());
 	zassert_ok(rzi_init());
-	zassert_ok(rzi_power_get_policy(&policy));
+	zassert_ok(rzi_power_get_pm_enabled(&enabled));
+	zassert_equal(enabled, IS_ENABLED(CONFIG_PM));
 	zassert_equal(rzi_storage_read("rzi", "missing", &value, sizeof(value)),
 		      -RZI_ERR_NOT_FOUND);
 }

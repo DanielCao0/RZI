@@ -10,3 +10,14 @@ tests:
     tags:
       - rzi
       - storage
+  rzi.storage.api.power:
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - rzi
+      - storage
+      - power
+    extra_configs:
+      - CONFIG_RZI_POWER=y

@@ -8,6 +8,12 @@
 #include <zephyr/ztest.h>
 
 #include <rzi/at/at.h>
+#if defined(CONFIG_RZI_POWER)
+#include <rzi/power/power.h>
+#ifdef CONFIG_PM
+#include <zephyr/pm/pm.h>
+#endif
+#endif
 
 K_SEM_DEFINE(response_ready, 0, 16);
 K_MUTEX_DEFINE(output_lock);
@@ -102,6 +108,11 @@ static void *setup(void)
 
 	zassert_ok(rzi_at_register(&custom_command, 1));
 	zassert_ok(rzi_at_start(&io));
+#if defined(CONFIG_RZI_POWER)
+	/* Read native PM support before any test takes a runtime-switch lock. */
+	send_command_until("AT+LPM=?\r",
+			   IS_ENABLED(CONFIG_PM) ? "AT+LPM=1\r\nOK\r\n" : "AT+LPM=0\r\nOK\r\n");
+#endif
 	return NULL;
 }
 
@@ -141,6 +152,62 @@ ZTEST(rzi_at_framework, test_registry_is_immutable_after_start)
 	zassert_equal(rzi_at_register(&custom_command, 1), -RZI_ERR_INVALID_STATE);
 }
 
+#if defined(CONFIG_PM) && defined(CONFIG_RZI_POWER)
+/* Test states are lockable but are not assigned to a CPU. */
+void pm_state_set(enum pm_state state, uint8_t substate_id)
+{
+	ARG_UNUSED(state);
+	ARG_UNUSED(substate_id);
+	zassert_unreachable("No CPU PM states are assigned in this test");
+}
+
+void pm_state_exit_post_ops(enum pm_state state, uint8_t substate_id)
+{
+	ARG_UNUSED(state);
+	ARG_UNUSED(substate_id);
+	zassert_unreachable("No CPU PM states are assigned in this test");
+}
+
+ZTEST(rzi_at_framework, test_lpm_query_tracks_api_switch)
+{
+	zassert_ok(rzi_power_set_pm_enabled(false));
+	send_command_until("AT+LPM=?\r", "AT+LPM=0\r\nOK\r\n");
+	zassert_ok(rzi_power_set_pm_enabled(true));
+	send_command_until("AT+LPM=?\r", "AT+LPM=1\r\nOK\r\n");
+	zassert_ok(rzi_power_lock_get(RZI_POWER_LOCK_APP));
+	send_command_until("AT+LPM=?\r", "AT+LPM=1\r\nOK\r\n");
+	zassert_ok(rzi_power_lock_put(RZI_POWER_LOCK_APP));
+}
+
+ZTEST(rzi_at_framework, test_lpm_write_updates_api_switch)
+{
+	bool enabled;
+
+	send_command_until("AT+LPM=0\r", "\r\nOK\r\n");
+	zassert_ok(rzi_power_get_pm_enabled(&enabled));
+	zassert_false(enabled);
+	send_command_until("AT+LPM=1\r", "\r\nOK\r\n");
+	zassert_ok(rzi_power_get_pm_enabled(&enabled));
+	zassert_true(enabled);
+	send_command_until("AT+LPM=2\r", "\r\nAT_PARAM_ERROR\r\n");
+	send_command_until("AT+LPM=abc\r", "\r\nAT_PARAM_ERROR\r\n");
+	zassert_ok(rzi_power_get_pm_enabled(&enabled));
+	zassert_true(enabled);
+	send_command_until("AT+LPM=?\r", "AT+LPM=1\r\nOK\r\n");
+}
+#else
+ZTEST(rzi_at_framework, test_lpm_without_system_pm)
+{
+#if defined(CONFIG_RZI_POWER)
+	send_command_until("AT+LPM=?\r", "AT+LPM=0\r\nOK\r\n");
+#else
+	send_command_until("AT+LPM=?\r", "\r\nAT_ERROR\r\n");
+#endif
+	send_command_until("AT+LPM=0\r", "\r\nAT_ERROR\r\n");
+	send_command_until("AT+LPM=1\r", "\r\nAT_ERROR\r\n");
+}
+#endif
+
 ZTEST(rzi_at_framework, test_system_lock_and_sleep)
 {
 	send_command_until("AT+PWORD=secret123\r", "AT_PARAM_ERROR");
@@ -149,7 +216,11 @@ ZTEST(rzi_at_framework, test_system_lock_and_sleep)
 	send_command_until("AT+VER=?\r", "AT_ERROR");
 	send_command_until("AT+PWORD=secret\r", "\r\nOK\r\n");
 	send_command_until("AT+VER=?\r", "AT+VER=RZI_");
+#if defined(CONFIG_RZI_POWER)
+	send_command_until("AT+SLEEP=10\r", "\r\nOK\r\n");
+#else
 	send_command_until("AT+SLEEP=10\r", "AT_ERROR");
+#endif
 	send_command_until("AT+BLEMAC=?\r", "AT_ERROR");
 }
 

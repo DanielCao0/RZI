@@ -447,7 +447,7 @@ Persistent state has separate owners:
 
 | State | Owner | Examples |
 |---|---|---|
-| Product/RZI configuration | RZI storage | region, join mode, power policy |
+| Product/RZI configuration | RZI storage | region, join mode, product settings |
 | Secrets | Provisioning/security layer | DevEUI, JoinEUI, AppKey/NwkKey |
 | LoRaWAN protocol context | Backend | frame counters, DevNonce, session, ADR |
 | Update state | RZI FUOTA | progress, image version, pending confirmation |
@@ -474,15 +474,17 @@ zero credentials only as build placeholders.
 Status: implemented coordinator (`include/rzi/power/power.h`). Hardware current
 targets remain a product acceptance item.
 
-RZI coordinates product sleep policy; Zephyr performs the power transition.
-Services report blockers (Class C, flash, FUOTA) and the
-application reports transport activity and required wake sources. A wake
-deadline is advisory for Zephyr PM residency, not an RX-window calculator.
+RZI uses Zephyr's native `enum pm_state`, device tree, PM policy and locks.
+It defines no separate sleep modes. Applications enable `CONFIG_PM` when
+supported. The runtime API / AT switch owns one native all-state lock;
+service PM locks own paired native lock references. Device runtime PM and
+ordinary CPU idle remain independent of this switch. A wake deadline is a
+native PM event, not an RX-window calculator.
 
-Board defaults: nRF52840 stays on System ON idle (`CONFIG_PM` off; no SoC
-power-states). STM32WLE5 selects `CONFIG_PM` and may enter STOP2. Shutdown is
-explicit (`rzi_power_shutdown()`): System OFF on 4631, STANDBY/shutdown on
-3372.
+The periodic-uplink board configs enable `CONFIG_PM` on STM32WLE5, where
+Zephyr may select STOP0/1/2. Current nRF52840 and nRF54L15 configurations
+use ordinary CPU idle without system PM. Shutdown is explicit through
+`rzi_power_shutdown()` and independent of the runtime PM switch.
 
 The backend remains responsible for protocol timing. RZI does not calculate or
 delay LoRaWAN RX windows in application code. That matches Semtech USP
@@ -637,7 +639,7 @@ pass does not replace RF and power measurements.
 | Configuration | AT consumes RZI storage API | Add schema version and migrations |
 | Backend context | USP HAL owns it | Preserve backend ownership |
 | Zephyr LBM | Open upstream PR | Evaluate without release dependency |
-| Power | Coordinator and auto-blockers implemented | Hardware current targets and Class B |
+| Power | Coordinator and automatic service PM locks implemented | Hardware current targets and Class B |
 | FUOTA | Coordination API and USP/LBM packages | Optional `CONFIG_RZI_LORAWAN_FUOTA_AUTO_APPLY` / signed CI |
 | C++ RUI | Arduino Core has an OTAA facade | ADR / P2P / full system API still pending |
 | API/ABI version | Canonical SDK version API exists | Define ABI policy before 1.0 |

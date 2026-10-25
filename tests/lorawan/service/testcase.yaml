@@ -19,3 +19,14 @@ tests:
       - native_sim
     extra_configs:
       - CONFIG_RZI_LORAWAN_FUOTA=y
+  rzi.lorawan.service.power:
+    tags:
+      - rzi
+      - lorawan
+      - power
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    extra_configs:
+      - CONFIG_RZI_POWER=y

@@ -2,19 +2,15 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief Product sleep-policy coordinator.
+ * @brief Service PM locks and controls for Zephyr system PM.
  */
 
-#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #include <zephyr/kernel.h>
-#include <zephyr/sys/util.h>
-
-#ifdef CONFIG_PM
 #include <zephyr/pm/policy.h>
-#endif
+#include <zephyr/sys/util.h>
 
 #ifdef CONFIG_POWEROFF
 #include <zephyr/sys/poweroff.h>
@@ -26,98 +22,25 @@
 
 #include <rzi/power/power.h>
 
-enum power_constraint {
-	POWER_CONSTRAINT_NONE = 0,
-	POWER_CONSTRAINT_NO_DEEP,
-	POWER_CONSTRAINT_ALL,
-};
-
+/* Helpers ending in _locked require the caller to hold power_lock. */
 K_MUTEX_DEFINE(power_lock);
 
-static bool initialized;
-static enum rzi_power_policy policy;
-static enum rzi_power_wake_reason wake_reason;
-static enum power_constraint applied_constraint;
-static uint8_t blocker_count[RZI_POWER_BLOCK_COUNT];
+/* One native all-state PM lock for the runtime switch, plus lock references. */
+static bool is_pm_locked;
+static uint8_t lock_counts[RZI_POWER_LOCK_COUNT];
 static int64_t wake_deadline_ms = -1;
-static uint32_t wake_sources;
 
 #ifdef CONFIG_PM
 static struct pm_policy_event wake_event;
-static bool wake_event_registered;
+static bool is_wake_event_registered;
 #endif
 
-static uint32_t default_wake_sources(void)
-{
-#if defined(CONFIG_SOC_SERIES_NRF52X)
-	return RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_RADIO |
-	       RZI_POWER_WAKE_USB;
-#elif defined(CONFIG_SOC_SERIES_STM32WLX)
-	return RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_RADIO |
-	       RZI_POWER_WAKE_UART;
-#else
-	return RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_GPIO;
-#endif
-}
-
-static enum rzi_power_policy default_policy(void)
-{
-	if (IS_ENABLED(CONFIG_RZI_POWER_POLICY_DEFAULT_RUN)) {
-		return RZI_POWER_POLICY_RUN;
-	}
-	if (IS_ENABLED(CONFIG_RZI_POWER_POLICY_DEFAULT_SUSPEND)) {
-		return RZI_POWER_POLICY_SUSPEND;
-	}
-	if (IS_ENABLED(CONFIG_RZI_POWER_POLICY_DEFAULT_SHUTDOWN)) {
-		return RZI_POWER_POLICY_SHUTDOWN;
-	}
-	return RZI_POWER_POLICY_IDLE;
-}
-
-static void capture_wake_reason(void)
-{
-#ifdef CONFIG_HWINFO
-	uint32_t cause = 0U;
-
-	if (hwinfo_get_reset_cause(&cause) == 0 && cause != 0U) {
-		if ((cause & (RESET_POR | RESET_BROWNOUT)) != 0U) {
-			wake_reason = RZI_POWER_WAKE_REASON_POWER_ON;
-		} else if ((cause & RESET_LOW_POWER_WAKE) != 0U) {
-			wake_reason = RZI_POWER_WAKE_REASON_LOW_POWER;
-		} else if ((cause & RESET_PIN) != 0U) {
-			wake_reason = RZI_POWER_WAKE_REASON_PIN;
-		} else if ((cause & (RESET_SOFTWARE | RESET_BOOTLOADER | RESET_USER)) != 0U) {
-			wake_reason = RZI_POWER_WAKE_REASON_SOFTWARE;
-		} else if ((cause & RESET_WATCHDOG) != 0U) {
-			wake_reason = RZI_POWER_WAKE_REASON_WATCHDOG;
-		} else if ((cause & (RESET_DEBUG | RESET_CPU_LOCKUP)) != 0U) {
-			wake_reason = RZI_POWER_WAKE_REASON_DEBUG;
-		} else {
-			wake_reason = RZI_POWER_WAKE_REASON_UNKNOWN;
-		}
-		(void)hwinfo_clear_reset_cause();
-		return;
-	}
-#endif
-	wake_reason = RZI_POWER_WAKE_REASON_UNKNOWN;
-}
-
-static bool any_blocker_locked(void)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(blocker_count); ++i) {
-		if (blocker_count[i] != 0U) {
-			return true;
-		}
-	}
-	return false;
-}
-
-static uint32_t blocker_mask_locked(void)
+static uint32_t get_lock_mask_locked(void)
 {
 	uint32_t mask = 0U;
 
-	for (size_t i = 0; i < ARRAY_SIZE(blocker_count); ++i) {
-		if (blocker_count[i] != 0U) {
+	for (size_t i = 0; i < ARRAY_SIZE(lock_counts); ++i) {
+		if (lock_counts[i] != 0U) {
 			mask |= BIT(i);
 		}
 	}
@@ -125,431 +48,215 @@ static uint32_t blocker_mask_locked(void)
 }
 
 #ifdef CONFIG_PM
-static void acquire_constraint(enum power_constraint constraint)
+static void update_wake_event_locked(void)
 {
-	switch (constraint) {
-	case POWER_CONSTRAINT_NONE:
-		break;
-	case POWER_CONSTRAINT_NO_DEEP:
-		pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_RAM, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_DISK, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_get(PM_STATE_SOFT_OFF, PM_ALL_SUBSTATES);
-		break;
-	case POWER_CONSTRAINT_ALL:
-		pm_policy_state_all_lock_get();
-		break;
-	}
-}
-
-static void release_constraint(enum power_constraint constraint)
-{
-	switch (constraint) {
-	case POWER_CONSTRAINT_NONE:
-		break;
-	case POWER_CONSTRAINT_NO_DEEP:
-		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_RAM, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_DISK, PM_ALL_SUBSTATES);
-		pm_policy_state_lock_put(PM_STATE_SOFT_OFF, PM_ALL_SUBSTATES);
-		break;
-	case POWER_CONSTRAINT_ALL:
-		pm_policy_state_all_lock_put();
-		break;
-	}
-}
-#else
-static void acquire_constraint(enum power_constraint constraint)
-{
-	ARG_UNUSED(constraint);
-}
-
-static void release_constraint(enum power_constraint constraint)
-{
-	ARG_UNUSED(constraint);
-}
-#endif
-
-static enum power_constraint wanted_constraint_locked(void)
-{
-	if (policy == RZI_POWER_POLICY_RUN || policy == RZI_POWER_POLICY_SHUTDOWN) {
-		return POWER_CONSTRAINT_ALL;
-	}
-	if (any_blocker_locked() || policy == RZI_POWER_POLICY_IDLE) {
-		return POWER_CONSTRAINT_NO_DEEP;
-	}
-	return POWER_CONSTRAINT_NONE;
-}
-
-static void refresh_constraint_locked(void)
-{
-	enum power_constraint wanted = wanted_constraint_locked();
-
-	if (wanted == applied_constraint) {
-		return;
-	}
-	release_constraint(applied_constraint);
-	acquire_constraint(wanted);
-	applied_constraint = wanted;
-}
-
-#ifdef CONFIG_PM
-static void refresh_wake_event_locked(void)
-{
+	/* The owner clears or advances the event after handling the deadline. */
 	if (wake_deadline_ms < 0) {
-		if (wake_event_registered) {
+		if (is_wake_event_registered) {
 			pm_policy_event_unregister(&wake_event);
-			wake_event_registered = false;
+			is_wake_event_registered = false;
 		}
 		return;
 	}
 
-	int64_t ticks = k_ms_to_ticks_ceil64((uint64_t)wake_deadline_ms);
+	int64_t deadline_ticks = k_ms_to_ticks_ceil64((uint64_t)wake_deadline_ms);
 
-	if (wake_event_registered) {
-		pm_policy_event_update(&wake_event, ticks);
+	if (is_wake_event_registered) {
+		pm_policy_event_update(&wake_event, deadline_ticks);
 	} else {
-		pm_policy_event_register(&wake_event, ticks);
-		wake_event_registered = true;
+		pm_policy_event_register(&wake_event, deadline_ticks);
+		is_wake_event_registered = true;
 	}
 }
 #else
-static void refresh_wake_event_locked(void)
+static void update_wake_event_locked(void)
 {
 }
 #endif
 
-static bool shutdown_wake_supported_locked(void)
+int rzi_power_set_pm_enabled(bool enabled)
 {
-#if defined(CONFIG_SOC_SERIES_NRF52X)
-	return (wake_sources & (RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_USB)) != 0U;
-#elif defined(CONFIG_SOC_SERIES_STM32WLX)
-	return (wake_sources &
-		(RZI_POWER_WAKE_GPIO | RZI_POWER_WAKE_TIMER | RZI_POWER_WAKE_RADIO)) != 0U;
-#else
-	return (wake_sources & RZI_POWER_WAKE_GPIO) != 0U;
-#endif
-}
-
-static int ensure_ready(void)
-{
-	if (initialized) {
-		refresh_constraint_locked();
-		return 0;
+	if (k_is_in_isr()) {
+		return -RZI_ERR_ISR;
+	}
+	if (!IS_ENABLED(CONFIG_PM)) {
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 
-	policy = default_policy();
-	wake_sources = default_wake_sources();
-	wake_deadline_ms = -1;
-	applied_constraint = POWER_CONSTRAINT_NONE;
-	capture_wake_reason();
-	initialized = true;
-	refresh_constraint_locked();
+	k_mutex_lock(&power_lock, K_FOREVER);
+	if (!enabled && !is_pm_locked) {
+		pm_policy_state_all_lock_get();
+		is_pm_locked = true;
+	} else if (enabled && is_pm_locked) {
+		pm_policy_state_all_lock_put();
+		is_pm_locked = false;
+	}
+	k_mutex_unlock(&power_lock);
 	return 0;
 }
 
-int rzi_power_init(void)
+int rzi_power_get_pm_enabled(bool *enabled)
 {
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-
-	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	k_mutex_unlock(&power_lock);
-	return rc;
-}
-
-int rzi_power_set_policy(enum rzi_power_policy next)
-{
-	int rc;
-
-	if (k_is_in_isr()) {
-		return -RZI_ERR_ISR;
-	}
-	if ((unsigned int)next > RZI_POWER_POLICY_SHUTDOWN) {
+	if (enabled == NULL) {
 		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		policy = next;
-		refresh_constraint_locked();
-	}
+	*enabled = IS_ENABLED(CONFIG_PM) && !is_pm_locked;
 	k_mutex_unlock(&power_lock);
-	return rc;
+	return 0;
 }
 
-int rzi_power_get_policy(enum rzi_power_policy *out_policy)
+int rzi_power_lock_get(enum rzi_power_lock lock)
 {
-	int rc;
+	int rc = 0;
 
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if (out_policy == NULL) {
+	if ((unsigned int)lock >= RZI_POWER_LOCK_COUNT) {
 		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		*out_policy = policy;
+	if (lock_counts[lock] == UINT8_MAX) {
+		rc = -RZI_ERR_NO_RESOURCE;
+	} else {
+		pm_policy_state_all_lock_get();
+		lock_counts[lock]++;
 	}
 	k_mutex_unlock(&power_lock);
 	return rc;
 }
 
-int rzi_power_block(enum rzi_power_blocker blocker)
+int rzi_power_lock_put(enum rzi_power_lock lock)
 {
-	int rc;
+	int rc = 0;
 
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if ((unsigned int)blocker >= RZI_POWER_BLOCK_COUNT) {
+	if ((unsigned int)lock >= RZI_POWER_LOCK_COUNT) {
 		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		if (blocker_count[blocker] == UINT8_MAX) {
-			rc = -RZI_ERR_NO_RESOURCE;
-		} else {
-			blocker_count[blocker]++;
-			refresh_constraint_locked();
-		}
+	if (lock_counts[lock] == 0U) {
+		rc = -RZI_ERR_INVALID;
+	} else {
+		lock_counts[lock]--;
+		pm_policy_state_all_lock_put();
 	}
 	k_mutex_unlock(&power_lock);
 	return rc;
 }
 
-int rzi_power_unblock(enum rzi_power_blocker blocker)
+int rzi_power_get_lock_mask(uint32_t *lock_mask)
 {
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if ((unsigned int)blocker >= RZI_POWER_BLOCK_COUNT) {
+	if (lock_mask == NULL) {
 		return -RZI_ERR_INVALID;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		if (blocker_count[blocker] == 0U) {
-			rc = -RZI_ERR_INVALID;
-		} else {
-			blocker_count[blocker]--;
-			refresh_constraint_locked();
-		}
-	}
+	*lock_mask = get_lock_mask_locked();
 	k_mutex_unlock(&power_lock);
-	return rc;
-}
-
-int rzi_power_get_blockers(uint32_t *blockers)
-{
-	int rc;
-
-	if (k_is_in_isr()) {
-		return -RZI_ERR_ISR;
-	}
-	if (blockers == NULL) {
-		return -RZI_ERR_INVALID;
-	}
-
-	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		*blockers = blocker_mask_locked();
-	}
-	k_mutex_unlock(&power_lock);
-	return rc;
-}
-
-bool rzi_power_is_sleep_allowed(void)
-{
-	bool allowed = false;
-
-	if (k_is_in_isr()) {
-		return false;
-	}
-
-	k_mutex_lock(&power_lock, K_FOREVER);
-	if (ensure_ready() == 0) {
-		allowed = (policy == RZI_POWER_POLICY_IDLE || policy == RZI_POWER_POLICY_SUSPEND) &&
-			  !any_blocker_locked();
-	}
-	k_mutex_unlock(&power_lock);
-	return allowed;
+	return 0;
 }
 
 int rzi_power_set_wake_deadline(int64_t uptime_ms)
 {
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
+	if (!IS_ENABLED(CONFIG_PM)) {
+		return -RZI_ERR_NOT_SUPPORTED;
+	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		wake_deadline_ms = uptime_ms;
-		refresh_wake_event_locked();
-	}
+	wake_deadline_ms = uptime_ms;
+	update_wake_event_locked();
 	k_mutex_unlock(&power_lock);
-	return rc;
+	return 0;
 }
 
 int rzi_power_get_wake_deadline(int64_t *uptime_ms)
 {
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
 	if (uptime_ms == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-
-	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		*uptime_ms = wake_deadline_ms;
-	}
-	k_mutex_unlock(&power_lock);
-	return rc;
-}
-
-int rzi_power_set_wake_sources(uint32_t sources)
-{
-	int rc;
-
-	if (k_is_in_isr()) {
-		return -RZI_ERR_ISR;
+	if (!IS_ENABLED(CONFIG_PM)) {
+		return -RZI_ERR_NOT_SUPPORTED;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		wake_sources = sources == 0U ? default_wake_sources() : sources;
-	}
+	*uptime_ms = wake_deadline_ms;
 	k_mutex_unlock(&power_lock);
-	return rc;
+	return 0;
 }
 
-int rzi_power_get_wake_sources(uint32_t *sources)
+int rzi_power_get_reset_cause(uint32_t *cause)
 {
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if (sources == NULL) {
+	if (cause == NULL) {
 		return -RZI_ERR_INVALID;
 	}
-
-	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		*sources = wake_sources;
-	}
-	k_mutex_unlock(&power_lock);
-	return rc;
+#ifdef CONFIG_HWINFO
+	return rzi_err_from_errno(hwinfo_get_reset_cause(cause));
+#else
+	return -RZI_ERR_NOT_SUPPORTED;
+#endif
 }
 
-int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason)
+int rzi_power_clear_reset_cause(void)
 {
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
-	if (reason == NULL) {
-		return -RZI_ERR_INVALID;
-	}
-
-	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		*reason = wake_reason;
-	}
-	k_mutex_unlock(&power_lock);
-	return rc;
+#ifdef CONFIG_HWINFO
+	return rzi_err_from_errno(hwinfo_clear_reset_cause());
+#else
+	return -RZI_ERR_NOT_SUPPORTED;
+#endif
 }
 
-int rzi_power_sleep(int32_t timeout_ms)
+int rzi_power_sleep(int64_t timeout_ms)
 {
-	int64_t deadline_ms;
-	int64_t remaining_ms;
-	int rc;
-
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
 
-	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	deadline_ms = wake_deadline_ms;
-	k_mutex_unlock(&power_lock);
-	if (rc != 0) {
-		return rc;
-	}
-
-	remaining_ms = timeout_ms < 0 ? INT64_MAX : (int64_t)timeout_ms;
-
-	if (deadline_ms >= 0) {
-		int64_t until_deadline = deadline_ms - k_uptime_get();
-
-		if (until_deadline <= 0) {
-			return 0;
-		}
-		if (until_deadline < remaining_ms) {
-			remaining_ms = until_deadline;
-		}
-	}
-
-	if (remaining_ms == INT64_MAX) {
-		k_sleep(K_FOREVER);
-	} else if (remaining_ms > 0) {
-		k_sleep(K_MSEC((int32_t)MIN(remaining_ms, INT32_MAX)));
-	}
+	k_sleep(timeout_ms < 0 ? K_FOREVER : K_MSEC(timeout_ms));
 	return 0;
 }
 
 int rzi_power_shutdown(void)
 {
-	int rc;
+	int rc = -RZI_ERR_NOT_SUPPORTED;
 
 	if (k_is_in_isr()) {
 		return -RZI_ERR_ISR;
 	}
 
 	k_mutex_lock(&power_lock, K_FOREVER);
-	rc = ensure_ready();
-	if (rc == 0) {
-		if (policy != RZI_POWER_POLICY_SHUTDOWN || any_blocker_locked()) {
-			rc = -RZI_ERR_BUSY;
-		} else if (!IS_ENABLED(CONFIG_POWEROFF) || !shutdown_wake_supported_locked()) {
-			rc = -RZI_ERR_NOT_SUPPORTED;
-		}
+	if (get_lock_mask_locked() != 0U) {
+		rc = -RZI_ERR_BUSY;
+	} else {
+#ifdef CONFIG_POWEROFF
+		/* Keep PM lock references stable until the non-returning power-off call. */
+		sys_poweroff();
+#endif
 	}
 	k_mutex_unlock(&power_lock);
-	if (rc != 0) {
-		return rc;
-	}
-
-#ifdef CONFIG_POWEROFF
-	sys_poweroff();
-#endif
-	return -RZI_ERR_NOT_SUPPORTED;
+	return rc;
 }

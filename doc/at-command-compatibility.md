@@ -81,11 +81,17 @@ accepted, not that the radio operation has completed.
 - `AT+BAUD` reads or sets the UART baud rate when the UART adapter is enabled.
 - `AT+ATM` is accepted and stays in AT mode.
 - `AT+SLEEP=<ms>` calls `rzi_power_sleep()` when `CONFIG_RZI_POWER=y`.
-- `AT+LPM` / `AT+LPMLVL` select the power policy when the power service is
-  compiled in.
+- `AT+LPM=0` takes the runtime switch's native all-state PM lock;
+  `AT+LPM=1` releases that reference. `AT+LPM=?` reads the same runtime
+  switch used by the API. PM locks and other native locks do not change
+  that readback. Without `CONFIG_PM`, query reports 0 and writes return
+  `AT_ERROR`; ordinary CPU idle remains available. Without
+  `CONFIG_RZI_POWER`, both reads and writes return `AT_ERROR`.
 
 ### Compatible with limits
 
+- `AT+LPMLVL` accepts and reports `1` or `2`, but does not change the power
+  policy or select a hardware sleep state.
 - `AT+BAT` and `AT+SYSV` are registered and return `AT_ERROR` until a product
   ADC path exists.
 - `AT+BLEMAC` returns the Bluetooth identity address when `CONFIG_BT=y`,

@@ -7,6 +7,9 @@
 #include <zephyr/ztest.h>
 
 #include <rzi/storage/storage.h>
+#ifdef CONFIG_RZI_POWER
+#include <rzi/power/power.h>
+#endif
 
 ZTEST(rzi_storage_api, test_initialization)
 {
@@ -28,5 +31,23 @@ ZTEST(rzi_storage_api, test_arguments_are_validated_before_backend_access)
 	zassert_equal(rzi_storage_read("rzi", "missing", &value, sizeof(value)),
 		      -RZI_ERR_NOT_FOUND);
 }
+
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+ZTEST(rzi_storage_api, test_failed_lock_get_does_not_write_or_release_other_references)
+{
+	const uint8_t value = 1;
+
+	for (unsigned int i = 0; i < UINT8_MAX; ++i) {
+		zassert_ok(rzi_power_lock_get(RZI_POWER_LOCK_FLASH));
+	}
+	zassert_equal(rzi_storage_write("audit", "key", &value, sizeof(value)),
+		      -RZI_ERR_NO_RESOURCE);
+	zassert_equal(rzi_storage_delete("audit", "key"), -RZI_ERR_NO_RESOURCE);
+	for (unsigned int i = 0; i < UINT8_MAX; ++i) {
+		zassert_ok(rzi_power_lock_put(RZI_POWER_LOCK_FLASH));
+	}
+	zassert_equal(rzi_power_lock_put(RZI_POWER_LOCK_FLASH), -RZI_ERR_INVALID);
+}
+#endif
 
 ZTEST_SUITE(rzi_storage_api, NULL, NULL, NULL, NULL, NULL);

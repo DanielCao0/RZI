@@ -1,0 +1,17 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Lockable states only: no CPU is allowed to enter them on the simulator. */
+/ {
+	power-states {
+		test_runtime_idle: runtime-idle {
+			compatible = "zephyr,power-state";
+			power-state-name = "runtime-idle";
+		};
+
+		test_suspend_to_idle: suspend-to-idle {
+			compatible = "zephyr,power-state";
+			power-state-name = "suspend-to-idle";
+		};
+	};
+};

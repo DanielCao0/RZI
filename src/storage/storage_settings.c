@@ -15,7 +15,7 @@
 #include <rzi/err.h>
 #include <rzi/storage/storage.h>
 
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
 #include <rzi/power/power.h>
 
 static __maybe_unused void ignore_result(int result)
@@ -122,12 +122,16 @@ int rzi_storage_write(const char *namespace_name, const char *key, const void *v
 		return rc;
 	}
 	k_mutex_lock(&storage_lock, K_FOREVER);
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	ignore_result(rzi_power_block(RZI_POWER_BLOCK_FLASH));
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+	rc = rzi_power_lock_get(RZI_POWER_LOCK_FLASH);
+	if (rc != 0) {
+		k_mutex_unlock(&storage_lock);
+		return rc;
+	}
 #endif
 	rc = settings_save_one(name, value, size);
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+	ignore_result(rzi_power_lock_put(RZI_POWER_LOCK_FLASH));
 #endif
 	k_mutex_unlock(&storage_lock);
 	return rzi_err_from_errno(rc);
@@ -147,12 +151,16 @@ int rzi_storage_delete(const char *namespace_name, const char *key)
 		return rc;
 	}
 	k_mutex_lock(&storage_lock, K_FOREVER);
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	ignore_result(rzi_power_block(RZI_POWER_BLOCK_FLASH));
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+	rc = rzi_power_lock_get(RZI_POWER_LOCK_FLASH);
+	if (rc != 0) {
+		k_mutex_unlock(&storage_lock);
+		return rc;
+	}
 #endif
 	rc = settings_delete(name);
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-	ignore_result(rzi_power_unblock(RZI_POWER_BLOCK_FLASH));
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+	ignore_result(rzi_power_lock_put(RZI_POWER_LOCK_FLASH));
 #endif
 	k_mutex_unlock(&storage_lock);
 	return rzi_err_from_errno(rc);

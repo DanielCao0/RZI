@@ -14,6 +14,10 @@
 #include <rzi/version.h>
 
 #include "backend/lorawan_backend.h"
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+#include <rzi/power/power.h>
+#include "lorawan_priv.h"
+#endif
 
 K_SEM_DEFINE(callback_sem, 0, 8);
 
@@ -717,5 +721,51 @@ ZTEST(rzi_lorawan_service, test_usp_channel_mask_reaches_the_join)
 	join_and_stop();
 	zassert_false(fake_last_join.channel_mask_set);
 }
+
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+/* Force a scheduling point while a caller is acquiring its PM reference. */
+int __real_rzi_power_lock_get(enum rzi_power_lock lock);
+int __wrap_rzi_power_lock_get(enum rzi_power_lock lock)
+{
+	k_sleep(K_TICKS(1));
+	return __real_rzi_power_lock_get(lock);
+}
+
+static K_THREAD_STACK_ARRAY_DEFINE(class_stacks, 2, 2048);
+static struct k_thread class_threads[2];
+K_SEM_DEFINE(class_start, 0, 2);
+
+static void class_worker(void *unused1, void *unused2, void *unused3)
+{
+	ARG_UNUSED(unused1);
+	ARG_UNUSED(unused2);
+	ARG_UNUSED(unused3);
+	k_sem_take(&class_start, K_FOREVER);
+	rzi_lorawan_note_class(RZI_LORAWAN_CLASS_C);
+}
+
+ZTEST(rzi_lorawan_service, test_power_class_c_concurrent_notes)
+{
+	uint32_t lock_mask;
+
+	rzi_lorawan_note_class(RZI_LORAWAN_CLASS_A);
+	for (size_t i = 0; i < ARRAY_SIZE(class_threads); ++i) {
+		k_thread_create(&class_threads[i], class_stacks[i],
+				K_THREAD_STACK_SIZEOF(class_stacks[i]), class_worker, NULL, NULL,
+				NULL, K_PRIO_PREEMPT(0), 0, K_NO_WAIT);
+	}
+	k_sem_give(&class_start);
+	k_sem_give(&class_start);
+	for (size_t i = 0; i < ARRAY_SIZE(class_threads); ++i) {
+		zassert_ok(k_thread_join(&class_threads[i], K_SECONDS(1)));
+	}
+	zassert_ok(rzi_power_get_lock_mask(&lock_mask));
+	zassert_true((lock_mask & BIT(RZI_POWER_LOCK_LORAWAN)) != 0U);
+	rzi_lorawan_note_class(RZI_LORAWAN_CLASS_A);
+	zassert_ok(rzi_power_get_lock_mask(&lock_mask));
+	zassert_equal(lock_mask & BIT(RZI_POWER_LOCK_LORAWAN), 0U);
+	zassert_equal(rzi_power_lock_put(RZI_POWER_LOCK_LORAWAN), -RZI_ERR_INVALID);
+}
+#endif
 
 ZTEST_SUITE(rzi_lorawan_service, NULL, NULL, NULL, unsubscribe_after, NULL);

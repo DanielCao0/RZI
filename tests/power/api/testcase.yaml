@@ -1,12 +1,27 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
 # SPDX-License-Identifier: Apache-2.0
 
+common:
+  platform_allow:
+    - native_sim
+  integration_platforms:
+    - native_sim
+  tags:
+    - rzi
+    - power
+
 tests:
-  rzi.power.api:
-    platform_allow:
-      - native_sim
-    integration_platforms:
-      - native_sim
-    tags:
-      - rzi
-      - power
+  rzi.power.api: {}
+  rzi.power.api.pm:
+    extra_configs:
+      - CONFIG_PM=y
+    extra_args:
+      - DTC_OVERLAY_FILE=pm.overlay
+  rzi.power.api.hwinfo:
+    extra_configs:
+      - CONFIG_HWINFO=y
+      - CONFIG_HWINFO_NATIVE=n
+      - CONFIG_TEST_HWINFO_MOCK=y
+  rzi.power.api.no_hwinfo:
+    extra_configs:
+      - CONFIG_HWINFO=n

@@ -23,8 +23,8 @@ extern "C" {
 /**
  * @brief Initialize every compiled-in RZI service that has an init step.
  *
- * When enabled, this calls @ref rzi_power_init and then @ref rzi_storage_init.
- * Both are idempotent, and so is this function. LoRaWAN, raw LoRa, and AT
+ * When storage is enabled, this calls @ref rzi_storage_init.
+ * Repeated calls are idempotent. LoRaWAN, raw LoRa, and AT
  * stay stopped: the application configures them and then calls their
  * `start` functions.
  *

@@ -55,7 +55,6 @@ int rzi_at_lora_register(void);
 
 static char alias_name[ALIAS_MAX + 1U];
 static char serial_number[SN_MAX + 1U];
-static uint8_t lpm_enabled;
 static uint8_t lpm_level = 1U;
 
 static int load_string(const char *key, char *dst, size_t max_len)
@@ -329,29 +328,32 @@ static int handle_sleep(const struct rzi_at_request *request, void *user_data)
 
 static int handle_lpm(const struct rzi_at_request *request, void *user_data)
 {
+#if defined(CONFIG_RZI_POWER)
+	bool enabled;
 	int rc;
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+LPM=%u", lpm_enabled);
+		rc = rzi_power_get_pm_enabled(&enabled);
+		if (rc != 0) {
+			return rc;
+		}
+		return rzi_at_respond_value("AT+LPM=%u", enabled ? 1U : 0U);
 	}
 	if (strcmp(request->argument, "0") == 0) {
-		lpm_enabled = 0U;
+		enabled = false;
 	} else if (strcmp(request->argument, "1") == 0) {
-		lpm_enabled = 1U;
+		enabled = true;
 	} else {
 		return -RZI_ERR_INVALID;
 	}
-#if defined(CONFIG_RZI_POWER)
-	rc = rzi_power_set_policy(lpm_enabled != 0U ? RZI_POWER_POLICY_SUSPEND
-						    : RZI_POWER_POLICY_RUN);
-	if (rc != 0) {
-		return rc;
-	}
+	rc = rzi_power_set_pm_enabled(enabled);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 #else
-	ARG_UNUSED(rc);
+	ARG_UNUSED(request);
+	ARG_UNUSED(user_data);
+	return -RZI_ERR_NOT_SUPPORTED;
 #endif
-	return rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
 static int handle_lpmlvl(const struct rzi_at_request *request, void *user_data)

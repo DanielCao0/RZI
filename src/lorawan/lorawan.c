@@ -10,7 +10,7 @@
 #include <zephyr/sys/atomic.h>
 #include <rzi/lorawan/lorawan.h>
 
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
 #include <rzi/power/power.h>
 #endif
 
@@ -46,24 +46,23 @@ static bool last_downlink_valid;
 static int16_t last_rssi_dbm;
 static int8_t last_snr_quarter_db;
 static const char protocol_version[] = "LoRaWAN 1.0.4";
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
 static bool power_class_c_held;
 #endif
 
-#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_BLOCK)
-static void power_sync_class_c(bool class_c)
+/* Caller holds config_lock across the class update and lock reference. */
+#if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
+static void update_class_c_power_locked(bool class_c)
 {
-	if (class_c && !power_class_c_held && rzi_power_block(RZI_POWER_BLOCK_LORAWAN) == 0) {
+	if (class_c && !power_class_c_held && rzi_power_lock_get(RZI_POWER_LOCK_LORAWAN) == 0) {
 		power_class_c_held = true;
-	} else if (!class_c && power_class_c_held) {
-		int ignored = rzi_power_unblock(RZI_POWER_BLOCK_LORAWAN);
-
-		ARG_UNUSED(ignored);
+	} else if (!class_c && power_class_c_held &&
+		   rzi_power_lock_put(RZI_POWER_LOCK_LORAWAN) == 0) {
 		power_class_c_held = false;
 	}
 }
 #else
-static void power_sync_class_c(bool class_c)
+static void update_class_c_power_locked(bool class_c)
 {
 	ARG_UNUSED(class_c);
 }
@@ -279,8 +278,8 @@ void rzi_lorawan_note_class(enum rzi_lorawan_class device_class)
 {
 	k_mutex_lock(&config_lock, K_FOREVER);
 	configured_class = device_class;
+	update_class_c_power_locked(device_class == RZI_LORAWAN_CLASS_C);
 	k_mutex_unlock(&config_lock);
-	power_sync_class_c(device_class == RZI_LORAWAN_CLASS_C);
 }
 
 static bool callbacks_empty(const struct rzi_lorawan_callbacks *callbacks)
@@ -592,7 +591,9 @@ int rzi_lorawan_leave(void)
 	if (rc == 0) {
 		rc = rzi_lorawan_backend.base.leave();
 		if (rc == 0) {
-			power_sync_class_c(false);
+			k_mutex_lock(&config_lock, K_FOREVER);
+			update_class_c_power_locked(false);
+			k_mutex_unlock(&config_lock);
 			publish_state(RZI_LORAWAN_STATE_READY);
 		}
 	}

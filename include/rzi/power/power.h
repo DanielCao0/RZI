@@ -2,7 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /**
  * @file
- * @brief RZI product power-policy coordinator.
+ * @brief RZI service PM locks and controls for Zephyr system PM.
  */
 #ifndef RZI_POWER_POWER_H
 #define RZI_POWER_POWER_H
@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <zephyr/drivers/hwinfo.h>
 #include <zephyr/toolchain.h>
 
 #include <rzi/err.h>
@@ -19,165 +20,131 @@ extern "C" {
 #endif
 
 /** @defgroup rzi_power RZI power service
- *  @brief Sleep policy and blockers; Zephyr performs the transition.
+ *  @brief Service PM locks and native Zephyr PM controls.
  *
- *  The backend owns LoRaWAN RX1/RX2 timing. This service does not compute
- *  or delay receive windows. On nRF52840, RAM-retained sleep is System ON
- *  idle. On STM32WLE5, @ref RZI_POWER_POLICY_SUSPEND allows STOP0/1/2.
+ *  RZI retains the public API boundary and translates operations to Zephyr.
+ *  State meanings follow native PM; Zephyr selects the system state from
+ *  the SoC device tree and policy. RZI adds no state-selection policy.
+ *  The LoRaWAN backend owns RX1/RX2 timing.
  *
  *  @since 0.2
  *  @version 0.4.0
  *  @{
  */
 
-/** How deeply the idle thread may sleep when no blocker is held. */
-enum rzi_power_policy {
-	/** Stay fully awake; lock every Zephyr PM state. */
-	RZI_POWER_POLICY_RUN = 0,
-	/** CPU idle only. nRF52840 System ON; STM32WLE5 WFI, not STOP. */
-	RZI_POWER_POLICY_IDLE,
-	/** Deepest RAM-retained sleep. STOP2 on STM32WLE5; idle on nRF52840. */
-	RZI_POWER_POLICY_SUSPEND,
-	/** RAM-lost shutdown via @ref rzi_power_shutdown. */
-	RZI_POWER_POLICY_SHUTDOWN,
-};
-
-/** Service or application reason that forbids deep sleep or shutdown. */
-enum rzi_power_blocker {
-	/** Product code holds the device awake. */
-	RZI_POWER_BLOCK_APP = 0,
+/** Service or application reason that locks system PM and forbids shutdown. */
+enum rzi_power_lock {
+	/** Application holds a system PM lock. Ordinary CPU idle is still allowed. */
+	RZI_POWER_LOCK_APP = 0,
 	/** Class C continuous RX. Class A join/send do not take this. */
-	RZI_POWER_BLOCK_LORAWAN,
+	RZI_POWER_LOCK_LORAWAN,
 	/** Flash write, settings store, or FUOTA image copy. */
-	RZI_POWER_BLOCK_FLASH,
+	RZI_POWER_LOCK_FLASH,
 	/** UART or USB session that must not drop clocks. */
-	RZI_POWER_BLOCK_TRANSPORT,
+	RZI_POWER_LOCK_TRANSPORT,
 	/** Dedicated firmware-update session owned by the application. */
-	RZI_POWER_BLOCK_UPDATE,
-	/** Number of blocker identities (not a valid blocker). */
-	RZI_POWER_BLOCK_COUNT,
+	RZI_POWER_LOCK_UPDATE,
+	/** Number of lock identities (not a valid lock). */
+	RZI_POWER_LOCK_COUNT,
 };
 
-/** Reset or wake cause captured once at @ref rzi_power_init. */
-enum rzi_power_wake_reason {
-	/** Cause unavailable or not classified. */
-	RZI_POWER_WAKE_REASON_UNKNOWN = 0,
-	/** Power-on or brownout reset. */
-	RZI_POWER_WAKE_REASON_POWER_ON,
-	/** Reset pin or other external pin. */
-	RZI_POWER_WAKE_REASON_PIN,
-	/** Software or bootloader reset. */
-	RZI_POWER_WAKE_REASON_SOFTWARE,
-	/** Watchdog reset. */
-	RZI_POWER_WAKE_REASON_WATCHDOG,
-	/** Wake from a RAM-lost low-power state. */
-	RZI_POWER_WAKE_REASON_LOW_POWER,
-	/** Debug or lock-up reset. */
-	RZI_POWER_WAKE_REASON_DEBUG,
-};
-
-/** RTC or kernel timer may wake the CPU. */
-#define RZI_POWER_WAKE_TIMER BIT(0)
-/** GPIO sense / WKUP pin. Required for nRF52840 System OFF. */
-#define RZI_POWER_WAKE_GPIO  BIT(1)
-/** UART RX or line-control wake. */
-#define RZI_POWER_WAKE_UART  BIT(2)
-/** USB VBUS or resume. nRF52840 only in practice. */
-#define RZI_POWER_WAKE_USB   BIT(3)
-/** Radio IRQ (SX1262 DIO1 or STM32WL SUBGHZ EXTI). */
-#define RZI_POWER_WAKE_RADIO BIT(4)
+/** Reset cause flags map one-to-one to Zephyr hwinfo; multiple bits may be set. */
+#define RZI_POWER_RESET_PIN            RESET_PIN
+#define RZI_POWER_RESET_SOFTWARE       RESET_SOFTWARE
+#define RZI_POWER_RESET_BROWNOUT       RESET_BROWNOUT
+#define RZI_POWER_RESET_POR            RESET_POR
+#define RZI_POWER_RESET_WATCHDOG       RESET_WATCHDOG
+#define RZI_POWER_RESET_DEBUG          RESET_DEBUG
+#define RZI_POWER_RESET_SECURITY       RESET_SECURITY
+#define RZI_POWER_RESET_LOW_POWER_WAKE RESET_LOW_POWER_WAKE
+#define RZI_POWER_RESET_CPU_LOCKUP     RESET_CPU_LOCKUP
+#define RZI_POWER_RESET_PARITY         RESET_PARITY
+#define RZI_POWER_RESET_PLL            RESET_PLL
+#define RZI_POWER_RESET_CLOCK          RESET_CLOCK
+#define RZI_POWER_RESET_HARDWARE       RESET_HARDWARE
+#define RZI_POWER_RESET_USER           RESET_USER
+#define RZI_POWER_RESET_TEMPERATURE    RESET_TEMPERATURE
+#define RZI_POWER_RESET_BOOTLOADER     RESET_BOOTLOADER
+#define RZI_POWER_RESET_FLASH          RESET_FLASH
 
 /**
- * @brief Initialize the coordinator and capture the reset cause.
+ * @brief Allow system PM or hold one native all-state PM lock.
  *
- * Idempotent. Later calls refresh Zephyr PM locks from the current policy
- * and blockers.
+ * Disabling acquires one pm_policy_state_all_lock_get() reference; enabling
+ * releases only that reference. Repeated calls are idempotent. PM locks
+ * and locks owned by other code remain in effect. Ordinary CPU idle and
+ * device runtime PM are unaffected.
  *
- * @retval 0 Coordinator is ready.
+ * @param enabled True to release the runtime-switch lock, false to acquire it.
+ *
+ * @retval 0 Switch updated.
+ * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_PM is disabled.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
- * @since 0.2
  */
-__must_check int rzi_power_init(void);
+__must_check int rzi_power_set_pm_enabled(bool enabled);
 
 /**
- * @brief Select the product sleep policy.
+ * @brief Read the RZI runtime switch for native system PM.
  *
- * @param policy Requested policy.
+ * Returns false when CONFIG_PM is disabled or the runtime switch holds its
+ * lock. True does not mean a particular PM state is currently available;
+ * PM locks, native locks, device readiness and residency times still apply.
  *
- * @retval 0 Policy stored and PM locks updated.
- * @retval -RZI_ERR_INVALID @p policy is out of range.
+ * @param[out] enabled Destination for the switch value.
+ *
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID @p enabled is NULL.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
- * @since 0.2
  */
-__must_check int rzi_power_set_policy(enum rzi_power_policy policy);
+__must_check int rzi_power_get_pm_enabled(bool *enabled);
 
 /**
- * @brief Copy the current sleep policy.
+ * @brief Acquire one PM lock reference.
  *
- * @param[out] policy Destination.
+ * Each reference takes a native all-state PM lock and prevents shutdown.
+ * The same lock may be taken more than once; every take needs a matching
+ * release. Without CONFIG_PM, references only protect shutdown. Ordinary
+ * CPU idle is unaffected. This is a power-state constraint, not a mutex;
+ * acquiring a reference does not wait for other owners to release theirs.
  *
- * @retval 0 Policy copied.
- * @retval -RZI_ERR_INVALID @p policy is NULL.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @note Thread context only.
- * @since 0.2
- */
-__must_check int rzi_power_get_policy(enum rzi_power_policy *policy);
-
-/**
- * @brief Take one blocker reference.
- *
- * The same blocker may be taken more than once. Deep sleep is forbidden
- * while any reference remains. Calls @ref rzi_power_init if needed.
- *
- * @param blocker Blocker identity.
+ * @param lock PM lock identity.
  *
  * @retval 0 Reference taken.
- * @retval -RZI_ERR_INVALID @p blocker is invalid.
+ * @retval -RZI_ERR_INVALID @p lock is invalid.
+ * @retval -RZI_ERR_NO_RESOURCE The lock's reference count is full.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
-__must_check int rzi_power_block(enum rzi_power_blocker blocker);
+__must_check int rzi_power_lock_get(enum rzi_power_lock lock);
 
 /**
- * @brief Release one blocker reference.
+ * @brief Release one PM lock reference.
  *
- * @param blocker Blocker identity previously passed to @ref rzi_power_block.
+ * @param lock PM lock identity previously passed to @ref rzi_power_lock_get.
  *
  * @retval 0 Reference released.
- * @retval -RZI_ERR_INVALID @p blocker is invalid or has no matching take.
+ * @retval -RZI_ERR_INVALID @p lock is invalid or has no matching take.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
-__must_check int rzi_power_unblock(enum rzi_power_blocker blocker);
+__must_check int rzi_power_lock_put(enum rzi_power_lock lock);
 
 /**
- * @brief Copy the set of blockers that currently have a non-zero count.
+ * @brief Copy the set of PM locks that currently have a non-zero count.
  *
- * @param[out] blockers Bitmask of @ref rzi_power_blocker values.
+ * @param[out] lock_mask Bitmask of @ref rzi_power_lock values.
  *
  * @retval 0 Mask copied.
- * @retval -RZI_ERR_INVALID @p blockers is NULL.
+ * @retval -RZI_ERR_INVALID @p lock_mask is NULL.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
  */
-__must_check int rzi_power_get_blockers(uint32_t *blockers);
-
-/**
- * @brief Return whether RAM-retained sleep is currently allowed.
- *
- * True when the policy is idle or suspend and no blocker is held.
- *
- * @return True if the idle thread may enter the policy sleep state.
- * @note Thread context only.
- * @since 0.2
- */
-bool rzi_power_is_sleep_allowed(void);
+__must_check int rzi_power_get_lock_mask(uint32_t *lock_mask);
 
 /**
  * @brief Record the next time the product must be awake.
@@ -186,9 +153,16 @@ bool rzi_power_is_sleep_allowed(void);
  * the deadline is registered as a policy event so STOP is not entered
  * across it. This is not a LoRaWAN RX-window calculator.
  *
+ * The event remains registered after expiry: the owner must clear or
+ * advance it after handling the scheduled work. Until then it continues
+ * to constrain system PM. This call does not schedule work or adjust an
+ * @ref rzi_power_sleep wait. Use a kernel timer or delayed
+ * work to execute an action at a given time.
+ *
  * @param uptime_ms Absolute @c k_uptime_get() deadline, or negative to clear.
  *
  * @retval 0 Deadline stored.
+ * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_PM is disabled.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
@@ -202,6 +176,7 @@ __must_check int rzi_power_set_wake_deadline(int64_t uptime_ms);
  *
  * @retval 0 Value copied.
  * @retval -RZI_ERR_INVALID @p uptime_ms is NULL.
+ * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_PM is disabled.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2
@@ -209,74 +184,59 @@ __must_check int rzi_power_set_wake_deadline(int64_t uptime_ms);
 __must_check int rzi_power_get_wake_deadline(int64_t *uptime_ms);
 
 /**
- * @brief Replace the advisory wake-source mask.
+ * @brief Read the native reset-cause bitmask without clearing it.
  *
- * The application (or board) must still enable the corresponding pins
- * or peripherals. Shutdown refuses a timer-only mask on nRF52840.
+ * This is reset information, not the IRQ source of individual STOP wakeups.
+ * Multiple RZI_POWER_RESET_* flags may be returned together.
  *
- * @param sources Bitwise OR of @c RZI_POWER_WAKE_* flags. Zero restores
- *                the SoC default mask.
+ * @param[out] cause Destination for the reset-cause flags.
  *
- * @retval 0 Mask stored.
+ * @retval 0 Flags copied.
+ * @retval -RZI_ERR_INVALID @p cause is NULL.
+ * @retval -RZI_ERR_NOT_SUPPORTED HWINFO or reset-cause retrieval is unavailable.
  * @retval -RZI_ERR_ISR Called from an ISR.
+ * @retval negative Native driver error mapped to an RZI error.
  * @note Thread context only.
- * @since 0.2
  */
-__must_check int rzi_power_set_wake_sources(uint32_t sources);
+__must_check int rzi_power_get_reset_cause(uint32_t *cause);
 
 /**
- * @brief Copy the advisory wake-source mask.
+ * @brief Explicitly clear the native reset-cause flags.
  *
- * @param[out] sources Destination.
- *
- * @retval 0 Mask copied.
- * @retval -RZI_ERR_INVALID @p sources is NULL.
+ * @retval 0 Flags cleared.
+ * @retval -RZI_ERR_NOT_SUPPORTED HWINFO or reset-cause clearing is unavailable.
  * @retval -RZI_ERR_ISR Called from an ISR.
+ * @retval negative Native driver error mapped to an RZI error.
  * @note Thread context only.
- * @since 0.2
  */
-__must_check int rzi_power_get_wake_sources(uint32_t *sources);
+__must_check int rzi_power_clear_reset_cause(void);
 
 /**
- * @brief Copy the reset or wake cause captured at init.
+ * @brief Block the calling thread through Zephyr k_sleep().
  *
- * @param[out] reason Destination.
+ * System sleep follows the native policy when no runnable work remains.
+ * The PM event deadline is independent of this wait. k_wakeup() may end
+ * the wait early. No deadline is consumed or reset by this call.
  *
- * @retval 0 Reason copied.
- * @retval -RZI_ERR_INVALID @p reason is NULL.
+ * @param timeout_ms Relative duration in milliseconds; negative waits forever.
+ *                   The native kernel timeout range applies.
+ *
+ * @retval 0 The wait completed or was ended early.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
- * @since 0.2
  */
-__must_check int rzi_power_get_wake_reason(enum rzi_power_wake_reason *reason);
+__must_check int rzi_power_sleep(int64_t timeout_ms);
 
 /**
- * @brief Sleep in the current policy until @p timeout_ms or the wake deadline.
+ * @brief Explicitly enter board shutdown when no lock is held.
  *
- * Does not enter RAM-lost shutdown. Blockers only make the sleep
- * shallower; they do not fail this call.
+ * Independent of the runtime PM switch. Does not return on success.
+ * Uses the native sys_poweroff() implementation. The application and
+ * board drivers must configure actual wake sources and ensure the rest
+ * of the system is safe to power off; this API does not infer wake support.
  *
- * @param timeout_ms Maximum milliseconds to remain in the sleep path.
- *                   A negative value waits only on the wake deadline,
- *                   or forever when no deadline is set.
- *
- * @retval 0 The timeout or wake deadline elapsed.
- * @retval -RZI_ERR_ISR Called from an ISR.
- * @note Thread context only.
- * @since 0.2
- */
-__must_check int rzi_power_sleep(int32_t timeout_ms);
-
-/**
- * @brief Enter board shutdown if the policy and blockers allow it.
- *
- * Does not return on success. nRF52840 uses System OFF; STM32WLE5 uses
- * the SoC power-off path (STANDBY/shutdown). A GPIO (or USB on 4631,
- * RTC/radio on 3372) wake source must be enabled by the application.
- *
- * @retval -RZI_ERR_BUSY A blocker is held or the policy is not shutdown.
- * @retval -RZI_ERR_NOT_SUPPORTED Shutdown is unavailable or the wake-source mask cannot
- *                  wake this SoC from power-off.
+ * @retval -RZI_ERR_BUSY A lock is held.
+ * @retval -RZI_ERR_NOT_SUPPORTED CONFIG_POWEROFF is disabled.
  * @retval -RZI_ERR_ISR Called from an ISR.
  * @note Thread context only.
  * @since 0.2

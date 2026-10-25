@@ -21,3 +21,28 @@ tests:
     extra_configs:
       - CONFIG_RZI_LORA=y
       - CONFIG_RZI_AT_COMMAND_LORA=y
+  rzi.at.framework.power:
+    tags:
+      - rzi
+      - at
+      - power
+    platform_allow:
+      - native_sim/native/64
+    integration_platforms:
+      - native_sim/native/64
+    extra_configs:
+      - CONFIG_RZI_POWER=y
+      - CONFIG_PM=y
+    extra_args:
+      - DTC_OVERLAY_FILE=../../power/api/pm.overlay
+  rzi.at.framework.power_no_pm:
+    tags:
+      - rzi
+      - at
+      - power
+    platform_allow:
+      - native_sim/native/64
+    integration_platforms:
+      - native_sim/native/64
+    extra_configs:
+      - CONFIG_RZI_POWER=y
