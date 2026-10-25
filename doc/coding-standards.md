@@ -157,7 +157,7 @@ rzi_lorawan_init()
 rzi_lorawan_join()
 rzi_lorawan_send()
 rzi_lorawan_register_callbacks()
-rzi_power_set_policy()
+rzi_power_set_pm_enabled()
 rzi_at_uart_start()
 ```
 
@@ -187,7 +187,7 @@ Constants and enumerators: uppercase `RZI_<SERVICE>_<NAME>`.
 ```c
 RZI_LORAWAN_MAX_PAYLOAD
 RZI_LORAWAN_REGION_EU_868
-RZI_POWER_POLICY_SUSPEND
+RZI_POWER_LOCK_FLASH
 ```
 
 Header guards must be derived from the public include path:
@@ -202,15 +202,56 @@ include/rzi/power/power.h      -> RZI_POWER_POWER_H
 
 - File-local functions and variables must be `static`.
 - Private functions use lowercase `snake_case`. Actions should start with a
-  verb: `publish_error()`, `map_region()`, `handle_join()`.
+  verb and identify their responsibility: `publish_error()`, `map_region()`,
+  `handle_join()`. Avoid vague names such as `ensure_ready()` when the
+  operation can be named explicitly, for example `init_locked()`.
 - File-local names need not add `rzi_` when the file context is enough.
 - Private symbols that cross translation units must use the
   `rzi_<service>_` prefix.
 - Backend operation implementations should use `<backend>_<operation>()`,
   for example `usp_init()` and `usp_send()`.
-- Booleans use predicates: `is_joined`, `has_event`, `enabled`.
+- Booleans use predicates: `is_initialized`, `has_event`, `enabled`.
+- Name collections and bit masks explicitly: `lock_counts` for an array
+  of counts and `reset_cause_mask` for a set of reset-cause bits.
+- Include units in time values: `_ms`, `_us`, or `_ticks`. Distinguish an
+  absolute deadline (`deadline_ticks`) from a relative duration
+  (`time_to_deadline_ms`).
 - Output parameters use `out` or an explicit result name. Do not mutate
   input objects unless the API says so.
+
+Choose helper verbs according to their behavior:
+
+- `get_<noun>()` retrieves or derives a value, for example
+  `get_lock_mask_locked()`. Private helpers may return the value directly.
+- Use PM lock terminology for power-state constraints: `rzi_power_lock_get()`
+  and `rzi_power_lock_put()` acquire and release paired references. These
+  references are not mutex ownership.
+- `is_<state>()` checks a state or capability; `has_<noun>()` checks for
+  presence, for example `is_joined()` and `has_event()`.
+- `select_<noun>()` chooses a value from inputs or policy, for example
+  `select_channel()`. Keep selection separate from applying
+  the result when they are separate operations.
+- `update_<noun>()` synchronizes or changes existing state, for example
+  `update_wake_event_locked()`.
+- `acquire_<noun>()` and `release_<noun>()` name paired resource or
+  constraint operations.
+- `init_<noun>()` initializes state. The noun may be omitted when the file
+  context is enough. Document lazy or idempotent initialization and any
+  additional effects, such as registering callbacks.
+
+The `_locked` suffix means the caller must already hold the required lock;
+the helper does not acquire that lock itself. Identify the lock in a nearby
+comment or the function contract. Do not add `_locked` merely because a
+function acquires a lock internally. For example:
+
+```c
+/* Helpers ending in _locked require the caller to hold power_lock. */
+static uint32_t get_lock_mask_locked(void);
+static void update_wake_event_locked(void);
+```
+
+These helper verbs and lock suffixes are RZI conventions; Zephyr's general
+`snake_case` style does not prescribe these exact names.
 
 ### 3.5 AT commands
 
@@ -376,6 +417,8 @@ commit that lacks it.
 - [ ] Public symbols are `rzi_` / `RZI_`. Functions are
       `rzi_<service>_<operation>()`.
 - [ ] Header guards match the include path.
+- [ ] Private helper verbs describe their behavior; boolean names and time
+      units are explicit. `_locked` helpers document the required lock.
 - [ ] Backend / board / protocol-stack names did not enter the public API.
 - [ ] AT command names have no `AT+` and are uppercase ASCII.
 - [ ] Return values and asynchronous completion are not mixed. Errors are
