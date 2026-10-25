@@ -34,6 +34,41 @@ another service's namespace.
 
 Callers must stay in thread context.
 
+## RAK3172 and RAK3172-F
+
+Both boards reserve separate internal-flash areas for settings and the
+LoRa Basics Modem context. Settings uses `storage_partition` at offset
+`0x3c000` (8 KiB), while the modem uses `lora_context_partition` at
+`0x3e000` (8 KiB). Offsets are relative to internal flash at `0x08000000`.
+The 2 KiB erase page gives settings NVS four sectors; its default sector
+count is capped by the actual partition size. RAK3172-F external flash
+holds the secondary firmware image, not settings or modem context.
+
+The AT sample enables RZI storage with settings NVS. The periodic-uplink
+sample leaves RZI storage disabled and reads credentials from devicetree;
+the modem still saves its own protocol context through its native HAL.
+These are independent storage paths.
+
+The RAK3172-F AT configuration enables `NVS_INIT_BAD_MEMORY_REGION`.
+If NVS finds every sector closed and cannot recover the filesystem, it
+erases the settings region and creates a new NVS. The RAK3172 AT
+configuration leaves this option disabled and reports an initialization
+error instead. This option is destructive recovery, not data migration.
+
+The provided USP modem HAL updates context using read/erase/write of a
+whole flash page. It has no redundant transactional copy, and the current
+implementation ignores flash-operation return values. Abrupt power loss
+during an update can therefore lose context; settings NVS tests do not
+validate or repair this separate protocol-context path. The 8 KiB context
+area has no room beyond the HAL's 8 KiB store-and-forward offset, so the
+current board applications leave store-and-forward disabled.
+
+`tests/storage/api` includes an NVS scenario using the same 8 KiB area,
+2 KiB erase pages, and 8-byte write alignment. It checks value replacement,
+exact-size reads, missing-key deletion, garbage collection, and retention
+when rerun with the same simulator flash file. Hardware reset and power-cut
+testing remain separate acceptance checks.
+
 ## LoRaWAN credentials
 
 The LoRaWAN service uses namespace `lorawan` when `CONFIG_RZI_STORAGE=y`.

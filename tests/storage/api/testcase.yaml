@@ -21,3 +21,21 @@ tests:
       - power
     extra_configs:
       - CONFIG_RZI_POWER=y
+  rzi.storage.api.nvs:
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - rzi
+      - storage
+      - power
+    extra_configs:
+      - CONFIG_FLASH=y
+      - CONFIG_FLASH_MAP=y
+      - CONFIG_NVS=y
+      - CONFIG_SETTINGS_NVS=y
+      - CONFIG_RZI_POWER=y
+      - CONFIG_MAIN_STACK_SIZE=4096
+    extra_args:
+      - DTC_OVERLAY_FILE=nvs.overlay

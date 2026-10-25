@@ -6,3 +6,4 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(rzi_storage_api_test)
 
 target_sources(app PRIVATE src/main.c)
+target_sources_ifdef(CONFIG_SETTINGS_NVS app PRIVATE src/nvs.c)

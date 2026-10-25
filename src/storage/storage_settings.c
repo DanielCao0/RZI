@@ -140,6 +140,7 @@ int rzi_storage_write(const char *namespace_name, const char *key, const void *v
 int rzi_storage_delete(const char *namespace_name, const char *key)
 {
 	char name[RZI_STORAGE_NAME_MAX];
+	ssize_t stored_size;
 	int rc;
 
 	rc = build_name(name, sizeof(name), namespace_name, key);
@@ -158,7 +159,14 @@ int rzi_storage_delete(const char *namespace_name, const char *key)
 		return rc;
 	}
 #endif
-	rc = settings_delete(name);
+	stored_size = settings_get_val_len(name);
+	if (stored_size < 0) {
+		rc = (int)stored_size;
+	} else if (stored_size == 0) {
+		rc = -ENOENT;
+	} else {
+		rc = settings_delete(name);
+	}
 #if defined(CONFIG_RZI_POWER) && defined(CONFIG_RZI_POWER_AUTO_SERVICE_LOCK)
 	ignore_result(rzi_power_lock_put(RZI_POWER_LOCK_FLASH));
 #endif

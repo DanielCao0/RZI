@@ -1,0 +1,12 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Match STM32WLE5: 2 KiB erase pages, 8-byte writes, 8 KiB settings. */
+&flash0 {
+	erase-block-size = <2048>;
+	write-block-size = <8>;
+};
+
+&storage_partition {
+	reg = <0x000fc000 0x2000>;
+};
