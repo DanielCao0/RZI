@@ -114,13 +114,16 @@ same file. Set it to ``RZI_LORAWAN_CLASS_A``, ``RZI_LORAWAN_CLASS_B``, or
 The uplink interval, port and retry delay are ``UPLINK_INTERVAL_MS``,
 ``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same file.
 
-``LOG_DUTY_CYCLE_WAIT`` enables additional wait-time logging only when
-``LORAWAN_REGION`` is EU868. Set it to ``0`` to disable this diagnostic.
-When a regional duty-cycle limitation begins, the sample queries the current
-status and logs a negative status value as a positive remaining wait in
-milliseconds. This is a snapshot of the duty-cycle restriction, not a
-guaranteed transmission countdown. An accepted uplink remains scheduled by
-LBM; the diagnostic does not submit another request. Other regions retain
+``EU868_DUTY_CYCLE_CHECK`` wraps the application-side duty-cycle check and
+additional wait-time logging in a separate conditional block. Set it to ``0``
+to disable both. When enabled and ``LORAWAN_REGION`` is EU868, the sample
+queries the status before each uplink. If limited, it does not submit the
+uplink or increment the counter; instead, it schedules another check after
+the reported wait. Query failures are retried after ``RETRY_DELAY_MS``.
+The sample also logs the remaining wait when a limitation begins.
+This is a snapshot of the duty-cycle restriction, not a guarantee of
+immediate transmission after submission. An accepted uplink remains
+scheduled by LBM. Other regions retain the original sending behavior and
 the ``limited`` / ``clear`` event logs.
 
 ``LORAWAN_CLASS``, ``LORAWAN_ADR`` and ``LORAWAN_DATA_RATE`` are applied after
