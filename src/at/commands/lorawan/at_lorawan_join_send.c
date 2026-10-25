@@ -56,29 +56,19 @@ static int handle_njs(const struct rzi_at_request *request, void *user_data)
 
 static int handle_cfm(const struct rzi_at_request *request, void *user_data)
 {
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 	bool enabled;
+	int rc;
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+CFM=%d",
-					    atomic_get(&context->confirmed_uplink) ? 1 : 0);
+		rc = rzi_lorawan_get_confirmed(&enabled);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+CFM=%u", enabled ? 1U : 0U);
 	}
-	if (strcmp(request->argument, "0") == 0) {
-		enabled = false;
-		atomic_clear(&context->confirmed_uplink);
-	} else if (strcmp(request->argument, "1") == 0) {
-		enabled = true;
-		atomic_set(&context->confirmed_uplink, 1);
-	} else {
-		return -RZI_ERR_INVALID;
+	rc = rzi_at_lorawan_parse_bool(request->argument, &enabled);
+	if (rc == 0) {
+		rc = rzi_lorawan_set_confirmed(enabled);
 	}
-	int rc = rzi_at_lorawan_nvm_save("cfm", &enabled, sizeof(enabled));
-
-	if (rc != 0) {
-		return rc;
-	}
-	return rzi_at_respond_status(RZI_AT_STATUS_OK);
+	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
 static int handle_cfs(const struct rzi_at_request *request, void *user_data)
@@ -222,7 +212,10 @@ static int handle_send(const struct rzi_at_request *request, void *user_data)
 		return rc;
 	}
 
-	confirmed = atomic_get(&context->confirmed_uplink) != 0;
+	rc = rzi_lorawan_get_confirmed(&confirmed);
+	if (rc != 0) {
+		return rc;
+	}
 	atomic_set(&context->tx_confirmed, confirmed);
 	rc = rzi_lorawan_send((uint8_t)port, payload, hex_len / 2U,
 			      confirmed ? RZI_LORAWAN_MSG_CONFIRMED : RZI_LORAWAN_MSG_UNCONFIRMED);
@@ -259,20 +252,20 @@ static int handle_recv(const struct rzi_at_request *request, void *user_data)
 
 static int handle_rety(const struct rzi_at_request *request, void *user_data)
 {
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	uint8_t retries;
 	long parsed;
 	int rc;
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+RETY=%u", context->retries);
+		rc = rzi_lorawan_get_retries(&retries);
+		return rc != 0 ? rc : rzi_at_respond_value("AT+RETY=%u", retries);
 	}
 	rc = rzi_at_lorawan_parse_long(request->argument, &parsed);
 	if (rc != 0 || parsed < 0 || parsed > 7) {
 		return -RZI_ERR_INVALID;
 	}
-	context->retries = (uint8_t)parsed;
-	rc = rzi_at_lorawan_nvm_save("rety", &context->retries, sizeof(context->retries));
+	rc = rzi_lorawan_set_retries((uint8_t)parsed);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 

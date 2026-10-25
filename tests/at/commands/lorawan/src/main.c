@@ -159,6 +159,32 @@ static void *setup(void)
 	return NULL;
 }
 
+ZTEST(rzi_at_lorawan_command, test_api_and_at_share_configuration)
+{
+	bool confirmed;
+	uint8_t retries;
+	uint32_t net_id;
+
+	zassert_ok(rzi_lorawan_set_confirmed(true));
+	send_command_until("AT+CFM=?\r", "AT+CFM=1");
+	send_command_until("AT+CFM=0\r", "\r\nOK\r\n");
+	zassert_ok(rzi_lorawan_get_confirmed(&confirmed));
+	zassert_false(confirmed);
+	zassert_ok(rzi_lorawan_set_retries(4));
+	send_command_until("AT+RETY=?\r", "AT+RETY=4");
+	send_command_until("AT+RETY=2\r", "\r\nOK\r\n");
+	zassert_ok(rzi_lorawan_get_retries(&retries));
+	zassert_equal(retries, 2);
+	zassert_ok(rzi_lorawan_set_net_id(0x123456));
+	send_command_until("AT+NETID=?\r", "AT+NETID=123456");
+	send_command_until("AT+NETID=654321\r", "\r\nOK\r\n");
+	zassert_ok(rzi_lorawan_get_net_id(&net_id));
+	zassert_equal(net_id, 0x654321);
+	zassert_ok(rzi_lorawan_set_region(RZI_LORAWAN_REGION_US_915));
+	send_command_until("AT+BAND=?\r", "AT+BAND=5");
+	send_command_until("AT+BAND=4\r", "\r\nOK\r\n");
+}
+
 /* Runs before the service starts; the channel commands work on the stored mask. */
 ZTEST(rzi_at_lorawan_command, test_channel_commands)
 {

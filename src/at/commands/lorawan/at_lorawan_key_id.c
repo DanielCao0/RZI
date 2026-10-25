@@ -76,7 +76,6 @@ static int handle_devaddr(const struct rzi_at_request *request, void *user_data)
 
 static int handle_netid(const struct rzi_at_request *request, void *user_data)
 {
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
 	uint8_t bytes[3];
 	char hex[7];
 	uint32_t net_id = 0;
@@ -84,15 +83,13 @@ static int handle_netid(const struct rzi_at_request *request, void *user_data)
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		if (rzi_at_lorawan_is_joined() && rzi_lorawan_get_net_id(&net_id) == 0) {
-			context->net_id = net_id;
-			context->net_id_valid = true;
-		} else if (!context->net_id_valid) {
-			return -RZI_ERR_NO_DATA;
+		rc = rzi_lorawan_get_net_id(&net_id);
+		if (rc != 0) {
+			return rc;
 		}
-		bytes[0] = (uint8_t)((context->net_id >> 16) & 0xffU);
-		bytes[1] = (uint8_t)((context->net_id >> 8) & 0xffU);
-		bytes[2] = (uint8_t)(context->net_id & 0xffU);
+		bytes[0] = (uint8_t)((net_id >> 16) & 0xffU);
+		bytes[1] = (uint8_t)((net_id >> 8) & 0xffU);
+		bytes[2] = (uint8_t)(net_id & 0xffU);
 		rzi_at_lorawan_bin_to_hex(bytes, sizeof(bytes), hex);
 		return rzi_at_respond_value("AT+NETID=%s", hex);
 	}
@@ -100,9 +97,8 @@ static int handle_netid(const struct rzi_at_request *request, void *user_data)
 	if (rc != 0) {
 		return rc;
 	}
-	context->net_id = ((uint32_t)bytes[0] << 16) | ((uint32_t)bytes[1] << 8) | bytes[2];
-	context->net_id_valid = true;
-	rc = rzi_at_lorawan_nvm_save("netid", &context->net_id, sizeof(context->net_id));
+	net_id = ((uint32_t)bytes[0] << 16) | ((uint32_t)bytes[1] << 8) | bytes[2];
+	rc = rzi_lorawan_set_net_id(net_id);
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 

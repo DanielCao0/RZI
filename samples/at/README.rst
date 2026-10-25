@@ -41,11 +41,11 @@ and ``+EVT:RX_1:<rssi>:<snr>:UNICAST:<port>:<payload>``. P2P events:
 Persistence
 ***********
 
-With ``CONFIG_RZI_AT_NVM`` (enabled in this sample) the parameters set over
-AT — network mode, DevEUI, JoinEUI, AppKey, band, confirm mode and auto-join
-settings — are
-stored in flash through the Zephyr settings subsystem (NVS backend) and survive
-reboots. ``ATR`` erases them and reboots, restoring the devicetree defaults.
+With ``CONFIG_RZI_AT_NVM`` (enabled in this sample), AT-owned settings such as
+network mode, alias and password survive reboots. This also enables
+``CONFIG_RZI_STORAGE``: the public LoRaWAN API owns persistent credentials,
+band, confirm mode, retry policy, configured NetID, channel mask and auto-join
+settings. AT and C API calls use the same values through Zephyr settings (NVS). ``ATR`` erases them and reboots, restoring the devicetree defaults.
 
 RZI does not hardcode any flash address. The storage area is board-defined
 through devicetree, following the standard Zephyr convention:

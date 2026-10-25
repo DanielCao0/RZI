@@ -87,8 +87,12 @@ static int handle_band(const struct rzi_at_request *request, void *user_data)
 
 	ARG_UNUSED(user_data);
 	if (request->operation == RZI_AT_OP_READ) {
-		return rzi_at_respond_value("AT+BAND=%d",
-					    rzi_at_lorawan_region_to_band(context->region));
+		enum rzi_lorawan_region region;
+		int rc = rzi_lorawan_get_region(&region);
+
+		return rc != 0 ? rc
+			       : rzi_at_respond_value("AT+BAND=%d",
+						      rzi_at_lorawan_region_to_band(region));
 	}
 	if (context->service_started) {
 		return -RZI_ERR_BUSY;
@@ -107,15 +111,8 @@ static int handle_band(const struct rzi_at_request *request, void *user_data)
 		return rc;
 	}
 
-	uint8_t stored = (uint8_t)band;
-
 	/* The core needs the region before init for the channel-mask commands. */
 	rc = rzi_lorawan_set_region(region);
-	if (rc != 0) {
-		return rc;
-	}
-	context->region = region;
-	rc = rzi_at_lorawan_nvm_save("band", &stored, sizeof(stored));
 	if (rc != 0) {
 		return rc;
 	}

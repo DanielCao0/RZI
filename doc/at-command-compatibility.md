@@ -170,7 +170,8 @@ The command returns `OK` when the sequence starts. Completion is reported with:
 The failure event is emitted after all configured retries have failed. On the
 USP backend the stack spaces retries with the LoRaWAN regional join duty cycle
 and `interval` is stored but not used.
-Auto-join settings survive reboot only when `CONFIG_RZI_AT_NVM=y`.
+Auto-join settings survive reboot when `CONFIG_RZI_STORAGE=y` and a settings backend
+is configured; `CONFIG_RZI_AT_NVM` also enables the storage service.
 
 ### Uplink, confirmation, and downlink
 
@@ -214,7 +215,7 @@ milliseconds in the C API.
 - `AT+ADDMULC`, `AT+RMVMULC`, `AT+LSTMULC` (listed sessions omit keys)
 - `AT+CERTIF`
 - `AT+DEVADDR`, `AT+NWKSKEY`, `AT+APPSKEY`, `AT+NETID`, `AT+MCROOTKEY`
-- `AT+RETY` stores 0 through 7 confirmed-uplink retries for the AT package
+- `AT+RETY` stores 0 through 7 as shared confirmed-uplink retry policy
 - `AT+LPSEND=<port>:<ack>:<hex>` sends one frame up to
   `RZI_LORAWAN_MAX_PAYLOAD`; it is not RUI3 LPTP segmentation
 
@@ -298,10 +299,14 @@ the selected backend does not support return `AT_ERROR`.
 
 ## Persistence and security
 
-With `CONFIG_RZI_AT_NVM=y`, RZI stores DevEUI, JoinEUI, AppKey, band, confirmed
-uplink mode, and auto-join settings through Zephyr settings. The application
-must select and configure a settings backend, normally NVS. `ATR` deletes these
-values and restores devicetree defaults after reboot.
+With `CONFIG_RZI_STORAGE=y`, the public LoRaWAN service stores credentials,
+activation, band, confirmed uplink mode, retry policy, configured NetID,
+channel masks and auto-join settings through Zephyr settings. AT and C APIs
+share this storage and restore path. `CONFIG_RZI_AT_NVM` additionally persists
+AT-owned system settings and enables RZI_STORAGE. The application must select
+and configure a settings backend, normally NVS. `ATR` deletes these values
+and restores devicetree defaults after reboot. Legacy AT radio keys migrate
+on first read; see [lorawan-api.md](./lorawan-api.md).
 
 Credential read commands intentionally match RUI3 and expose keys in plaintext.
 Products that require secret readout protection must enforce it in their

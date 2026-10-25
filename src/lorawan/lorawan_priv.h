@@ -91,6 +91,11 @@ int rzi_lorawan_credentials_get_channel_mask(uint16_t *mask, bool *set);
 /** Store and persist a validated channel mask, or clear it when mask is NULL. */
 int rzi_lorawan_credentials_set_channel_mask(const uint16_t *mask);
 
+/* Caller serializes region access with config_lock. */
+int rzi_lorawan_config_get_region(enum rzi_lorawan_region *region);
+int rzi_lorawan_config_set_region(enum rzi_lorawan_region region);
+int rzi_lorawan_config_get_net_id(uint32_t *net_id);
+
 int rzi_lorawan_check_thread(void);
 int rzi_lorawan_check_started(void);
 void rzi_lorawan_note_class(enum rzi_lorawan_class device_class);

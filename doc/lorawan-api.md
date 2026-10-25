@@ -59,6 +59,46 @@ downlink are already asynchronous events, so RZI delivers one `on_event()`
 call per queued public event. That avoids long blocks on the caller thread
 and does not invent a synchronous result.
 
+## Shared configuration and persistence
+
+The public LoRaWAN service owns shared configuration. AT commands call the
+same setters and getters as C applications; they do not maintain a second
+copy of radio settings. Enable `CONFIG_RZI_STORAGE=y` and select a Zephyr
+settings backend (for example `CONFIG_NVS=y`, `CONFIG_FLASH_MAP=y`, and
+`CONFIG_SETTINGS_NVS=y`) to retain configuration across reboots. Without
+storage, the same APIs keep settings in RAM. `CONFIG_RZI_AT_NVM` is only
+needed for AT-owned system settings and also enables the public storage service.
+
+| Setting | Public API | AT command |
+| --- | --- | --- |
+| Region | `rzi_lorawan_get/set_region` | `BAND` |
+| Default confirmation mode | `rzi_lorawan_get/set_confirmed` | `CFM` |
+| Retry policy, 0–7 | `rzi_lorawan_get/set_retries` | `RETY` |
+| Configured NetID fallback | `rzi_lorawan_get/set_net_id` | `NETID` |
+| Credentials, activation, join policy, channel mask | Existing credential/join/channel APIs | Corresponding commands |
+
+Storage errors propagate to both API and AT callers. The four shared setters
+above commit storage before publishing a new RAM value. New values use the
+`lorawan` namespace. Existing `rzi/band`, `rzi/cfm`, `rzi/rety`, and `rzi/netid`
+values migrate on first read; new service values take precedence.
+
+`rzi_lorawan_get_region()` restores the configured region before initialization.
+To start with it, read the region and pass it to `rzi_lorawan_init(region)`.
+An explicit `init(region)` overrides and persists that region; applications
+that hardcode a region deliberately replace the saved selection.
+
+`rzi_lorawan_send()` still accepts an explicit confirmed/unconfirmed type;
+call `get_confirmed()` when the application wants the stored default. `RETY`
+remains stored policy only, as before: it does not implement backend retries
+or replace `NbTrans`. Configuring NetID does not change a joined network's
+NetID; `get_net_id()` prefers the active session and otherwise reads the fallback.
+
+`rzi_lorawan_clear_settings()` deletes credentials and shared settings in both
+namespaces. Reboot after success to discard runtime state and reload defaults.
+AT factory reset delegates to this API. Protocol-stack contexts, including
+DevNonce, remain owned by the backend. Other setters such as ADR, class and
+P2P radio configuration retain their existing runtime-only behavior.
+
 ## 3. Lifecycle
 
 Typical call order:

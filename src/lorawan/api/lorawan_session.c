@@ -20,19 +20,21 @@ static const struct rzi_lorawan_session_ops *session_ops(void)
 int rzi_lorawan_get_net_id(uint32_t *net_id)
 {
 	const struct rzi_lorawan_session_ops *ops;
-	int rc = rzi_lorawan_check_started();
+	bool joined = false;
+	int rc = rzi_lorawan_check_thread();
 
-	if (rc != 0) {
-		return rc;
-	}
-	if (net_id == NULL) {
-		return -RZI_ERR_INVALID;
+	if (rc != 0 || net_id == NULL) {
+		return rc != 0 ? rc : -RZI_ERR_INVALID;
 	}
 	ops = session_ops();
-	if (ops == NULL || ops->get_net_id == NULL) {
-		return -RZI_ERR_NOT_SUPPORTED;
+	if (rzi_lorawan_is_joined(&joined) == 0 && joined && ops != NULL &&
+	    ops->get_net_id != NULL) {
+		rc = ops->get_net_id(net_id);
+		if (rc == 0) {
+			return 0;
+		}
 	}
-	return ops->get_net_id(net_id);
+	return rzi_lorawan_config_get_net_id(net_id);
 }
 
 int rzi_lorawan_get_dev_nonce(uint16_t *dev_nonce)

@@ -50,10 +50,11 @@ config RZI_AT_NVM
 	select NVS
 	select FLASH_MAP
 	help
-	  Persist AT parameters (BAND, CFM, RETY, NETID) through the RZI
-	  storage service. LoRaWAN credentials and join policy are stored by
-	  the LoRaWAN service in the lorawan namespace. ATR restores the
-	  devicetree defaults. The application
+	  Persist AT-owned system parameters through the RZI storage service.
+	  Shared LoRaWAN parameters, credentials and join policy are stored
+	  by the public LoRaWAN API whenever RZI_STORAGE is enabled, even
+	  without AT support. This option also enables RZI_STORAGE.
+	  ATR restores the devicetree defaults. The application
 	  selects the Zephyr settings backend itself (CONFIG_SETTINGS_NVS=y
 	  recommended). RZI never hardcodes flash addresses.
 

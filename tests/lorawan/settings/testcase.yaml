@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+tests:
+  rzi.lorawan.settings:
+    tags: [rzi, lorawan, storage]
+    platform_allow: [native_sim]
+    integration_platforms: [native_sim]

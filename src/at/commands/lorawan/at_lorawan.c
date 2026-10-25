@@ -33,7 +33,6 @@
 #endif
 
 struct rzi_at_lorawan_context rzi_at_lorawan_context = {
-	.region = RZI_LORAWAN_REGION_EU_868,
 	.device_class = RZI_LORAWAN_CLASS_A,
 };
 
@@ -197,71 +196,6 @@ int rzi_at_lorawan_region_to_band(enum rzi_lorawan_region region)
 	}
 }
 
-#if defined(CONFIG_RZI_AT_NVM)
-
-static int nvm_read(const char *key, void *dst, size_t len, bool *found)
-{
-	int rc = rzi_storage_read("rzi", key, dst, len);
-
-	if (rc == -RZI_ERR_NOT_FOUND) {
-		*found = false;
-		return 0;
-	}
-	*found = rc == 0;
-	return rc;
-}
-
-static int nvm_load(void)
-{
-	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
-	uint8_t band;
-	uint8_t retries;
-	bool confirmed;
-	bool found;
-	int rc;
-
-	rc = nvm_read("band", &band, sizeof(band), &found);
-	if (rc == 0 && found) {
-		rc = rzi_at_lorawan_band_to_region(band, &context->region);
-	}
-	if (rc == 0) {
-		rc = nvm_read("cfm", &confirmed, sizeof(confirmed), &found);
-	}
-	if (rc == 0 && found) {
-		atomic_set(&context->confirmed_uplink, confirmed);
-	}
-	if (rc == 0) {
-		rc = nvm_read("rety", &retries, sizeof(retries), &found);
-		if (rc == 0 && found && retries <= 7U) {
-			context->retries = retries;
-		}
-	}
-	if (rc == 0) {
-		rc = nvm_read("netid", &context->net_id, sizeof(context->net_id), &found);
-		if (rc == 0 && found) {
-			context->net_id_valid = true;
-		}
-	}
-	return rc;
-}
-
-int rzi_at_lorawan_nvm_save(const char *key, const void *value, size_t len)
-{
-	return rzi_storage_write("rzi", key, value, len);
-}
-
-#else
-
-int rzi_at_lorawan_nvm_save(const char *key, const void *value, size_t len)
-{
-	ARG_UNUSED(key);
-	ARG_UNUSED(value);
-	ARG_UNUSED(len);
-	return 0;
-}
-
-#endif /* CONFIG_RZI_AT_NVM */
-
 bool rzi_at_lorawan_is_joined(void)
 {
 	bool joined = false;
@@ -275,10 +209,15 @@ bool rzi_at_lorawan_is_joined(void)
 static int start_service(void)
 {
 	struct rzi_at_lorawan_context *context = &rzi_at_lorawan_context;
+	enum rzi_lorawan_region region;
 	int rc;
 
+	rc = rzi_lorawan_get_region(&region);
+	if (rc != 0) {
+		return rc;
+	}
 	atomic_set(&context->join_pending, 1);
-	rc = rzi_lorawan_init(context->region);
+	rc = rzi_lorawan_init(region);
 	if (rc != 0) {
 		atomic_clear(&context->join_pending);
 		return rc;
@@ -415,19 +354,6 @@ static int extension_start(void)
 	if (rc != 0) {
 		return rc;
 	}
-#if defined(CONFIG_RZI_AT_NVM)
-	rc = rzi_storage_init();
-	if (rc == 0) {
-		rc = nvm_load();
-	}
-	if (rc != 0) {
-		return rc;
-	}
-#endif
-	rc = rzi_lorawan_set_region(context->region);
-	if (rc != 0 && rc != -RZI_ERR_INVALID_STATE) {
-		return rc;
-	}
 	rc = 0;
 	{
 		bool auto_join = false;
@@ -455,36 +381,21 @@ static int delete_stored_key(const char *namespace_name, const char *key)
 
 static int extension_factory_reset(void)
 {
+	int result = rzi_lorawan_clear_settings();
+
 #if defined(CONFIG_RZI_AT_NVM)
-	static const char *const credential_keys[] = {
-		"deveui",  "joineui", "appkey",   "genappkey",     "devaddr",       "nwkskey",
-		"appskey", "njm",     "autojoin", "join_interval", "join_attempts", "chmask",
-	};
-	static const char *const at_keys[] = {
-		"deveui",        "joineui",       "appkey", "band", "cfm",     "autojoin",
-		"join_interval", "join_attempts", "njm",    "rety", "devaddr", "nwkskey",
-		"appskey",       "netid",         "alias",  "sn",   "pword",   "lpm",
-	};
-	int result = 0;
+	/* AT-owned system settings; radio settings belong to the service. */
+	static const char *const keys[] = {"alias", "sn", "pword", "lpm"};
 
-	for (size_t i = 0; i < ARRAY_SIZE(credential_keys); ++i) {
-		int rc = delete_stored_key("lorawan", credential_keys[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(keys); ++i) {
+		int rc = delete_stored_key("rzi", keys[i]);
 
 		if (rc != 0 && result == 0) {
 			result = rc;
 		}
 	}
-	for (size_t i = 0; i < ARRAY_SIZE(at_keys); ++i) {
-		int rc = delete_stored_key("rzi", at_keys[i]);
-
-		if (rc != 0 && result == 0) {
-			result = rc;
-		}
-	}
-	return result;
-#else
-	return 0;
 #endif
+	return result;
 }
 
 static const struct rzi_at_extension extension = {

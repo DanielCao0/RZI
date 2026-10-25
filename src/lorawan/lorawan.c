@@ -368,7 +368,10 @@ int rzi_lorawan_set_region(enum rzi_lorawan_region region)
 	if (atomic_get(&started)) {
 		rc = -RZI_ERR_INVALID_STATE;
 	} else {
-		configured_region = region;
+		rc = rzi_lorawan_config_set_region(region);
+		if (rc == 0) {
+			configured_region = region;
+		}
 	}
 	k_mutex_unlock(&config_lock);
 	return rc;
@@ -442,6 +445,12 @@ int rzi_lorawan_init(enum rzi_lorawan_region region)
 	if (!atomic_cas(&started, 0, 1)) {
 		k_mutex_unlock(&config_lock);
 		return -RZI_ERR_ALREADY;
+	}
+	rc = rzi_lorawan_config_set_region(region);
+	if (rc != 0) {
+		atomic_clear(&started);
+		k_mutex_unlock(&config_lock);
+		return rc;
 	}
 	configured_region = region;
 	bypass = configured_join_backoff_bypass;
@@ -716,9 +725,14 @@ int rzi_lorawan_get_region(enum rzi_lorawan_region *region)
 		return -RZI_ERR_INVALID;
 	}
 	k_mutex_lock(&config_lock, K_FOREVER);
-	*region = configured_region;
+	if (!atomic_get(&started)) {
+		rc = rzi_lorawan_config_get_region(&configured_region);
+	}
+	if (rc == 0) {
+		*region = configured_region;
+	}
 	k_mutex_unlock(&config_lock);
-	return 0;
+	return rc;
 }
 
 int rzi_lorawan_get_class(enum rzi_lorawan_class *device_class)

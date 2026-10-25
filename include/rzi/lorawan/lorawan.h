@@ -448,8 +448,8 @@ __must_check int rzi_lorawan_unregister_callbacks(const struct rzi_lorawan_callb
  * @retval -RZI_ERR_INVALID_STATE The service has already been initialized.
  * @retval -RZI_ERR_ISR Called from an ISR.
  *
- * @pre The service has not been initialized. @ref rzi_lorawan_init overwrites
- *      this value.
+ * @pre The service has not been initialized. @ref rzi_lorawan_init explicitly
+ *      overrides this value. With CONFIG_RZI_STORAGE, this setting persists.
  * @note Thread context only. Channel-mask commands use the stored region
  *       before initialization.
  * @since 0.2
@@ -478,7 +478,8 @@ __must_check int rzi_lorawan_set_join_backoff_bypass(bool enabled);
 /**
  * @brief Initialize the process-wide LoRaWAN service for one region.
  *
- * Stores @p region and brings the backend up. A return value of zero means
+ * Stores @p region (persistently with CONFIG_RZI_STORAGE) and brings the backend
+ * up. A return value of zero means
  * initialization was accepted. Readiness is reported through on_event()
  * with RZI_LORAWAN_EVENT_READY. Register callbacks first so that event is
  * not missed.
@@ -497,6 +498,42 @@ __must_check int rzi_lorawan_set_join_backoff_bypass(bool enabled);
  * @since 0.4
  */
 __must_check int rzi_lorawan_init(enum rzi_lorawan_region region);
+
+/** @} */
+
+/** @name Shared configuration
+ * Thread context only; usable before initialization. With CONFIG_RZI_STORAGE,
+ * setters persist before updating RAM and getters restore settings without AT.
+ * Storage failures are returned to the caller. Otherwise settings live in RAM.
+ * @{
+ */
+
+/** Read the default confirmation setting (false until configured). */
+__must_check int rzi_lorawan_get_confirmed(bool *enabled);
+/**
+ * Store the default confirmation setting used by AT+SEND.
+ * Direct rzi_lorawan_send() calls retain their explicit message type.
+ */
+__must_check int rzi_lorawan_set_confirmed(bool enabled);
+/** Read the stored AT+RETY policy (0 until configured). */
+__must_check int rzi_lorawan_get_retries(uint8_t *count);
+/**
+ * Store the AT+RETY policy, 0-7. This records configuration only; it does not
+ * change backend retransmission behavior (nor the separate NbTrans setting).
+ */
+__must_check int rzi_lorawan_set_retries(uint8_t count);
+/**
+ * Store a 24-bit NetID fallback for rzi_lorawan_get_net_id().
+ * This does not change the NetID assigned by the network or activate a session.
+ */
+__must_check int rzi_lorawan_set_net_id(uint32_t net_id);
+/**
+ * Delete persisted LoRaWAN credentials and settings, including legacy AT keys.
+ * Reboot after success to discard runtime state and reload application defaults.
+ * Does not erase protocol-stack contexts (including DevNonce) or AT system keys.
+ * Returns a storage error on partial failure; safe to retry.
+ */
+__must_check int rzi_lorawan_clear_settings(void);
 
 /** @} */
 
@@ -2150,17 +2187,14 @@ __must_check int rzi_lorawan_get_last_snr(int8_t *snr_quarter_db);
 __must_check int rzi_lorawan_get_protocol_version(const char **version);
 
 /**
- * @brief Read the current NetID.
+ * @brief Read the active session NetID, falling back to the configured NetID.
  *
- * @param[out] net_id Stored NetID.
- *
- * @retval 0 Value stored.
- * @retval -RZI_ERR_INVALID net_id is NULL.
- * @retval -RZI_ERR_NOT_READY The service has not started.
- * @retval -RZI_ERR_NOT_SUPPORTED The backend does not support this query.
+ * @param[out] net_id Destination for the 24-bit NetID.
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID net_id is NULL or stored data is invalid.
+ * @retval -RZI_ERR_NO_DATA No active NetID or configured fallback is available.
  * @retval -RZI_ERR_ISR Called from an ISR.
- *
- * @note Thread context only.
+ * @note Thread context only. Works before initialization. Storage errors propagate.
  * @since 0.3
  */
 __must_check int rzi_lorawan_get_net_id(uint32_t *net_id);

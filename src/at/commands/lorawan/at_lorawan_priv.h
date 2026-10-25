@@ -35,18 +35,8 @@ struct rzi_at_lorawan_context {
 	bool service_started;
 	/** Defers the first join until backend readiness. */
 	atomic_t join_pending;
-	/** Stored NetID, 24-bit value. */
-	uint32_t net_id;
-	/** True when AT+NETID has been written. */
-	bool net_id_valid;
-	/** Confirmed-uplink retransmission count for AT+RETY. */
-	uint8_t retries;
-	/** Region selected by AT+BAND. */
-	enum rzi_lorawan_region region;
 	/** Device class selected by AT+CLASS. */
 	enum rzi_lorawan_class device_class;
-	/** Confirmed-uplink setting selected by AT+CFM. */
-	atomic_t confirmed_uplink;
 	/** Last confirmed-uplink result exposed by AT+CFS. */
 	atomic_t confirmation_status;
 	/** Confirmation mode captured for the outstanding uplink. */
@@ -104,9 +94,6 @@ int rzi_at_lorawan_band_to_region(int band, enum rzi_lorawan_region *region);
 
 /** Map one RZI region to its RUI3 AT+BAND number. */
 int rzi_at_lorawan_region_to_band(enum rzi_lorawan_region region);
-
-/** Persist one LoRaWAN AT setting when NVM support is enabled. */
-__must_check int rzi_at_lorawan_nvm_save(const char *key, const void *value, size_t len);
 
 /** Return whether the LoRaWAN service has an active session. */
 bool rzi_at_lorawan_is_joined(void);
