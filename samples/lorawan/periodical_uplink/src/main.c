@@ -19,8 +19,8 @@ LOG_MODULE_REGISTER(rzi_periodical_uplink, LOG_LEVEL_INF);
 #define RETRY_DELAY_MS         5000
 #define UPLINK_INTERVAL_MS     60000
 #define UPLINK_PORT            101
-/* EU868 application-side duty-cycle check; set to 0 to disable. */
-#define EU868_DUTY_CYCLE_CHECK 1
+/* Follow the selected region; evaluate enum identifiers in C, not in #if. */
+#define EU868_DUTY_CYCLE_CHECK (LORAWAN_REGION == RZI_LORAWAN_REGION_EU_868)
 
 static uint32_t uplink_counter;
 
@@ -125,8 +125,7 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 		break;
 	case RZI_LORAWAN_EVENT_REGIONAL_DUTY_CYCLE:
 		LOG_INF("REGIONAL_DUTY_CYCLE: %s", event->duty_cycle_limited ? "limited" : "clear");
-#if EU868_DUTY_CYCLE_CHECK
-		if (LORAWAN_REGION == RZI_LORAWAN_REGION_EU_868 && event->duty_cycle_limited) {
+		if (EU868_DUTY_CYCLE_CHECK && event->duty_cycle_limited) {
 			int32_t time_ms;
 
 			rc = rzi_lorawan_get_duty_cycle_status(&time_ms);
@@ -136,7 +135,6 @@ static void on_event(const struct rzi_lorawan_event *event, void *user_data)
 				LOG_WRN("Duty-cycle query failed: %s", rzi_err_str(rc));
 			}
 		}
-#endif
 		break;
 	case RZI_LORAWAN_EVENT_NO_DOWNLINK_THRESHOLD:
 		if ((event->no_downlink & RZI_LORAWAN_EVENT_NO_RX_THRESHOLD_ADR_BACKOFF_END) !=
@@ -180,9 +178,7 @@ static void uplink_work_handler(struct k_work *work)
 
 	ARG_UNUSED(work);
 
-#if EU868_DUTY_CYCLE_CHECK
-	/* Region identifiers are C enums, so compare them in C, not in #if. */
-	if (LORAWAN_REGION == RZI_LORAWAN_REGION_EU_868) {
+	if (EU868_DUTY_CYCLE_CHECK) {
 		int32_t time_ms;
 
 		rc = rzi_lorawan_get_duty_cycle_status(&time_ms);
@@ -199,7 +195,6 @@ static void uplink_work_handler(struct k_work *work)
 			return;
 		}
 	}
-#endif
 
 	/* Network byte order: the server receives 00000000, 00000001, ... */
 	payload[0] = (uint8_t)(uplink_counter >> 24);

@@ -114,11 +114,13 @@ same file. Set it to ``RZI_LORAWAN_CLASS_A``, ``RZI_LORAWAN_CLASS_B``, or
 The uplink interval, port and retry delay are ``UPLINK_INTERVAL_MS``,
 ``UPLINK_PORT`` and ``RETRY_DELAY_MS`` in the same file.
 
-``EU868_DUTY_CYCLE_CHECK`` wraps the application-side duty-cycle check and
-additional wait-time logging in a separate conditional block. Set it to ``0``
-to disable both. When enabled and ``LORAWAN_REGION`` is EU868, the sample
-queries the status before each uplink. If limited, it does not submit the
-uplink or increment the counter; instead, it schedules another check after
+``EU868_DUTY_CYCLE_CHECK`` is derived from ``LORAWAN_REGION``. Selecting
+``RZI_LORAWAN_REGION_EU_868`` automatically enables the application-side
+duty-cycle check and additional wait-time logging; selecting another region
+disables both. The region identifiers are C enum values, so this condition
+is evaluated in C rather than in a preprocessor ``#if``.
+For EU868, the sample queries the status before each uplink. If limited,
+it does not submit the uplink or increment the counter; instead, it schedules another check after
 the reported wait. Query failures are retried after ``RETRY_DELAY_MS``.
 The sample also logs the remaining wait when a limitation begins.
 This is a snapshot of the duty-cycle restriction, not a guarantee of
