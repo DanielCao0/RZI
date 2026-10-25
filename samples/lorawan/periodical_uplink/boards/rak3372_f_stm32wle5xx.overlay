@@ -11,6 +11,7 @@
  * are included from there.
  */
 #include "../app.overlay"
+#include "stm32wl_low_power.dtsi"
 
 / {
 	chosen {

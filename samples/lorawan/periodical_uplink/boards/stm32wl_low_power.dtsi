@@ -1,0 +1,18 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/ {
+	chosen {
+		zephyr,system-timer = &systick;
+		zephyr,system-timer-companion = &rtc;
+	};
+};
+
+&lptim1 {
+	status = "disabled";
+};
+
+&rtc {
+	status = "okay";
+	wakeup-source;
+};

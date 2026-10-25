@@ -16,10 +16,12 @@ tests:
       - rak4631/nrf52840/rzi
       - rak3362/nrf54l15/cpuapp
       - rak3172/stm32wle5xx/rzi
+      - rak3372_f/stm32wle5xx
     integration_platforms:
       - rak4631/nrf52840/rzi
       - rak3362/nrf54l15/cpuapp
       - rak3172/stm32wle5xx/rzi
+      - rak3372_f/stm32wle5xx
   sample.rzi.lorawan.periodical_uplink.lowpower:
     sysbuild: true
     build_only: true
@@ -32,7 +34,9 @@ tests:
       - rak4631/nrf52840/rzi
       - rak3362/nrf54l15/cpuapp
       - rak3172/stm32wle5xx/rzi
+      - rak3372_f/stm32wle5xx
     integration_platforms:
       - rak4631/nrf52840/rzi
       - rak3362/nrf54l15/cpuapp
       - rak3172/stm32wle5xx/rzi
+      - rak3372_f/stm32wle5xx

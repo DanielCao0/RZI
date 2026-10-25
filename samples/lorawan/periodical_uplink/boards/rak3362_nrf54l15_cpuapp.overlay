@@ -1,0 +1,15 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* A board overlay replaces app.overlay. */
+#include "../app.overlay"
+
+/* The sample only transmits logs; RX must not keep EasyDMA running. */
+&uart20 {
+	disable-rx;
+	zephyr,pm-device-runtime-auto;
+};
+
+&spi22 {
+	zephyr,pm-device-runtime-auto;
+};

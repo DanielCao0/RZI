@@ -82,8 +82,8 @@ Requirements
 ************
 
 * A supported board with its LoRa antenna connected:
-  ``rak4631/nrf52840/rzi``, ``rak3172/stm32wle5xx/rzi``, or
-  ``rak3362/nrf54l15/cpuapp``
+  ``rak4631/nrf52840/rzi``, ``rak3172/stm32wle5xx/rzi``,
+  ``rak3362/nrf54l15/cpuapp``, or ``rak3372_f/stm32wle5xx``
 * A LoRaWAN gateway and network server in range
 * An OTAA device registered on the network server
 
@@ -157,6 +157,10 @@ For RAK3172, build and flash with J-Link:
 
 RAK3172 uses LPUART1 on PA2/PA3 at 115200 baud for its console.
 
+For RAK3172-F on the RAK3372-F carrier, use
+``-b rak3372_f/stm32wle5xx``. For RAK3362, use
+``-b rak3362/nrf54l15/cpuapp``. Use a separate build directory for each board.
+
 Flash ``build/merged_<board>.hex``, for example
 ``build/merged_rak4631_nrf52840_rzi.hex``. It contains MCUboot and the signed
 application. ``zephyr.hex`` alone has no bootloader. See ``doc/boot.md``.
@@ -164,9 +168,30 @@ application. ``zephyr.hex`` alone has no bootloader. See ``doc/boot.md``.
 Low-power variant
 =================
 
+The board configurations for RAK3172, RAK3172-F and RAK3362 also apply to
+the normal build, so progress logs and periodic reporting remain available:
+
+* RAK3172 and RAK3172-F explicitly enable ``CONFIG_PM=y`` in their sample
+  board configurations. Zephyr's native policy selects the STOP substate.
+  They use SysTick while running and an LSE-clocked RTC
+  counter as the low-power companion in STOP2. RTC subseconds provide a
+  16384 Hz tick. The sample disables LPTIM1 and enables RTC on both boards;
+  board defaults outside this sample retain their existing timer selection.
+  Device PM suspends and resumes peripherals around system sleep.
+* RAK3362 routes radio DIO1 (P0.01) through GPIO PORT sense. Runtime device
+  PM suspends SPI22 between transfers. Radio interrupts are handled by the
+  system workqueue so they can wait for the SPI bus to resume. UART20 is
+  output-only and uses runtime PM to release it after logging; console input
+  is unavailable in this sample.
+
+Join requests and uplinks still use delayed work and the modem's own radio
+schedule. ``TXDONE`` starts the next uplink interval. The sample never masks
+interrupts or enters a permanent measurement loop. These settings use
+RAM-retaining sleep, not System OFF or STANDBY.
+
 ``prj_lowpower.conf`` removes logging, ``printk`` and the UART driver. The
-enabled console UART keeps its clocks running and dominates sleep current, so
-use this variant to measure current consumption:
+silent variant retains the same join and uplink behavior and can be used to
+measure current consumption without application log activity:
 
 .. code-block:: console
 
@@ -175,6 +200,20 @@ use this variant to measure current consumption:
 
 The firmware behaves the same but prints nothing. Check joins and uplinks on
 the network server instead.
+
+For example, build the silent RAK3172-F image with:
+
+.. code-block:: console
+
+   west build --sysbuild -b rak3372_f/stm32wle5xx \
+      -d build/uplink-lowpower-rak3172-f rzi/samples/lorawan/periodical_uplink \
+      -- -DEXTRA_CONF_FILE=prj_lowpower.conf
+
+Compare the normal and silent builds on hardware with the debugger
+disconnected. Verify repeated uplinks, RX1/RX2 downlinks and elapsed time
+across STOP2. The RTC companion is an alternative to the board's LPTIM
+system timer; RTC subseconds add power consumption, so lower current than
+LPTIM is not assumed. RAK4631 keeps its existing configuration.
 
 Expected output
 ***************

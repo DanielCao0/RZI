@@ -139,6 +139,8 @@
 
 &gpio0 {
 	status = "okay";
+	/* DIO1 (P0.01) uses PORT sense instead of a GPIOTE IN channel. */
+	sense-edge-mask = <0x02>;
 
 	rf_power: rf-power {
 		gpio-hog;
