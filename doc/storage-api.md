@@ -104,11 +104,88 @@ The LoRaWAN AT package uses namespace `rzi` for settings that stay in AT:
 | `rety` | Confirmed-uplink retry count |
 | `netid` | Stored NetID |
 
-## Security and future work
+## Versioned customer records
 
-The API stores opaque bytes. It does not claim encryption, secure-key
-storage, transactions, or schema migration.
+The original raw read/write API remains unchanged. For evolving application
+configuration, use `rzi_storage_write_record()` / `rzi_storage_read_record()`.
+Records have a fixed 12-byte little-endian header: magic (4 bytes), application
+schema version (2), payload length (2), CRC32 (4). CRC covers the first eight
+header bytes followed by payload. Payload contents and migration rules belong
+to the customer. This is corruption detection, not encryption or authentication.
 
-Before a stable 1.0 release, storage must add schema version metadata,
-transactional multi-key updates where required, migration tests, a
-coordinated factory-reset policy, and a secure credential profile.
+A record is one settings value, so related fields are replaced together through
+NVS. This does not make writes to several keys transactional. Reads validate
+length and CRC before copying any outputs. Unsupported customer versions are
+returned to the caller as version metadata; the caller decides whether to
+migrate. The LoRaWAN schema rejects unknown policy versions explicitly.
+
+For example, v1 stored a four-byte interval; v2 adds a four-byte threshold:
+
+```c
+#include <rzi/storage/storage.h>
+#include <zephyr/sys/byteorder.h>
+
+static int load_customer_config(uint32_t *interval, uint32_t *threshold)
+{
+    uint8_t data[8];
+    uint16_t version;
+    size_t size;
+    int rc = rzi_storage_read_record("app", "config", &version,
+                                     data, sizeof(data), &size);
+
+    if (rc != 0) {
+        return rc; /* Caller supplies defaults only for NOT_FOUND. */
+    }
+    if (version == 1 && size == 4) {
+        sys_put_le32(80, data + 4);
+        rc = rzi_storage_write_record("app", "config", 2, data, sizeof(data));
+        if (rc != 0) {
+            return rc; /* Old record remains authoritative if saving failed. */
+        }
+    } else if (version != 2 || size != sizeof(data)) {
+        return -RZI_ERR_NOT_SUPPORTED; /* Preserve unknown future schemas. */
+    }
+    *interval = sys_get_le32(data);
+    *threshold = sys_get_le32(data + 4);
+    return 0;
+}
+```
+
+Encode fields explicitly rather than writing C struct padding or pointers.
+`CONFIG_RZI_STORAGE_RECORD_MAX_SIZE` limits payload and scratch-buffer size
+(default 256 bytes). Each read/write uses a scratch buffer of that size plus
+12 bytes on the calling thread's stack. Backend per-value limits also apply.
+Existing raw values do not become versioned automatically: migrate deliberately
+or choose a new key. Record and raw APIs share the same namespace and key space.
+
+## Capacity accounting and budgets
+
+`rzi_storage_get_info()` reports NVS-managed bytes, the backend free-space
+estimate, sector size and contiguous space in the current sector. Other settings
+backends return NOT_SUPPORTED. The snapshot does not reserve space; concurrent
+writers and settings metadata can reduce what a subsequent write can store.
+`rzi_storage_get_usage("app", &usage)` counts live keys, relative key-name bytes,
+and stored value bytes within the namespace. These logical totals exclude NVS
+alignment and metadata. Queries read storage and should be diagnostic operations,
+not part of a high-frequency sampling loop.
+
+For the 8 KiB / four-sector STM32WLE5 layout, NVS reserves a sector for garbage
+collection. Do not budget all 8192 bytes as customer payload. A conservative
+initial engineering budget is at most 2 KiB of live customer values, leaving
+room for framework keys, names, records and garbage collection; validate the
+actual key count and churn with capacity queries and ENOSPC tests. This budget
+is guidance, not an enforced quota or a guaranteed allocation. Writes that run
+out of space return `-RZI_ERR_NO_RESOURCE`; callers must handle it.
+
+Namespaces prevent key collisions but share physical capacity. This change
+preserves existing board partitions and user data. Products requiring guaranteed
+independent customer capacity must reserve a separate partition/backend before
+shipping; a namespace alone cannot provide that guarantee. Large telemetry
+queues and high-frequency samples should not use this small settings partition.
+
+## Security
+
+The storage service does not encrypt secret values. Protocol-stack context
+storage is managed by the selected backend independently of settings.
+Version metadata and CRC support customer schema migration; updates to
+separate keys are not a transaction.

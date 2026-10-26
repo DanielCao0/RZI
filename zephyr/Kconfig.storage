@@ -4,6 +4,16 @@
 config RZI_STORAGE
 	bool "RZI storage service"
 	select SETTINGS
+	select CRC
 	help
 	  Enable the backend-neutral RZI key-value storage API. The current
 	  Zephyr integration uses the settings subsystem.
+
+config RZI_STORAGE_RECORD_MAX_SIZE
+	int "Maximum versioned record payload size"
+	depends on RZI_STORAGE
+	range 16 2048
+	default 256
+	help
+	  Bound the scratch buffer used to validate versioned records. The
+	  selected storage backend may impose a smaller per-value limit.
