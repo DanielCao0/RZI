@@ -20,3 +20,11 @@ tests:
       - CONFIG_NVS=y
       - CONFIG_SETTINGS_NVS=y
       - CONFIG_MAIN_STACK_SIZE=4096
+  rzi.at.commands.lorawan.at_nvm:
+    tags: [rzi, at, lorawan, storage]
+    platform_allow: [native_sim]
+    integration_platforms: [native_sim]
+    extra_configs:
+      - CONFIG_RZI_AT_NVM=y
+      - CONFIG_SETTINGS_NVS=y
+      - CONFIG_MAIN_STACK_SIZE=4096

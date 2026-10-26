@@ -13,6 +13,16 @@
 
 #include "backend/lorawan_backend.h"
 
+#if defined(CONFIG_RZI_AT_NVM)
+static bool fail_storage_write;
+int __real_rzi_storage_write(const char *ns, const char *key, const void *value, size_t size);
+
+int __wrap_rzi_storage_write(const char *ns, const char *key, const void *value, size_t size)
+{
+	return fail_storage_write ? -RZI_ERR_IO : __real_rzi_storage_write(ns, key, value, size);
+}
+#endif
+
 K_SEM_DEFINE(output_ready, 0, 16);
 K_MUTEX_DEFINE(output_lock);
 
@@ -184,6 +194,20 @@ ZTEST(rzi_at_lorawan_command, test_api_and_at_share_configuration)
 	send_command_until("AT+BAND=?\r", "AT+BAND=5");
 	send_command_until("AT+BAND=4\r", "\r\nOK\r\n");
 }
+
+#if defined(CONFIG_RZI_AT_NVM)
+ZTEST(rzi_at_lorawan_command, test_at_owned_settings_keep_old_value_on_save_error)
+{
+	send_command_until("AT+ALIAS=old_name\r", "\r\nOK\r\n");
+	send_command_until("AT+PWORD=oldpass\r", "\r\nOK\r\n");
+	fail_storage_write = true;
+	send_command_until("AT+ALIAS=new_name\r", "AT_ERROR");
+	send_command_until("AT+PWORD=newpass\r", "AT_ERROR");
+	fail_storage_write = false;
+	send_command_until("AT+ALIAS=?\r", "AT+ALIAS=old_name");
+	send_command_until("AT+PWORD=?\r", "AT+PWORD=oldpass");
+}
+#endif
 
 /* Runs before the service starts; the channel commands work on the stored mask. */
 ZTEST(rzi_at_lorawan_command, test_channel_commands)

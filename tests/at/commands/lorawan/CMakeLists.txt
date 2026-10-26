@@ -7,3 +7,7 @@ project(rzi_at_commands_lorawan)
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../../../src/lorawan)
 target_sources(app PRIVATE src/main.c)
+
+if(CONFIG_RZI_AT_NVM)
+  zephyr_link_libraries(-Wl,--wrap=rzi_storage_write)
+endif()

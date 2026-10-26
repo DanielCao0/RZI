@@ -146,15 +146,14 @@ static int handle_nwm(const struct rzi_at_request *request, void *user_data)
 
 		network_mode = (uint8_t)parsed;
 		rc = notify_listeners(network_mode);
+		if (rc == 0) {
+			rc = save_mode(network_mode);
+		}
 		if (rc != 0) {
 			network_mode = previous;
 			(void)notify_listeners(network_mode);
 			return rc;
 		}
-	}
-	rc = save_mode(network_mode);
-	if (rc != 0) {
-		return rc;
 	}
 	rc = rzi_at_respond_status(RZI_AT_STATUS_OK);
 	if (IS_ENABLED(CONFIG_RZI_AT_COMMAND_LORAWAN) && !IS_ENABLED(CONFIG_ZTEST)) {

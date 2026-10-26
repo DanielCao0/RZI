@@ -181,8 +181,10 @@ static int handle_alias(const struct rzi_at_request *request, void *user_data)
 	if (len == 0U || len > ALIAS_MAX) {
 		return -RZI_ERR_INVALID;
 	}
-	memcpy(alias_name, request->argument, len + 1U);
-	rc = save_string("alias", alias_name, ALIAS_MAX);
+	rc = save_string("alias", request->argument, ALIAS_MAX);
+	if (rc == 0) {
+		memcpy(alias_name, request->argument, len + 1U);
+	}
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
@@ -265,11 +267,13 @@ static int handle_pword(const struct rzi_at_request *request, void *user_data)
 		rzi_at_set_locked(false);
 		return rzi_at_respond_status(RZI_AT_STATUS_OK);
 	}
-	rc = rzi_at_set_password(request->argument);
-	if (rc != 0) {
-		return rc;
+	if (strlen(request->argument) == 0U || strlen(request->argument) > 8U) {
+		return -RZI_ERR_INVALID;
 	}
 	rc = save_string("pword", request->argument, 8U);
+	if (rc == 0) {
+		rc = rzi_at_set_password(request->argument);
+	}
 	return rc != 0 ? rc : rzi_at_respond_status(RZI_AT_STATUS_OK);
 }
 
