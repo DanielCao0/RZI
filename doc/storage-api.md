@@ -85,24 +85,34 @@ AT namespace `rzi/<key>`.
 | `nwkskey` | 16-byte ABP network session key |
 | `appskey` | 16-byte ABP application session key |
 | `njm` | `0` ABP, `1` OTAA |
-| `autojoin` | Auto-join after boot |
-| `join_interval` | Retry interval in seconds |
-| `join_attempts` | Retry count after the first attempt |
+| `join_policy` | Versioned record of auto-join, interval and attempts |
 
 `devaddr`, `nwkskey`, and `appskey` are the ABP values used by the next
 ABP join. After an OTAA join, the matching getters read the stack instead
 of these stored bytes.
 
-## AT keys
+## Shared LoRaWAN configuration
 
-The LoRaWAN AT package uses namespace `rzi` for settings that stay in AT:
+LoRaWAN API and AT commands share namespace `lorawan`. The central schema in
+`src/lorawan/lorawan_settings.c` owns expected lengths, defaults, validation,
+legacy migration, cache state, and the factory-reset manifest.
 
 | Key | Content |
 |---|---|
-| `band` | RUI3 band number |
-| `cfm` | Confirmed-uplink flag |
-| `rety` | Confirmed-uplink retry count |
-| `netid` | Stored NetID |
+| `region` | One-byte public region enum; migrates old `rzi/band` RUI3 numbering |
+| `cfm` | One-byte confirmed-uplink default |
+| `rety` | One-byte retry policy, 0–7 |
+| `netid` | Four-byte configured NetID fallback, host byte order |
+| `chmask` | Channel-mask words; explicit zero means no restriction |
+| `join_policy` | Versioned record, v1 payload `[auto_join, interval, attempts]` |
+
+The old individual `autojoin`, `join_interval`, `join_attempts` keys are read
+only for migration when `join_policy` is absent. Old keys remain until factory
+reset, but never override new records. All three policy fields are saved in one
+value. Unknown versions and corrupted records return errors without replacing
+the stored data. Setters publish RAM changes only after a successful save.
+Getters load once and use RAM thereafter. Applications must not bypass these
+APIs to modify `lorawan` or `rzi` keys through the generic storage interface.
 
 ## Versioned customer records
 
@@ -183,9 +193,14 @@ independent customer capacity must reserve a separate partition/backend before
 shipping; a namespace alone cannot provide that guarantee. Large telemetry
 queues and high-frequency samples should not use this small settings partition.
 
-## Security
+## Security and reset limits
 
-The storage service does not encrypt secret values. Protocol-stack context
-storage is managed by the selected backend independently of settings.
-Version metadata and CRC support customer schema migration; updates to
-separate keys are not a transaction.
+The storage service does not encrypt secret values. Credentials remain readable
+through the documented interfaces. Protocol-stack context storage is managed by
+the selected backend and is independent of this settings service.
+
+`rzi_lorawan_clear_settings()` walks the schema manifest for current and legacy
+keys, and clears caches only after success. Retry after any partial failure;
+this multi-key reset is not atomic. The AT adapter additionally clears its own
+system keys and reboots. Customer namespaces are preserved. A reset during an
+active join returns BUSY; reboot after success to discard the radio session.

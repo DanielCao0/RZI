@@ -11,15 +11,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
-#if defined(CONFIG_RZI_STORAGE)
-#include <rzi/storage/storage.h>
-#endif
-
 #include "../backend/lorawan_backend.h"
 #include "../lorawan_priv.h"
-
-#define CREDENTIAL_NS "lorawan"
-#define LEGACY_NS     "rzi"
+#include "../lorawan_settings.h"
 
 /** RUI3 NJM wire value: ABP is 0 and OTAA is 1. */
 #define NJM_WIRE_ABP  0U
@@ -50,28 +44,13 @@ struct credential_store {
 	bool loaded;
 };
 
-static struct credential_store credentials = {
-	.njm = RZI_LORAWAN_ACTIVATION_OTAA,
-	.join_interval = RZI_LORAWAN_JOIN_INTERVAL_DEFAULT,
-};
+static struct credential_store credentials;
 
 K_MUTEX_DEFINE(credential_lock);
 
 static int persist(const char *key, const void *value, size_t len)
 {
-#if defined(CONFIG_RZI_STORAGE)
-	int rc = rzi_storage_init();
-
-	if (rc != 0) {
-		return rc;
-	}
-	return rzi_storage_write(CREDENTIAL_NS, key, value, len);
-#else
-	ARG_UNUSED(key);
-	ARG_UNUSED(value);
-	ARG_UNUSED(len);
-	return 0;
-#endif
+	return rzi_lorawan_setting_write(key, value, len);
 }
 
 static bool channel_mask_valid(const uint16_t *mask)
@@ -89,137 +68,74 @@ static bool channel_mask_valid(const uint16_t *mask)
 	return any;
 }
 
-#if defined(CONFIG_RZI_STORAGE)
-static int forget(const char *key)
-{
-	int rc = rzi_storage_init();
-
-	if (rc == 0) {
-		rc = rzi_storage_delete(CREDENTIAL_NS, key);
-	}
-	return rc == -RZI_ERR_NOT_FOUND ? 0 : rc;
-}
-
 static int load_bytes(const char *key, void *dst, size_t len, bool *valid)
 {
-	int rc = rzi_storage_read(CREDENTIAL_NS, key, dst, len);
-
-	if (rc == 0) {
-		*valid = true;
-		return 0;
-	}
-	if (rc != -RZI_ERR_NOT_FOUND) {
-		return rc;
-	}
-	rc = rzi_storage_read(LEGACY_NS, key, dst, len);
-	if (rc == -RZI_ERR_NOT_FOUND) {
-		*valid = false;
-		return 0;
-	}
-	if (rc != 0) {
-		return rc;
-	}
-	*valid = true;
-	return rzi_storage_write(CREDENTIAL_NS, key, dst, len);
+	return rzi_lorawan_setting_read(key, dst, len, valid);
 }
-
-static int load_u8(const char *key, uint8_t *value, bool *found)
-{
-	bool valid = false;
-	uint8_t stored = 0;
-	int rc = load_bytes(key, &stored, sizeof(stored), &valid);
-
-	if (rc == 0 && valid) {
-		*value = stored;
-	}
-	*found = valid;
-	return rc;
-}
-#endif
 
 static int ensure_loaded_locked(void)
 {
-#if defined(CONFIG_RZI_STORAGE)
-	uint8_t value;
+	struct credential_store candidate = {0};
+	uint8_t mode;
+	uint8_t policy[RZI_JOIN_POLICY_SIZE];
 	bool found;
 	int rc;
 
 	if (credentials.loaded) {
 		return 0;
 	}
-	rc = rzi_storage_init();
-	if (rc != 0) {
-		return rc;
-	}
-	rc = load_bytes("deveui", credentials.dev_eui, sizeof(credentials.dev_eui),
-			&credentials.dev_eui_set);
+	/* Do not expose a partially loaded configuration if a later read fails. */
+	rc = load_bytes("deveui", candidate.dev_eui, sizeof(candidate.dev_eui),
+			&candidate.dev_eui_set);
 	if (rc == 0) {
-		rc = load_bytes("joineui", credentials.app_eui, sizeof(credentials.app_eui),
-				&credentials.app_eui_set);
+		rc = load_bytes("joineui", candidate.app_eui, sizeof(candidate.app_eui),
+				&candidate.app_eui_set);
 	}
 	if (rc == 0) {
-		rc = load_bytes("appkey", credentials.app_key, sizeof(credentials.app_key),
-				&credentials.app_key_set);
+		rc = load_bytes("appkey", candidate.app_key, sizeof(candidate.app_key),
+				&candidate.app_key_set);
 	}
 	if (rc == 0) {
-		rc = load_bytes("genappkey", credentials.gen_app_key,
-				sizeof(credentials.gen_app_key), &credentials.gen_app_key_set);
+		rc = load_bytes("genappkey", candidate.gen_app_key, sizeof(candidate.gen_app_key),
+				&candidate.gen_app_key_set);
 	}
 	if (rc == 0) {
-		rc = load_bytes("devaddr", &credentials.dev_addr, sizeof(credentials.dev_addr),
-				&credentials.dev_addr_set);
+		rc = load_bytes("devaddr", &candidate.dev_addr, sizeof(candidate.dev_addr),
+				&candidate.dev_addr_set);
 	}
 	if (rc == 0) {
-		rc = load_bytes("nwkskey", credentials.nwk_skey, sizeof(credentials.nwk_skey),
-				&credentials.nwk_skey_set);
+		rc = load_bytes("nwkskey", candidate.nwk_skey, sizeof(candidate.nwk_skey),
+				&candidate.nwk_skey_set);
 	}
 	if (rc == 0) {
-		rc = load_bytes("appskey", credentials.app_skey, sizeof(credentials.app_skey),
-				&credentials.app_skey_set);
+		rc = load_bytes("appskey", candidate.app_skey, sizeof(candidate.app_skey),
+				&candidate.app_skey_set);
 	}
 	if (rc == 0) {
-		rc = load_u8("njm", &value, &found);
-		if (rc == 0 && found && value <= NJM_WIRE_OTAA) {
-			credentials.njm = value == NJM_WIRE_ABP ? RZI_LORAWAN_ACTIVATION_ABP
-								: RZI_LORAWAN_ACTIVATION_OTAA;
+		rc = load_bytes("njm", &mode, sizeof(mode), &found);
+	}
+	if (rc == 0) {
+		candidate.njm = mode == NJM_WIRE_ABP ? RZI_LORAWAN_ACTIVATION_ABP
+						     : RZI_LORAWAN_ACTIVATION_OTAA;
+		rc = load_bytes("join_policy", policy, sizeof(policy), &found);
+	}
+	if (rc == 0) {
+		candidate.auto_join = policy[RZI_JOIN_POLICY_AUTO] != 0U;
+		candidate.join_interval = policy[RZI_JOIN_POLICY_INTERVAL];
+		candidate.join_attempts = policy[RZI_JOIN_POLICY_ATTEMPTS];
+		rc = load_bytes("chmask", candidate.channel_mask, sizeof(candidate.channel_mask),
+				&candidate.channel_mask_set);
+		if (rc == 0 && candidate.channel_mask_set &&
+		    !channel_mask_valid(candidate.channel_mask)) {
+			candidate.channel_mask_set = false;
 		}
 	}
 	if (rc == 0) {
-		rc = load_u8("autojoin", &value, &found);
-		if (rc == 0 && found) {
-			credentials.auto_join = value != 0U;
-		}
+		candidate.loaded = true;
+		candidate.join_active = credentials.join_active;
+		credentials = candidate;
 	}
-	if (rc == 0) {
-		rc = load_u8("join_interval", &value, &found);
-		if (rc == 0 && found && value >= RZI_LORAWAN_JOIN_INTERVAL_MIN) {
-			credentials.join_interval = value;
-		}
-	}
-	if (rc == 0) {
-		rc = load_u8("join_attempts", &value, &found);
-		if (rc == 0 && found) {
-			credentials.join_attempts = value;
-		}
-	}
-	if (rc == 0) {
-		rc = load_bytes("chmask", credentials.channel_mask,
-				sizeof(credentials.channel_mask), &credentials.channel_mask_set);
-		if (rc == 0 && credentials.channel_mask_set &&
-		    !channel_mask_valid(credentials.channel_mask)) {
-			credentials.channel_mask_set = false;
-		}
-	}
-	if (rc != 0) {
-		return rc;
-	}
-#else
-	if (credentials.loaded) {
-		return 0;
-	}
-#endif
-	credentials.loaded = true;
-	return 0;
+	return rc;
 }
 
 static int set_bytes(uint8_t *dst, bool *valid, const char *key, const uint8_t *src, size_t len,
@@ -240,9 +156,11 @@ static int set_bytes(uint8_t *dst, bool *valid, const char *key, const uint8_t *
 		rc = -RZI_ERR_BUSY;
 	}
 	if (rc == 0) {
-		memcpy(dst, src, expected);
-		*valid = true;
-		rc = persist(key, dst, expected);
+		rc = persist(key, src, expected);
+		if (rc == 0) {
+			memcpy(dst, src, expected);
+			*valid = true;
+		}
 	}
 	k_mutex_unlock(&credential_lock);
 	return rc;
@@ -433,9 +351,11 @@ int rzi_lorawan_set_dev_addr(uint32_t dev_addr)
 		rc = -RZI_ERR_BUSY;
 	}
 	if (rc == 0) {
-		credentials.dev_addr = dev_addr;
-		credentials.dev_addr_set = true;
-		rc = persist("devaddr", &credentials.dev_addr, sizeof(credentials.dev_addr));
+		rc = persist("devaddr", &dev_addr, sizeof(dev_addr));
+		if (rc == 0) {
+			credentials.dev_addr = dev_addr;
+			credentials.dev_addr_set = true;
+		}
 	}
 	k_mutex_unlock(&credential_lock);
 	return rc;
@@ -555,9 +475,11 @@ int rzi_lorawan_set_activation(enum rzi_lorawan_activation mode)
 		rc = -RZI_ERR_BUSY;
 	}
 	if (rc == 0) {
-		credentials.njm = mode;
 		wire = njm_wire(mode);
 		rc = persist("njm", &wire, sizeof(wire));
+		if (rc == 0) {
+			credentials.njm = mode;
+		}
 	}
 	k_mutex_unlock(&credential_lock);
 	return rc;
@@ -639,21 +561,19 @@ int rzi_lorawan_credentials_update_policy(int32_t auto_join, int32_t interval, i
 
 	k_mutex_lock(&credential_lock, K_FOREVER);
 	rc = ensure_loaded_locked();
-	if (rc == 0 && auto_join != RZI_LORAWAN_JOIN_KEEP) {
-		uint8_t stored = auto_join != 0 ? 1U : 0U;
+	if (rc == 0) {
+		uint8_t policy[RZI_JOIN_POLICY_SIZE] = {
+			auto_join == RZI_LORAWAN_JOIN_KEEP ? credentials.auto_join : auto_join,
+			interval == RZI_LORAWAN_JOIN_KEEP ? credentials.join_interval : interval,
+			attempts == RZI_LORAWAN_JOIN_KEEP ? credentials.join_attempts : attempts,
+		};
 
-		credentials.auto_join = stored != 0U;
-		rc = persist("autojoin", &stored, sizeof(stored));
-	}
-	if (rc == 0 && interval != RZI_LORAWAN_JOIN_KEEP) {
-		credentials.join_interval = (uint8_t)interval;
-		rc = persist("join_interval", &credentials.join_interval,
-			     sizeof(credentials.join_interval));
-	}
-	if (rc == 0 && attempts != RZI_LORAWAN_JOIN_KEEP) {
-		credentials.join_attempts = (uint8_t)attempts;
-		rc = persist("join_attempts", &credentials.join_attempts,
-			     sizeof(credentials.join_attempts));
+		rc = persist("join_policy", policy, sizeof(policy));
+		if (rc == 0) {
+			credentials.auto_join = policy[RZI_JOIN_POLICY_AUTO] != 0U;
+			credentials.join_interval = policy[RZI_JOIN_POLICY_INTERVAL];
+			credentials.join_attempts = policy[RZI_JOIN_POLICY_ATTEMPTS];
+		}
 	}
 	k_mutex_unlock(&credential_lock);
 	return rc;
@@ -686,16 +606,18 @@ int rzi_lorawan_credentials_set_channel_mask(const uint16_t *mask)
 	if (rc == 0 && credentials.join_active) {
 		rc = -RZI_ERR_BUSY;
 	}
-	if (rc == 0 && mask != NULL) {
-		memcpy(credentials.channel_mask, mask, sizeof(credentials.channel_mask));
-		credentials.channel_mask_set = true;
-		rc = persist("chmask", credentials.channel_mask, sizeof(credentials.channel_mask));
-	} else if (rc == 0) {
-		memset(credentials.channel_mask, 0, sizeof(credentials.channel_mask));
-		credentials.channel_mask_set = false;
-#if defined(CONFIG_RZI_STORAGE)
-		rc = forget("chmask");
-#endif
+	if (rc == 0) {
+		uint16_t candidate[RZI_LORAWAN_CHANNEL_MASK_WORDS] = {0};
+
+		if (mask != NULL) {
+			memcpy(candidate, mask, sizeof(candidate));
+		}
+		/* Store an explicit default, so old rzi/chmask can never reappear. */
+		rc = persist("chmask", candidate, sizeof(candidate));
+		if (rc == 0) {
+			memcpy(credentials.channel_mask, candidate, sizeof(candidate));
+			credentials.channel_mask_set = mask != NULL;
+		}
 	}
 	k_mutex_unlock(&credential_lock);
 	return rc;
@@ -757,4 +679,21 @@ void rzi_lorawan_credentials_set_join_active(bool active)
 	k_mutex_lock(&credential_lock, K_FOREVER);
 	credentials.join_active = active;
 	k_mutex_unlock(&credential_lock);
+}
+
+int rzi_lorawan_credentials_clear_settings(void)
+{
+	int rc;
+
+	k_mutex_lock(&credential_lock, K_FOREVER);
+	if (credentials.join_active) {
+		rc = -RZI_ERR_BUSY;
+	} else {
+		rc = rzi_lorawan_settings_clear();
+		if (rc == 0) {
+			memset(&credentials, 0, sizeof(credentials));
+		}
+	}
+	k_mutex_unlock(&credential_lock);
+	return rc;
 }

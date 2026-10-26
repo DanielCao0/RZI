@@ -3,6 +3,7 @@
 
 zephyr_library_sources(
   lorawan.c
+  lorawan_settings.c
   api/lorawan_config.c
   api/lorawan_network.c
   api/lorawan_channel.c

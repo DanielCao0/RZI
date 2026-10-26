@@ -77,10 +77,23 @@ needed for AT-owned system settings and also enables the public storage service.
 | Configured NetID fallback | `rzi_lorawan_get/set_net_id` | `NETID` |
 | Credentials, activation, join policy, channel mask | Existing credential/join/channel APIs | Corresponding commands |
 
-Storage errors propagate to both API and AT callers. The four shared setters
-above commit storage before publishing a new RAM value. New values use the
-`lorawan` namespace. Existing `rzi/band`, `rzi/cfm`, `rzi/rety`, and `rzi/netid`
-values migrate on first read; new service values take precedence.
+Storage errors propagate to both API and AT callers. All credential and shared
+configuration setters commit storage before publishing a new RAM value.
+A central schema in `src/lorawan/lorawan_settings.c` owns keys, defaults,
+validation, migration, and the reset manifest. First reads load and validate
+settings; subsequent reads use the cache, and writes of unchanged cached values
+are skipped. Raw `rzi_storage_*` calls must not modify service-owned keys behind
+this cache. New values use the `lorawan` namespace. Existing `rzi/band`,
+`rzi/cfm`, `rzi/rety`, and `rzi/netid` values migrate on first read; new service
+values take precedence. Invalid/unknown stored schemas are reported, not reset.
+
+Auto-join, retry interval and retry count use a single versioned `join_policy`
+record. Its three-byte payload is `[auto_join, interval_seconds, attempts]`,
+with schema version 1. All three fields become visible together after a successful
+write. Old `autojoin`, `join_interval`, and `join_attempts` keys from either
+namespace migrate on first load. Independent credentials retain separate keys.
+Clearing a channel restriction writes an explicit zero mask so a legacy mask
+cannot reappear.
 
 `rzi_lorawan_get_region()` restores the configured region before initialization.
 To start with it, read the region and pass it to `rzi_lorawan_init(region)`.
@@ -95,7 +108,10 @@ NetID; `get_net_id()` prefers the active session and otherwise reads the fallbac
 
 `rzi_lorawan_clear_settings()` deletes credentials and shared settings in both
 namespaces. Reboot after success to discard runtime state and reload defaults.
-AT factory reset delegates to this API. Protocol-stack contexts, including
+The service caches are cleared after a successful reset; a join sequence in
+progress returns BUSY. Partial reset failures require retry and are not an
+atomic transaction across all keys. AT factory reset delegates to this API.
+Protocol-stack contexts, including
 DevNonce, remain owned by the backend. Other setters such as ADR, class and
 P2P radio configuration retain their existing runtime-only behavior.
 

@@ -529,9 +529,11 @@ __must_check int rzi_lorawan_set_retries(uint8_t count);
 __must_check int rzi_lorawan_set_net_id(uint32_t net_id);
 /**
  * Delete persisted LoRaWAN credentials and settings, including legacy AT keys.
- * Reboot after success to discard runtime state and reload application defaults.
+ * Clears the service configuration caches on success. Reboot to discard the
+ * active backend session and reload application defaults.
  * Does not erase protocol-stack contexts (including DevNonce) or AT system keys.
- * Returns a storage error on partial failure; safe to retry.
+ * Returns -RZI_ERR_BUSY during an active join sequence, or a storage error
+ * on partial failure; safe to retry. Reset is not a multi-key transaction.
  */
 __must_check int rzi_lorawan_clear_settings(void);
 
