@@ -76,6 +76,15 @@ WEST_PROJECT_META = {
         "cpe": None,
         "comment": "Semtech USP LoRaWAN stack and LoRa Basics Modem.",
     },
+    "lora-basics-modem": {
+        "supplier": ZEPHYR_PROJECT,
+        "license": "BSD-3-Clause-Clear",
+        "copyright": "Copyright Semtech Corporation 2023",
+        "cpe": None,
+        "comment": (
+            "Zephyr Project fork of Semtech LoRa Basics Modem."
+        ),
+    },
 }
 
 PURPOSE_BY_SUFFIX = {
