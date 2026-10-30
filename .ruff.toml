@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+#
+# Format settings from Zephyr's .ruff.toml. Ruff only searches the parent
+# directories of a file for its config, so check_compliance.py would use
+# Ruff's defaults (88 columns) for this module without this file.
+
+line-length = 100
+target-version = "py312"
+
+[format]
+quote-style = "preserve"
+line-ending = "lf"

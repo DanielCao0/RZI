@@ -48,7 +48,7 @@ What it records:
 | RZI CPE / PURL | `security.external-references` in `zephyr/module.yml` |
 | Source archive hash | SHA-256 and SHA-512 of the archive above |
 | Every tracked file | Path, SHA-256, license and copyright from REUSE |
-| Dependencies | `zephyr`, `usp_zephyr`, `usp` from `west.yml`, with the tag in the revision comment as version, PURL, SWHID of the pinned commit, and the Zephyr CPE |
+| Dependencies | `zephyr`, `usp_zephyr`, `usp`, `lora-basics-modem` from `west.yml`, with the tag in the revision comment as version, PURL, SWHID of the pinned commit, and the Zephyr CPE |
 | Patches | `zephyr/patches.yml`: SPDX `patchedBy` relationships to the patch files, CycloneDX `pedigree.patches` |
 | Generation context | SPDX `software_sbomType: source`, CycloneDX lifecycle `pre-build` |
 
@@ -64,6 +64,7 @@ Recorded components today:
 | `zephyr` | revision RZI is validated against | Apache-2.0 | The Zephyr Project |
 | `usp_zephyr` | `west.yml` (RZI west patches applied) | BSD-3-Clause-Clear | Semtech Corporation |
 | `usp` | `west.yml` (RZI west patches applied) | BSD-3-Clause-Clear | Semtech Corporation |
+| `lora-basics-modem` | `west.yml` | BSD-3-Clause-Clear | The Zephyr Project |
 
 An application manifest that pins its own Zephyr replaces the `zephyr`
 entry; the firmware SBOM then records the Zephyr actually used.

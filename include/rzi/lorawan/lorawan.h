@@ -508,32 +508,79 @@ __must_check int rzi_lorawan_init(enum rzi_lorawan_region region);
  * @{
  */
 
-/** Read the default confirmation setting (false until configured). */
+/**
+ * Read the default confirmation setting (false until configured).
+ *
+ * @param[out] enabled Destination for the setting.
+ *
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID enabled is NULL.
+ * @retval -RZI_ERR_BAD_MESSAGE The stored value is invalid.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ */
 __must_check int rzi_lorawan_get_confirmed(bool *enabled);
+
 /**
  * Store the default confirmation setting used by AT+SEND.
  * Direct rzi_lorawan_send() calls retain their explicit message type.
+ *
+ * @param enabled true to send AT+SEND uplinks as confirmed by default.
+ *
+ * @retval 0 Setting stored.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ * @retval -RZI_ERR_IO The setting could not be persisted.
  */
 __must_check int rzi_lorawan_set_confirmed(bool enabled);
-/** Read the stored AT+RETY policy (0 until configured). */
+
+/**
+ * Read the stored AT+RETY policy (0 until configured).
+ *
+ * @param[out] count Destination for the retry count.
+ *
+ * @retval 0 Value copied.
+ * @retval -RZI_ERR_INVALID count is NULL.
+ * @retval -RZI_ERR_BAD_MESSAGE The stored value is invalid.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ */
 __must_check int rzi_lorawan_get_retries(uint8_t *count);
+
 /**
  * Store the AT+RETY policy, 0-7. This records configuration only; it does not
  * change backend retransmission behavior (nor the separate NbTrans setting).
+ *
+ * @param count Retry count, 0-7.
+ *
+ * @retval 0 Setting stored.
+ * @retval -RZI_ERR_INVALID count is greater than 7.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ * @retval -RZI_ERR_IO The setting could not be persisted.
  */
 __must_check int rzi_lorawan_set_retries(uint8_t count);
+
 /**
  * Store a 24-bit NetID fallback for rzi_lorawan_get_net_id().
  * This does not change the NetID assigned by the network or activate a session.
+ *
+ * @param net_id NetID fallback.
+ *
+ * @retval 0 Setting stored.
+ * @retval -RZI_ERR_INVALID net_id does not fit in 24 bits.
+ * @retval -RZI_ERR_ISR Called from an ISR.
+ * @retval -RZI_ERR_IO The setting could not be persisted.
  */
 __must_check int rzi_lorawan_set_net_id(uint32_t net_id);
+
 /**
  * Delete persisted LoRaWAN credentials and settings, including legacy AT keys.
  * Clears the service configuration caches on success. Reboot to discard the
  * active backend session and reload application defaults.
  * Does not erase protocol-stack contexts (including DevNonce) or AT system keys.
- * Returns -RZI_ERR_BUSY during an active join sequence, or a storage error
- * on partial failure; safe to retry. Reset is not a multi-key transaction.
+ * A storage error on partial failure is returned to the caller; safe to retry.
+ * Reset is not a multi-key transaction.
+ *
+ * @retval 0 Settings deleted.
+ * @retval -RZI_ERR_BUSY A join sequence is in progress.
+ * @retval -RZI_ERR_ISR Called from an ISR.
  */
 __must_check int rzi_lorawan_clear_settings(void);
 

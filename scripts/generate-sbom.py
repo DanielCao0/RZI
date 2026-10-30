@@ -76,6 +76,13 @@ WEST_PROJECT_META = {
         "cpe": None,
         "comment": "Semtech USP LoRaWAN stack and LoRa Basics Modem.",
     },
+    "lora-basics-modem": {
+        "supplier": ZEPHYR_PROJECT,
+        "license": "BSD-3-Clause-Clear",
+        "copyright": "Copyright Semtech Corporation 2023",
+        "cpe": None,
+        "comment": "Zephyr Project fork of Semtech LoRa Basics Modem.",
+    },
 }
 
 PURPOSE_BY_SUFFIX = {
@@ -531,7 +538,9 @@ def creation_time() -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate the RZI module source SBOM")
+    parser = argparse.ArgumentParser(
+        description="Generate the RZI module source SBOM", allow_abbrev=False
+    )
     parser.add_argument(
         "-o", "--output-dir", type=Path, default=DEFAULT_OUT, help="output directory"
     )

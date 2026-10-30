@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 RAKwireless
+# SPDX-License-Identifier: Apache-2.0
+
+config RZI_LLEXT_EXPORTS
+	bool "Export the RZI API to LLEXT extensions"
+	depends on LLEXT
+	help
+	  Add the public RZI functions of the enabled RZI services to the
+	  LLEXT export table, so extensions can call them.

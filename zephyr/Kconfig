@@ -20,4 +20,7 @@ rsource "Kconfig.lora"
 rsource "Kconfig.at"
 rsource "Kconfig.power"
 
+# LLEXT exports table
+rsource "Kconfig.llext_exports"
+
 endif
