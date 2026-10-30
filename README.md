@@ -256,6 +256,19 @@ connection shown in the table and send `AT` followed by a line ending.
 See [boot and partition details](doc/boot.md) and the
 [AT sample guide](samples/at/README.rst) for flashing and terminal setup.
 
+### RZI snippet
+
+Applications that build for the upstream `rak4631/nrf52840` target for
+the ArduinoCore-zephyr loader, add RZI support with the `rzi` snippet.
+It disables Zephyr's LoRa and LoRaWAN stack, points
+the board's SX1262 at the USP driver, and enables RZI API to LLEXT extensions.
+
+It supports only `rak4631/nrf52840`; see [`snippets/rzi/`](snippets/rzi/).
+
+From the ArduinoCore-zephyr repository:
+
+    ./extra/build.sh rak4631 -S rzi
+
 ## Samples
 
 Build from the workspace root of any of the layouts above:
@@ -286,6 +299,7 @@ test.
 include/rzi/    Public C API, #include <rzi/...>
 src/            Service implementations and private backends
 boards/         Product boards and partition tables
+snippets/       Zephyr snippets, such as rzi for the  ArduinoCore-zephyr project
 zephyr/         Module metadata, Kconfig, CMake, and west patches
 samples/        Buildable integration examples
 tests/          Zephyr Twister test suites
